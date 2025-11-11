@@ -25,4 +25,5 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
-
+URL: https://github.com/Zabis13/cayleyR
+BugReports: https://github.com/Zabis13/cayleyR/issues
