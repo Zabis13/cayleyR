@@ -79,6 +79,14 @@ result <- get_reachable_states(
 \item Cayley graphs: \url{https://en.wikipedia.org/wiki/Cayley_graph}
 }
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/Zabis13/cayleyR}
+  \item Report bugs at \url{https://github.com/Zabis13/cayleyR/issues}
+}
+
+}
 \author{
 Yuri Baramykov \href{mailto:lbsbmsu@mail.ru}{lbsbmsu@mail.ru}
 }
