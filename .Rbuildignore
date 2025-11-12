@@ -7,3 +7,5 @@
 ^README-ru\.Rmd$
 ^README-ru\.md$
 ^cran-comments\.md$
+^README\.html$
+^README-ru\.html$
