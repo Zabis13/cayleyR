@@ -30,16 +30,9 @@
 #' - \code{\link{find_best_random_combinations}} - Find best random sequences
 #'
 #'
-#' @section Documentation:
-#' README files are located in the package source directory.
-#' \itemize{
-#'   \item View English README: \code{file.show(system.file("README.md", package = "cayleyR"))}
-#'   \item View Russian README: \code{file.show(system.file("README-ru.md", package = "cayleyR"))}
-#' }
 #'
 #' After installation from GitHub, visit:
 #' \url{https://github.com/Zabis13/cayleyR}
-
 #'
 #' @section Getting Started:
 #'
