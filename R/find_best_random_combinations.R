@@ -30,14 +30,13 @@
 #'   \item{unique_states_count}{Number of unique states visited in the cycle}
 #' @export
 #' @examples
-#' \dontrun{
-#' # Find top 10 sequences from 1000 random samples
+#' # Find top 10 sequences from 100 random samples
 #' best <- find_best_random_combinations(
 #'   moves = c("1", "2", "3"),
 #'   combo_length = 10,
-#'   n_samples = 1000,
+#'   n_samples = 100,
 #'   n_top = 10,
-#'   start_state = 1:20,
+#'   start_state = 1:10,
 #'   k = 4
 #' )
 #' print(best)
@@ -52,7 +51,6 @@
 #'   k = 3
 #' )
 #' print(top5)
-#' }
 find_best_random_combinations <- function(moves,
                                           combo_length,
                                           n_samples,

@@ -28,7 +28,6 @@ a sequence of operations repeatedly until returning to the start state.
 Returns detailed information about all visited states and the cycle structure.
 }
 \examples{
-\dontrun{
 # Simple example with letter codes
 result <- get_reachable_states(1:20, c("L", "X"), k = 4)
 print(result$cycle_info)
@@ -41,5 +40,4 @@ allowed_positions <- c("1", "3", "2")
 result <- get_reachable_states(start_state, allowed_positions, k)
 print(result$cycle_info)
 head(result$reachable_states_df)
-}
 }

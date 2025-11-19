@@ -12,7 +12,6 @@
 #'   \item{unique_states_count}{Number of unique states in the cycle}
 #' @export
 #' @examples
-#' \dontrun{
 #' # Quick cycle length check
 #' result <- get_reachable_states_light(1:20, c("L", "X", "L"), k = 4)
 #' cat("Cycle length:", result$total_moves, "\n")
@@ -23,7 +22,6 @@
 #' seq2 <- get_reachable_states_light(1:20, c("2", "3"), k = 4)
 #' cat("Sequence 1 cycle:", seq1$total_moves, "\n")
 #' cat("Sequence 2 cycle:", seq2$total_moves, "\n")
-#' }
 get_reachable_states_light <- function(start_state, allowed_positions, k) {
   current_state <- start_state
   visited <- new.env(hash = TRUE)
