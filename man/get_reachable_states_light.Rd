@@ -24,7 +24,6 @@ state count without storing all intermediate states. Useful for testing
 many operation sequences efficiently.
 }
 \examples{
-\dontrun{
 # Quick cycle length check
 result <- get_reachable_states_light(1:20, c("L", "X", "L"), k = 4)
 cat("Cycle length:", result$total_moves, "\n")
@@ -35,5 +34,4 @@ seq1 <- get_reachable_states_light(1:20, c("1", "3"), k = 4)
 seq2 <- get_reachable_states_light(1:20, c("2", "3"), k = 4)
 cat("Sequence 1 cycle:", seq1$total_moves, "\n")
 cat("Sequence 2 cycle:", seq2$total_moves, "\n")
-}
 }

@@ -16,7 +16,6 @@
 #'   \item{cycle_info}{Summary string with cycle statistics}
 #' @export
 #' @examples
-#' \dontrun{
 #' # Simple example with letter codes
 #' result <- get_reachable_states(1:20, c("L", "X"), k = 4)
 #' print(result$cycle_info)
@@ -29,7 +28,6 @@
 #' result <- get_reachable_states(start_state, allowed_positions, k)
 #' print(result$cycle_info)
 #' head(result$reachable_states_df)
-#' }
 get_reachable_states <- function(start_state, allowed_positions, k) {
   current_state <- start_state
   visited <- new.env(hash = TRUE)

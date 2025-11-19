@@ -53,14 +53,13 @@ NA   | 1 2 3 4 5...    | NA        <- after applying op1 from row 20 = initial
 }
 }
 \examples{
-\dontrun{
-# Find top 10 sequences from 1000 random samples
+# Find top 10 sequences from 100 random samples
 best <- find_best_random_combinations(
   moves = c("1", "2", "3"),
   combo_length = 10,
-  n_samples = 1000,
+  n_samples = 100,
   n_top = 10,
-  start_state = 1:20,
+  start_state = 1:10,
   k = 4
 )
 print(best)
@@ -75,5 +74,4 @@ top5 <- find_best_random_combinations(
   k = 3
 )
 print(top5)
-}
 }
