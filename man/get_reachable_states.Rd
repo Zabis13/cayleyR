@@ -4,7 +4,7 @@
 \alias{get_reachable_states}
 \title{Find Cycle in Permutation Group}
 \usage{
-get_reachable_states(start_state, allowed_positions, k)
+get_reachable_states(start_state, allowed_positions, k, verbose = FALSE)
 }
 \arguments{
 \item{start_state}{Integer vector, the initial permutation state}
@@ -12,6 +12,8 @@ get_reachable_states(start_state, allowed_positions, k)
 \item{allowed_positions}{Character vector, sequence of operations to repeat}
 
 \item{k}{Integer, parameter for reverse operations}
+
+\item{verbose}{Logical; if TRUE, prints progress and cycle information messages (default FALSE)}
 }
 \value{
 List containing:
@@ -30,7 +32,7 @@ Returns detailed information about all visited states and the cycle structure.
 \examples{
 # Simple example with letter codes
 result <- get_reachable_states(1:20, c("L", "X"), k = 4)
-print(result$cycle_info)
+writeLines(result$cycle_info)
 
 # Example with numeric codes
 n <- 20
@@ -38,6 +40,6 @@ k <- 4
 start_state <- 1:n
 allowed_positions <- c("1", "3", "2")
 result <- get_reachable_states(start_state, allowed_positions, k)
-print(result$cycle_info)
+writeLines(result$cycle_info)
 head(result$reachable_states_df)
 }

@@ -7,6 +7,7 @@
 #' @param start_state Integer vector, the initial permutation state
 #' @param allowed_positions Character vector, sequence of operations to repeat
 #' @param k Integer, parameter for reverse operations
+#' @param verbose Logical; if TRUE, prints progress and cycle information messages (default FALSE)
 #' @return List containing:
 #'   \item{states}{List of all visited states}
 #'   \item{reachable_states_df}{Data frame with states, operations, and step numbers}
@@ -18,7 +19,7 @@
 #' @examples
 #' # Simple example with letter codes
 #' result <- get_reachable_states(1:20, c("L", "X"), k = 4)
-#' print(result$cycle_info)
+#' writeLines(result$cycle_info)
 #'
 #' # Example with numeric codes
 #' n <- 20
@@ -26,9 +27,9 @@
 #' start_state <- 1:n
 #' allowed_positions <- c("1", "3", "2")
 #' result <- get_reachable_states(start_state, allowed_positions, k)
-#' print(result$cycle_info)
+#' writeLines(result$cycle_info)
 #' head(result$reachable_states_df)
-get_reachable_states <- function(start_state, allowed_positions, k) {
+get_reachable_states <- function(start_state, allowed_positions, k, verbose = FALSE) {
   current_state <- start_state
   visited <- new.env(hash = TRUE)
   states_list <- list(current_state)
@@ -72,7 +73,10 @@ get_reachable_states <- function(start_state, allowed_positions, k) {
           "Cycle length: ", total_moves, "\n"
         )
 
-        cat(main_info)
+        if (verbose) {
+          message(main_info)
+        }
+
 
         return(list(
           states = states_list,
