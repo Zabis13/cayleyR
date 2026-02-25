@@ -13,13 +13,17 @@ get_reachable_states(start_state, allowed_positions, k, verbose = FALSE)
 
 \item{k}{Integer, parameter for reverse operations}
 
-\item{verbose}{Logical; if TRUE, prints progress and cycle information messages (default FALSE)}
+\item{verbose}{Logical; if TRUE, prints progress and cycle information (default FALSE)}
 }
 \value{
 List containing:
 \item{states}{List of all visited states}
-\item{reachable_states_df}{Data frame with states, operations, and step numbers}
+\item{reachable_states_df}{Arrow Table with states, operations, steps, and celestial coordinates}
 \item{operations}{Vector of operations applied}
+\item{coords}{List of celestial coordinate objects per step}
+\item{nL_total}{Total left shifts}
+\item{nR_total}{Total right shifts}
+\item{nX_total}{Total reverse operations}
 \item{total_moves}{Total number of moves in the cycle}
 \item{unique_states_count}{Number of unique states visited}
 \item{cycle_info}{Summary string with cycle statistics}
@@ -27,19 +31,10 @@ List containing:
 \description{
 Explores the Cayley graph starting from an initial state and applying
 a sequence of operations repeatedly until returning to the start state.
-Returns detailed information about all visited states and the cycle structure.
+Returns detailed information about all visited states, the cycle structure,
+and celestial LRX coordinates stored in an Arrow Table.
 }
 \examples{
-# Simple example with letter codes
-result <- get_reachable_states(1:20, c("L", "X"), k = 4)
+result <- get_reachable_states(1:10, c("1", "3"), k = 4)
 writeLines(result$cycle_info)
-
-# Example with numeric codes
-n <- 20
-k <- 4
-start_state <- 1:n
-allowed_positions <- c("1", "3", "2")
-result <- get_reachable_states(start_state, allowed_positions, k)
-writeLines(result$cycle_info)
-head(result$reachable_states_df)
 }

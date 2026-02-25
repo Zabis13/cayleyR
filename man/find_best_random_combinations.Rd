@@ -27,7 +27,8 @@ find_best_random_combinations(
 \item{k}{Integer, parameter for reverse operations}
 }
 \value{
-Data frame with columns:
+data.table with columns:
+\item{combo_number}{Integer sequence number}
 \item{combination}{String representation of the operation sequence}
 \item{total_moves}{Cycle length for this sequence}
 \item{unique_states_count}{Number of unique states visited in the cycle}
@@ -35,43 +36,16 @@ Data frame with columns:
 \description{
 Generates random sequences of operations and evaluates their cycle lengths
 to find sequences that produce the longest cycles in the Cayley graph.
-Useful for discovering interesting operation sequences in permutation puzzles.
-}
-\details{
-The returned data frame \code{reachable_states_df} has the following structure:
-\preformatted{
-step | state           | operation
------|-----------------|----------
-1    | 1 2 3 4 5...    | 1         <- INITIAL, operation="1" (next operation)
-2    | 2 3 4 5 6...    | 1         <- after applying op1 from row 1
-3    | 3 4 5 6 7...    | 2         <- after applying op1 from row 2
-4    | 4 5 6 7 8...    | 3         <- after applying op2 from row 3
-5    | 5 6 7 8 9...    | 1         <- after applying op3 from row 4
-...
-20   | 20 1 2 3 4...   | 1         <- after applying all ops from rows 1-19
-NA   | 1 2 3 4 5...    | NA        <- after applying op1 from row 20 = initial
-}
+Uses data.table for efficient storage.
 }
 \examples{
-# Find top 10 sequences from 100 random samples
 best <- find_best_random_combinations(
   moves = c("1", "2", "3"),
   combo_length = 10,
-  n_samples = 100,
-  n_top = 10,
+  n_samples = 50,
+  n_top = 5,
   start_state = 1:10,
   k = 4
 )
 print(best)
-
-# Quick search with letter codes
-top5 <- find_best_random_combinations(
-  moves = c("L", "R", "X"),
-  combo_length = 5,
-  n_samples = 100,
-  n_top = 5,
-  start_state = 1:10,
-  k = 3
-)
-print(top5)
 }

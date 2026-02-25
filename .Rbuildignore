@@ -10,3 +10,5 @@
 ^README\.html$
 ^README-ru\.html$
 ^CRAN-SUBMISSION$
+^\.claude$
+^TODO\.md$
