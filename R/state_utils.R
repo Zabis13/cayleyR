@@ -27,18 +27,27 @@ convert_digits <- function(s) {
   return(as.integer(numbers))
 }
 
-#' Generate Random Permutation State
+#' Generate Reachable Random State
 #'
-#' Generates a random permutation of integers from 1 to n.
+#' Generates a random state reachable from 1:n by applying random
+#' operations (L, R, X). Guarantees the result is in the same
+#' connected component as the starting state.
 #'
 #' @param n Integer, the size of the permutation
-#' @return Integer vector representing a random permutation of 1:n
+#' @param k Integer, parameter for reverse_prefix operation
+#' @param n_moves Integer, number of random operations to apply (default 25)
+#' @param moves Character vector, allowed operations (default c("1", "2", "3"))
+#' @return Integer vector representing a reachable permutation state
 #' @export
 #' @examples
 #' set.seed(42)
-#' generate_state(10)
-generate_state <- function(n) {
-  sample(1:n, size = n, replace = FALSE)
+#' generate_state(10, k = 4)
+#' generate_state(10, k = 4, n_moves = 100)
+generate_state <- function(n, k = n, n_moves = 25L, moves = c("1", "2", "3")) {
+  state <- as.integer(1:n)
+  ops <- sample(moves, size = n_moves, replace = TRUE)
+  result <- apply_operations(state, ops, as.integer(k))
+  as.integer(result$state)
 }
 
 #' Generate Data Frame of Unique Random States
@@ -74,4 +83,22 @@ generate_unique_states_df <- function(n, n_rows) {
 #' manhattan_distance(1:5, 1:5)
 manhattan_distance <- function(start_state, target_state) {
   sum(abs(start_state - target_state))
+}
+
+#' Breakpoint Distance Between Two States
+#'
+#' Counts the number of positions where consecutive elements differ by
+#' more than 1 (breakpoints). Particularly effective for TopSpin puzzles
+#' where operations shift blocks and flip prefixes.
+#'
+#' @param start_state Integer vector, first state
+#' @param target_state Integer vector, second state
+#' @return Integer, the number of breakpoints
+#' @export
+#' @examples
+#' breakpoint_distance(1:5, 5:1)
+#' breakpoint_distance(1:5, 1:5)
+breakpoint_distance <- function(start_state, target_state) {
+  relative <- target_state[order(start_state)]
+  sum(diff(relative) != 1L)
 }

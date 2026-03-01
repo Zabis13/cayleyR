@@ -32,6 +32,7 @@ calculate_differences <- function(start_state, reachable_states_start,
     distance_func <- switch(
       method,
       "manhattan" = function(v1, v2) sum(abs(v1 - v2)),
+      "breakpoints" = function(v1, v2) breakpoint_distance(v1, v2),
       stop("Unsupported method: ", method)
     )
     differences <- apply(mat, 1L, function(row) {
@@ -176,7 +177,8 @@ filter_middle_states <- function(data, skip_first = 2, skip_last = 2) {
 #' @param reachable_states Data frame or Arrow Table with V-columns
 #' @return Single-row data frame of the best matching state
 #' @keywords internal
-find_best_match_state <- function(target_state, reachable_states) {
+find_best_match_state <- function(target_state, reachable_states, method = "manhattan",
+                                  use_gpu = FALSE) {
   if (inherits(reachable_states, "ArrowTabular")) {
     reachable_states <- as.data.frame(reachable_states)
   }
@@ -191,13 +193,33 @@ find_best_match_state <- function(target_state, reachable_states) {
 
   v_cols <- grep("^V[0-9]+$", colnames(reachable_states), value = TRUE)
 
-  manhattan_per_row <- apply(reachable_states[, v_cols, drop = FALSE], 1, function(row) {
-    sum(abs(row - target_state))
-  })
+  distance_func <- switch(
+    method,
+    "manhattan" = function(v1, v2) sum(abs(v1 - v2)),
+    "breakpoints" = function(v1, v2) breakpoint_distance(v1, v2),
+    stop("Unsupported method: ", method)
+  )
 
-  reachable_states$manhattan <- manhattan_per_row
-  min_manhattan <- min(manhattan_per_row)
-  best_states <- reachable_states[manhattan_per_row == min_manhattan, , drop = FALSE]
+  if (use_gpu && method == "manhattan" &&
+      tryCatch(cayley_gpu_available(), error = function(e) FALSE)) {
+    mat <- as.matrix(reachable_states[, v_cols, drop = FALSE])
+    dist_per_row <- tryCatch(
+      calculate_differences_gpu(as.integer(target_state), mat),
+      error = function(e) NULL
+    )
+  } else {
+    dist_per_row <- NULL
+  }
+
+  if (is.null(dist_per_row)) {
+    dist_per_row <- apply(reachable_states[, v_cols, drop = FALSE], 1, function(row) {
+      distance_func(target_state, as.integer(row))
+    })
+  }
+
+  reachable_states$distance <- dist_per_row
+  min_dist <- min(dist_per_row)
+  best_states <- reachable_states[dist_per_row == min_dist, , drop = FALSE]
 
   if (nrow(best_states) > 1) {
     best_state <- best_states[which.min(best_states$step), , drop = FALSE]
@@ -217,12 +239,12 @@ find_best_match_state <- function(target_state, reachable_states) {
 #' @param opposite_state Integer vector, the state to be close to
 #' @return Integer vector of the selected state
 #' @keywords internal
-select_new_state <- function(target_all, opposite_state) {
+select_new_state <- function(target_all, opposite_state, method = "manhattan") {
   if (nrow(target_all) == 0) {
     stop("No states available for selection")
   }
 
-  result_manhattan <- calculate_differences(opposite_state, target_all, method = "manhattan")
+  result_manhattan <- calculate_differences(opposite_state, target_all, method = method)
 
   n_top <- min(10, nrow(result_manhattan))
   top10 <- result_manhattan[order(result_manhattan$difference), ][1:n_top, , drop = FALSE]

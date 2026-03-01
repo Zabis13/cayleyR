@@ -2,7 +2,7 @@
 #'
 #' Fast version of cycle detection that only returns cycle length and unique
 #' state count without storing all intermediate states. Useful for testing
-#' many operation sequences efficiently.
+#' many operation sequences efficiently. Implemented in C++ for performance.
 #'
 #' @param start_state Integer vector, the initial permutation state
 #' @param allowed_positions Character vector, sequence of operations to repeat
@@ -16,30 +16,9 @@
 #' cat("Cycle length:", result$total_moves, "\n")
 #' cat("Unique states:", result$unique_states_count, "\n")
 get_reachable_states_light <- function(start_state, allowed_positions, k) {
-  current_state <- as.integer(start_state)
-  visited_keys <- paste(current_state, collapse = "_")
-  unique_states_count <- 1
-  total_moves <- 0
-
-  repeat {
-    for (op in allowed_positions) {
-      result <- apply_operations(current_state, op, k, NULL)
-      current_state <- result$state
-
-      total_moves <- total_moves + 1
-
-      state_key <- paste(current_state, collapse = "_")
-      if (!state_key %in% visited_keys) {
-        visited_keys <- c(visited_keys, state_key)
-        unique_states_count <- unique_states_count + 1
-      }
-
-      if (identical(current_state, as.integer(start_state)) && total_moves > 0) {
-        return(list(
-          total_moves = total_moves,
-          unique_states_count = unique_states_count
-        ))
-      }
-    }
-  }
+  get_reachable_states_light_cpp(
+    as.integer(start_state),
+    as.character(allowed_positions),
+    as.integer(k)
+  )
 }

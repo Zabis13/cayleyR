@@ -2,7 +2,7 @@
 #'
 #' Generates random sequences of operations and evaluates their cycle lengths
 #' to find sequences that produce the longest cycles in the Cayley graph.
-#' Uses data.table for efficient storage.
+#' Uses C++ with OpenMP for parallel evaluation of combinations.
 #'
 #' @param moves Character vector of allowed operation symbols (e.g., c("1", "2", "3") or c("L", "R", "X"))
 #' @param combo_length Integer, length of each operation sequence to test
@@ -32,50 +32,32 @@ find_best_random_combinations <- function(moves,
                                           n_top,
                                           start_state,
                                           k) {
-  results <- data.table::data.table(
-    combo_number = integer(0),
-    combination = character(0),
-    total_moves = integer(0),
-    unique_states_count = integer(0)
+
+  res <- find_best_random_combinations_cpp(
+    as.integer(start_state),
+    as.integer(k),
+    as.character(moves),
+    as.integer(combo_length),
+    as.integer(n_samples)
   )
 
-  unique_combos <- character(0)
-  count <- 0
-  max_iter <- n_samples * 10
-
-  while (count < n_samples && max_iter > 0) {
-    combo <- sample(moves, size = combo_length, replace = TRUE)
-    key <- paste(combo, collapse = "")
-
-    if (key %in% unique_combos) {
-      max_iter <- max_iter - 1
-      next
-    }
-    unique_combos <- c(unique_combos, key)
-
-    res <- tryCatch({
-      get_reachable_states_light(start_state, combo, k)
-    }, error = function(e) NULL)
-
-    if (!is.null(res)) {
-      results <- data.table::rbindlist(list(results,
-        data.table::data.table(
-          combo_number = count + 1L,
-          combination = key,
-          total_moves = as.integer(res$total_moves),
-          unique_states_count = as.integer(res$unique_states_count)
-        )), use.names = TRUE)
-      count <- count + 1
-    }
-    max_iter <- max_iter - 1
-  }
-
-  if (nrow(results) == 0) {
+  if (length(res$combination) == 0) {
     warning("No successful results found.")
-    return(results)
+    return(data.table::data.table(
+      combo_number = integer(0),
+      combination = character(0),
+      total_moves = integer(0),
+      unique_states_count = integer(0)
+    ))
   }
+
+  results <- data.table::data.table(
+    combo_number = seq_along(res$combination),
+    combination = as.character(res$combination),
+    total_moves = as.integer(res$total_moves),
+    unique_states_count = as.integer(res$unique_states_count)
+  )
 
   top_results <- results[order(-total_moves, -unique_states_count)][1:min(n_top, .N)]
-
   return(top_results)
 }

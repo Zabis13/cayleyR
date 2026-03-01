@@ -17,6 +17,11 @@
 #' @param potc Numeric in (0,1], fraction of cycle states to keep (default 1)
 #' @param ptr Integer, max intersections to process per iteration (default 10)
 #' @param opd Logical, if TRUE filters states to only combos containing bridge state (default FALSE)
+#' @param reuse_combos Logical, if TRUE generates random combos only once per side
+#'   (cycle 1) and reuses them in subsequent cycles. Saves time but reduces diversity (default FALSE)
+#' @param distance_method Character, method for comparing states during bridge
+#'   selection. One of "manhattan" (sum of absolute differences) or "breakpoints"
+#'   (number of adjacency violations). Default "manhattan".
 #' @param verbose Logical, if TRUE prints progress messages (default TRUE)
 #' @return List containing:
 #'   \item{path}{Character vector of operations, or NULL if not found}
@@ -43,6 +48,8 @@ find_path_iterative <- function(start_state,
                                  potc = 1,
                                  ptr = 10,
                                  opd = FALSE,
+                                 reuse_combos = FALSE,
+                                 distance_method = "manhattan",
                                  verbose = TRUE) {
 
   n <- length(start_state)
@@ -66,13 +73,27 @@ find_path_iterative <- function(start_state,
   final_path <- NULL
   selected_info <- NULL
 
+  # Cached combos for reuse_combos mode
+  cached_combos_start <- NULL
+  cached_combos_final <- NULL
+
+  # Auto-detect GPU capabilities
+  gpu_ok <- .setup_gpu()
+
   if (verbose) {
     cat("\n=== Path search ===\n")
+    if (gpu_ok) {
+      cat("GPU: available (Vulkan)\n")
+    } else {
+      cat("GPU: not available\n")
+    }
+    cat("OpenMP threads:", openmp_threads(), "\n")
     cat("Start:", paste(start_state, collapse = " "), "\n")
     cat("Final:", paste(final_state, collapse = " "), "\n")
     cat("max_iterations:", max_iterations, "\n")
     cat("potc:", potc, "\n")
     cat("opd:", opd, "\n")
+    cat("reuse_combos:", reuse_combos, "\n")
     flush.console()
   }
 
@@ -83,15 +104,34 @@ find_path_iterative <- function(start_state,
       flush.console()
     }
 
-    top_combos_start <- find_best_random_combinations(
-      moves = moves, combo_length = combo_length, n_samples = n_samples,
-      n_top = n_top, start_state = current_start, k = k
-    )
+    # --- Generate and analyze combos for START and FINAL ---
+    # Helper to run one side (find_best + analyze + potc)
+    .run_side <- function(current_state, cached_combos, side_label) {
+      if (!reuse_combos || is.null(cached_combos)) {
+        top_combos <- find_best_random_combinations(
+          moves = moves, combo_length = combo_length, n_samples = n_samples,
+          n_top = n_top, start_state = current_state, k = k
+        )
+        if (reuse_combos) cached_combos <- top_combos
+      } else {
+        top_combos <- cached_combos
+      }
 
-    new_states_start <- analyze_top_combinations(top_combos_start, current_start, k)
-    if (inherits(new_states_start, "ArrowTabular")) {
-      new_states_start <- as.data.frame(new_states_start)
+      new_states <- analyze_top_combinations(top_combos, current_state, k)
+      if (inherits(new_states, "ArrowTabular")) {
+        new_states <- as.data.frame(new_states)
+      }
+
+      list(new_states = new_states, cached_combos = cached_combos)
     }
+
+    res_start <- .run_side(current_start, cached_combos_start, "START")
+    res_final <- .run_side(current_final, cached_combos_final, "FINAL")
+
+    new_states_start <- res_start$new_states
+    if (reuse_combos) cached_combos_start <- res_start$cached_combos
+    new_states_final <- res_final$new_states
+    if (reuse_combos) cached_combos_final <- res_final$cached_combos
 
     if (potc < 1) {
       n_original <- nrow(new_states_start)
@@ -107,16 +147,6 @@ find_path_iterative <- function(start_state,
 
     new_states_start$cycle <- cycle_num
     states_list_start[[cycle_num]] <- new_states_start
-
-    top_combos_final <- find_best_random_combinations(
-      moves = moves, combo_length = combo_length, n_samples = n_samples,
-      n_top = n_top, start_state = current_final, k = k
-    )
-
-    new_states_final <- analyze_top_combinations(top_combos_final, current_final, k)
-    if (inherits(new_states_final, "ArrowTabular")) {
-      new_states_final <- as.data.frame(new_states_final)
-    }
 
     if (potc < 1) {
       n_original <- nrow(new_states_final)
@@ -160,7 +190,8 @@ find_path_iterative <- function(start_state,
       }
 
       n_to_process <- min(nrow(unique_states), ptr)
-      unique_states <- unique_states[1:n_to_process, , drop = FALSE]
+      sampled_idx <- sample(nrow(unique_states), n_to_process)
+      unique_states <- unique_states[sampled_idx, , drop = FALSE]
 
       start_key <- paste(start_state, collapse = "_")
       final_key <- paste(final_state, collapse = "_")
@@ -275,7 +306,11 @@ find_path_iterative <- function(start_state,
             cycle_num, v_cols, current_start, current_final,
             bridge_states_start, bridge_states_final,
             states_list_start, states_list_final,
-            opd, verbose
+            opd, verbose,
+            moves = moves, k = k, n = n,
+            combo_length = combo_length, n_samples = n_samples, n_top = n_top,
+            distance_method = distance_method,
+            use_gpu = gpu_ok
           ) -> bridge_result
 
           current_start <- bridge_result$current_start
@@ -298,7 +333,11 @@ find_path_iterative <- function(start_state,
         cycle_num, v_cols, current_start, current_final,
         bridge_states_start, bridge_states_final,
         states_list_start, states_list_final,
-        opd, verbose
+        opd, verbose,
+        moves = moves, k = k, n = n,
+        combo_length = combo_length, n_samples = n_samples, n_top = n_top,
+        distance_method = distance_method,
+        use_gpu = gpu_ok
       ) -> bridge_result
 
       current_start <- bridge_result$current_start
@@ -349,12 +388,17 @@ find_path_iterative <- function(start_state,
   ))
 }
 
+
 # Internal helper for bridge state selection
 .select_new_bridges <- function(reachable_states_start, reachable_states_final,
                                  cycle_num, v_cols, current_start, current_final,
                                  bridge_states_start, bridge_states_final,
                                  states_list_start, states_list_final,
-                                 opd, verbose) {
+                                 opd, verbose,
+                                 moves = c("1", "2", "3"), k = NULL, n = NULL,
+                                 combo_length = 20, n_samples = 200, n_top = 10,
+                                 distance_method = "manhattan",
+                                 use_gpu = FALSE) {
 
   start_all_current <- reachable_states_start[reachable_states_start$cycle == cycle_num, ]
   final_all_current <- reachable_states_final[reachable_states_final$cycle == cycle_num, ]
@@ -365,17 +409,24 @@ find_path_iterative <- function(start_state,
   if (nrow(start_filtered) == 0) start_filtered <- start_all_current
   if (nrow(final_filtered) == 0) final_filtered <- final_all_current
 
-  new_start_row <- find_best_match_state(current_final, start_filtered)
+  # Bridge selection: pick best match by distance_method (no anti-loop)
+  new_start_row <- find_best_match_state(current_final, start_filtered,
+                                          method = distance_method, use_gpu = use_gpu)
   new_start <- as.integer(new_start_row[, v_cols])
   names(new_start) <- NULL
 
-  new_final_row <- find_best_match_state(new_start, final_filtered)
+  new_final_row <- find_best_match_state(new_start, final_filtered,
+                                          method = distance_method, use_gpu = use_gpu)
   new_final <- as.integer(new_final_row[, v_cols])
   names(new_final) <- NULL
 
+  bridge_dist <- switch(
+    distance_method,
+    "manhattan" = manhattan_distance(new_start, new_final),
+    "breakpoints" = breakpoint_distance(new_start, new_final)
+  )
   if (verbose) {
-    manhattan_dist <- sum(abs(new_start - new_final))
-    cat("Bridge Manhattan:", manhattan_dist, "\n")
+    cat("Bridge", distance_method, "distance:", bridge_dist, "\n")
     flush.console()
   }
 
@@ -437,6 +488,10 @@ find_path_iterative <- function(start_state,
     bridge_states_start = bridge_states_start,
     bridge_states_final = bridge_states_final,
     states_list_start = states_list_start,
-    states_list_final = states_list_final
+    states_list_final = states_list_final,
+    new_start_cycle = new_start_row$cycle,
+    new_start_combo = new_start_row$combo_number,
+    new_final_cycle = new_final_row$cycle,
+    new_final_combo = new_final_row$combo_number
   )
 }

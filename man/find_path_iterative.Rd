@@ -16,6 +16,8 @@ find_path_iterative(
   potc = 1,
   ptr = 10,
   opd = FALSE,
+  reuse_combos = FALSE,
+  distance_method = "manhattan",
   verbose = TRUE
 )
 }
@@ -41,6 +43,13 @@ find_path_iterative(
 \item{ptr}{Integer, max intersections to process per iteration (default 10)}
 
 \item{opd}{Logical, if TRUE filters states to only combos containing bridge state (default FALSE)}
+
+\item{reuse_combos}{Logical, if TRUE generates random combos only once per side
+(cycle 1) and reuses them in subsequent cycles. Saves time but reduces diversity (default FALSE)}
+
+\item{distance_method}{Character, method for comparing states during bridge
+selection. One of "manhattan" (sum of absolute differences) or "breakpoints"
+(number of adjacency violations). Default "manhattan".}
 
 \item{verbose}{Logical, if TRUE prints progress messages (default TRUE)}
 }

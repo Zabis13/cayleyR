@@ -4,7 +4,8 @@
 \alias{find_best_match_state}
 \title{Find Best Match State}
 \usage{
-find_best_match_state(target_state, reachable_states)
+find_best_match_state(target_state, reachable_states, method = "manhattan",
+  use_gpu = FALSE)
 }
 \arguments{
 \item{target_state}{Integer vector, the target state}

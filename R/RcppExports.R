@@ -25,7 +25,27 @@ reverse_prefix <- function(state, k, coords = NULL) {
     .Call(`_cayleyR_reverse_prefix`, state, k, coords)
 }
 
+get_reachable_states_light_cpp <- function(start_state, allowed_positions, k) {
+    .Call(`_cayleyR_get_reachable_states_light_cpp`, start_state, allowed_positions, k)
+}
+
+find_best_random_combinations_cpp <- function(start_state, k, moves, combo_length, n_samples) {
+    .Call(`_cayleyR_find_best_random_combinations_cpp`, start_state, k, moves, combo_length, n_samples)
+}
+
+openmp_threads <- function() {
+    .Call(`_cayleyR_openmp_threads`)
+}
+
 apply_operations <- function(state, operations, k, coords = NULL) {
     .Call(`_cayleyR_apply_operations`, state, operations, k, coords)
+}
+
+short_path_bfs_cpp <- function(start_state, path, k, n_hits) {
+    .Call(`_cayleyR_short_path_bfs_cpp`, start_state, path, k, n_hits)
+}
+
+sparse_bfs_cpp <- function(start_state, k, n_hubs = 7L, n_random = 3L, max_levels = 1000L) {
+    .Call(`_cayleyR_sparse_bfs_cpp`, start_state, k, n_hubs, n_random, max_levels)
 }
 

@@ -4,7 +4,7 @@
 \alias{select_new_state}
 \title{Select New Bridge State}
 \usage{
-select_new_state(target_all, opposite_state)
+select_new_state(target_all, opposite_state, method = "manhattan")
 }
 \arguments{
 \item{target_all}{Data frame of candidate states}

@@ -36,7 +36,7 @@ data.table with columns:
 \description{
 Generates random sequences of operations and evaluates their cycle lengths
 to find sequences that produce the longest cycles in the Cayley graph.
-Uses data.table for efficient storage.
+Uses C++ with OpenMP for parallel evaluation of combinations.
 }
 \examples{
 best <- find_best_random_combinations(

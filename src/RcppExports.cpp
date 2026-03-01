@@ -81,6 +81,44 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// get_reachable_states_light_cpp
+List get_reachable_states_light_cpp(IntegerVector start_state, CharacterVector allowed_positions, int k);
+RcppExport SEXP _cayleyR_get_reachable_states_light_cpp(SEXP start_stateSEXP, SEXP allowed_positionsSEXP, SEXP kSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type allowed_positions(allowed_positionsSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_reachable_states_light_cpp(start_state, allowed_positions, k));
+    return rcpp_result_gen;
+END_RCPP
+}
+// find_best_random_combinations_cpp
+List find_best_random_combinations_cpp(IntegerVector start_state, int k, CharacterVector moves, int combo_length, int n_samples);
+RcppExport SEXP _cayleyR_find_best_random_combinations_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP movesSEXP, SEXP combo_lengthSEXP, SEXP n_samplesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type moves(movesSEXP);
+    Rcpp::traits::input_parameter< int >::type combo_length(combo_lengthSEXP);
+    Rcpp::traits::input_parameter< int >::type n_samples(n_samplesSEXP);
+    rcpp_result_gen = Rcpp::wrap(find_best_random_combinations_cpp(start_state, k, moves, combo_length, n_samples));
+    return rcpp_result_gen;
+END_RCPP
+}
+// openmp_threads
+int openmp_threads();
+RcppExport SEXP _cayleyR_openmp_threads() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(openmp_threads());
+    return rcpp_result_gen;
+END_RCPP
+}
 // apply_operations
 List apply_operations(IntegerVector state, CharacterVector operations, int k, Nullable<List> coords);
 RcppExport SEXP _cayleyR_apply_operations(SEXP stateSEXP, SEXP operationsSEXP, SEXP kSEXP, SEXP coordsSEXP) {
@@ -95,6 +133,35 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// short_path_bfs_cpp
+List short_path_bfs_cpp(IntegerVector start_state, CharacterVector path, int k, int n_hits);
+RcppExport SEXP _cayleyR_short_path_bfs_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP kSEXP, SEXP n_hitsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type path(pathSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type n_hits(n_hitsSEXP);
+    rcpp_result_gen = Rcpp::wrap(short_path_bfs_cpp(start_state, path, k, n_hits));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sparse_bfs_cpp
+DataFrame sparse_bfs_cpp(IntegerVector start_state, int k, int n_hubs, int n_random, int max_levels);
+RcppExport SEXP _cayleyR_sparse_bfs_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP n_hubsSEXP, SEXP n_randomSEXP, SEXP max_levelsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< int >::type n_hubs(n_hubsSEXP);
+    Rcpp::traits::input_parameter< int >::type n_random(n_randomSEXP);
+    Rcpp::traits::input_parameter< int >::type max_levels(max_levelsSEXP);
+    rcpp_result_gen = Rcpp::wrap(sparse_bfs_cpp(start_state, k, n_hubs, n_random, max_levels));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_shift_left_simple", (DL_FUNC) &_cayleyR_shift_left_simple, 1},
@@ -103,7 +170,12 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_shift_left", (DL_FUNC) &_cayleyR_shift_left, 2},
     {"_cayleyR_shift_right", (DL_FUNC) &_cayleyR_shift_right, 2},
     {"_cayleyR_reverse_prefix", (DL_FUNC) &_cayleyR_reverse_prefix, 3},
+    {"_cayleyR_get_reachable_states_light_cpp", (DL_FUNC) &_cayleyR_get_reachable_states_light_cpp, 3},
+    {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 5},
+    {"_cayleyR_openmp_threads", (DL_FUNC) &_cayleyR_openmp_threads, 0},
     {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 4},
+    {"_cayleyR_short_path_bfs_cpp", (DL_FUNC) &_cayleyR_short_path_bfs_cpp, 4},
+    {"_cayleyR_sparse_bfs_cpp", (DL_FUNC) &_cayleyR_sparse_bfs_cpp, 5},
     {NULL, NULL, 0}
 };
 

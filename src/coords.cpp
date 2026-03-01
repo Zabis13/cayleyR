@@ -2,6 +2,13 @@
 #include <cmath>
 #include <string>
 #include <sstream>
+#include <vector>
+#include <unordered_set>
+#include "cayley_utils.h"
+
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 using namespace Rcpp;
 
@@ -195,8 +202,133 @@ List reverse_prefix(IntegerVector state, int k, Nullable<List> coords = R_NilVal
   );
 }
 
+// apply_op_inplace() and state_to_key() are now in cayley_utils.h
+
+// Cycle detection: returns (total_moves, unique_states_count)
+static std::pair<int, int> cycle_detect(
+    const std::vector<int>& start,
+    const std::vector<std::string>& ops,
+    int k)
+{
+  std::vector<int> current = start;
+  std::unordered_set<std::string> visited;
+  visited.insert(state_to_key(start));
+  int total_moves = 0;
+
+  while (true) {
+    for (size_t i = 0; i < ops.size(); i++) {
+      apply_op_inplace(current, ops[i], k);
+      total_moves++;
+
+      std::string key = state_to_key(current);
+      visited.insert(key);
+
+      if (current == start) {
+        return std::make_pair(total_moves, (int)visited.size());
+      }
+    }
+  }
+  // Should not reach here for valid Cayley graph inputs
+  return std::make_pair(total_moves, (int)visited.size());
+}
+
 // [[Rcpp::export]]
-List apply_operations(IntegerVector state, CharacterVector operations, int k, 
+List get_reachable_states_light_cpp(IntegerVector start_state,
+                                     CharacterVector allowed_positions,
+                                     int k) {
+  // Convert to std types
+  std::vector<int> start(start_state.begin(), start_state.end());
+  std::vector<std::string> ops(allowed_positions.size());
+  for (int i = 0; i < allowed_positions.size(); i++) {
+    ops[i] = as<std::string>(allowed_positions[i]);
+  }
+
+  auto result = cycle_detect(start, ops, k);
+
+  return List::create(
+    Named("total_moves") = result.first,
+    Named("unique_states_count") = result.second
+  );
+}
+
+// [[Rcpp::export]]
+List find_best_random_combinations_cpp(
+    IntegerVector start_state,
+    int k,
+    CharacterVector moves,
+    int combo_length,
+    int n_samples)
+{
+  // Convert inputs to std types
+  std::vector<int> start(start_state.begin(), start_state.end());
+  std::vector<std::string> move_vec(moves.size());
+  for (int i = 0; i < moves.size(); i++) {
+    move_vec[i] = as<std::string>(moves[i]);
+  }
+  int n_moves = (int)move_vec.size();
+
+  // Pre-generate unique combos on main thread using R's RNG
+  std::unordered_set<std::string> seen_keys;
+  std::vector<std::vector<std::string>> combos;
+  combos.reserve(n_samples);
+
+  int max_iter = n_samples * 10;
+  while ((int)combos.size() < n_samples && max_iter > 0) {
+    std::vector<std::string> combo(combo_length);
+    std::string key;
+    key.reserve(combo_length * 2);
+    for (int j = 0; j < combo_length; j++) {
+      int idx = (int)(R::runif(0.0, 1.0) * n_moves);
+      if (idx >= n_moves) idx = n_moves - 1;
+      combo[j] = move_vec[idx];
+      key += combo[j];
+    }
+    if (seen_keys.find(key) == seen_keys.end()) {
+      seen_keys.insert(key);
+      combos.push_back(combo);
+    }
+    max_iter--;
+  }
+
+  int n_combos = (int)combos.size();
+  std::vector<int> res_total(n_combos, 0);
+  std::vector<int> res_unique(n_combos, 0);
+
+  // Build combo key strings (main thread, before parallel section)
+  CharacterVector combo_keys(n_combos);
+  for (int i = 0; i < n_combos; i++) {
+    std::string key;
+    for (int j = 0; j < (int)combos[i].size(); j++) {
+      key += combos[i][j];
+    }
+    combo_keys[i] = key;
+  }
+
+  #pragma omp parallel for schedule(dynamic)
+  for (int i = 0; i < n_combos; i++) {
+    auto result = cycle_detect(start, combos[i], k);
+    res_total[i] = result.first;
+    res_unique[i] = result.second;
+  }
+
+  return List::create(
+    Named("combination") = combo_keys,
+    Named("total_moves") = IntegerVector(res_total.begin(), res_total.end()),
+    Named("unique_states_count") = IntegerVector(res_unique.begin(), res_unique.end())
+  );
+}
+
+// [[Rcpp::export]]
+int openmp_threads() {
+#ifdef _OPENMP
+  return omp_get_max_threads();
+#else
+  return 1;
+#endif
+}
+
+// [[Rcpp::export]]
+List apply_operations(IntegerVector state, CharacterVector operations, int k,
                       Nullable<List> coords = R_NilValue) {
   IntegerVector current_state = clone(state);
   

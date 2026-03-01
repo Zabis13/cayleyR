@@ -21,7 +21,7 @@ List containing:
 \description{
 Fast version of cycle detection that only returns cycle length and unique
 state count without storing all intermediate states. Useful for testing
-many operation sequences efficiently.
+many operation sequences efficiently. Implemented in C++ for performance.
 }
 \examples{
 result <- get_reachable_states_light(1:10, c("1", "3"), k = 4)

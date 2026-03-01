@@ -1,4 +1,5 @@
 # GPU infrastructure for cayleyR via ggmlR (Vulkan backend)
+# (includes .setup_gpu helper moved from parallel.R)
 
 # Package-level environment for lazy GPU state
 .gpu_env <- new.env(parent = emptyenv())
@@ -105,6 +106,25 @@ cayley_gpu_free <- function() {
     .gpu_env$initialized <- FALSE
   }
   invisible(NULL)
+}
+
+#' Setup GPU backend (internal)
+#'
+#' Checks if GPU is available via cayley_gpu_available() and initializes if so.
+#'
+#' @return Logical, TRUE if GPU is ready
+#' @keywords internal
+.setup_gpu <- function() {
+  gpu_ok <- tryCatch(cayley_gpu_available(), error = function(e) FALSE)
+  if (gpu_ok) {
+    tryCatch({
+      cayley_gpu_init()
+      return(TRUE)
+    }, error = function(e) {
+      return(FALSE)
+    })
+  }
+  return(FALSE)
 }
 
 # ============================================================================

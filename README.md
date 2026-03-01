@@ -1,5 +1,5 @@
 # cayleyR
-
+dev
 **cayleyR** is an R package for analyzing Cayley graphs of permutation
 groups, with a focus on the TopSpin puzzle and similar combinatorial
 problems. The package implements algorithms for cycle detection, state
