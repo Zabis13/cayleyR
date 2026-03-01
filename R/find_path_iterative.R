@@ -85,19 +85,11 @@ find_path_iterative <- function(start_state,
   cached_combos_start <- NULL
   cached_combos_final <- NULL
 
-  # Auto-detect GPU capabilities
-  gpu_ok <- .setup_gpu()
-
   start_key <- paste(start_state, collapse = "_")
   final_key <- paste(final_state, collapse = "_")
 
   if (verbose) {
     cat("\n=== Path search ===\n")
-    if (gpu_ok) {
-      cat("GPU: available (Vulkan)\n")
-    } else {
-      cat("GPU: not available\n")
-    }
     cat("OpenMP threads:", openmp_threads(), "\n")
     cat("Start:", paste(start_state, collapse = " "), "\n")
     cat("Final:", paste(final_state, collapse = " "), "\n")
@@ -116,7 +108,7 @@ find_path_iterative <- function(start_state,
     }
 
     # --- Generate combos and analyze directly into store ---
-    .run_side_store <- function(store, current_state, cached_combos, use_gpu) {
+    .run_side_store <- function(store, current_state, cached_combos) {
       if (!reuse_combos || is.null(cached_combos)) {
         top_combos <- find_best_random_combinations(
           moves = moves, combo_length = combo_length, n_samples = n_samples,
@@ -129,19 +121,15 @@ find_path_iterative <- function(start_state,
       }
 
       count_before <- state_store_size(store)
-      if (use_gpu) {
-        store_analyze_combos_gpu(store, top_combos, current_state, k, cycle_num)
-      } else {
-        store_analyze_combos(store, top_combos, current_state, k, cycle_num)
-      }
+      store_analyze_combos(store, top_combos, current_state, k, cycle_num)
       count_after <- state_store_size(store)
       n_added <- count_after - count_before
 
       list(cached_combos = cached_combos, n_added = n_added)
     }
 
-    res_start <- .run_side_store(store_start, current_start, cached_combos_start, gpu_ok)
-    res_final <- .run_side_store(store_final, current_final, cached_combos_final, gpu_ok)
+    res_start <- .run_side_store(store_start, current_start, cached_combos_start)
+    res_final <- .run_side_store(store_final, current_final, cached_combos_final)
 
     if (reuse_combos) {
       cached_combos_start <- res_start$cached_combos

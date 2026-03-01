@@ -422,20 +422,20 @@ Nullable<CharacterVector> state_store_reconstruct_path(
 // Analyze combos directly into StateStore (replaces analyze_top_combinations)
 // ============================================================
 
-// Analyze a single combo: run full cycle from start_state, writing all
-// intermediate states + coords directly into the store.
-// combo_str: e.g. "132" — each char is an operation
-// combo_number: 1-based combo index
-// cycle_val: cycle number to assign
-static void analyze_single_combo_to_store(
-    StateStore* store,
+// Result buffer for one combo (computed in parallel, merged sequentially)
+struct ComboResult {
+  std::vector<std::vector<int>> all_states;
+  std::vector<CelestialCoords> all_coords;
+  std::vector<OpCode> all_ops;
+};
+
+// Analyze a single combo into a local buffer (thread-safe, no shared state)
+static ComboResult analyze_single_combo(
     const std::string& combo_str,
     const std::vector<int>& start_state,
-    int k,
-    int combo_number,
-    int cycle_val)
+    int k)
 {
-  int L = (int)start_state.size();
+  ComboResult result;
   std::vector<int> current = start_state;
   CelestialCoords coords = create_empty_coords();
 
@@ -446,23 +446,8 @@ static void analyze_single_combo_to_store(
     ops.push_back(std::string(1, c));
   }
 
-  // Collect all states, then write to store.
-  // Format matches old R code: first row = start_state with step=1/op=op1,
-  // intermediate rows = states with their steps/ops,
-  // last row = start_state (returned) with step=NA/op=NA.
-  //
-  // Old R code layout:
-  //   states_list = [start, after_op1, after_op2, ..., start_again]  (N+1 rows)
-  //   ops_final   = [op1,   op2,       op3,       ..., NA]           (N+1)
-  //   steps_final = [1,     2,         3,         ..., NA]           (N+1)
-
-  // First: run the cycle, collecting states and ops
-  std::vector<std::vector<int>> all_states;
-  std::vector<CelestialCoords> all_coords;
-  std::vector<OpCode> all_ops;
-
-  all_states.push_back(start_state);
-  all_coords.push_back(create_empty_coords());
+  result.all_states.push_back(start_state);
+  result.all_coords.push_back(create_empty_coords());
 
   int step = 0;
   bool done = false;
@@ -480,9 +465,9 @@ static void analyze_single_combo_to_store(
       coords = update_coords(coords, dL, dR, dX);
 
       step++;
-      all_states.push_back(current);
-      all_coords.push_back(coords);
-      all_ops.push_back(op_code);
+      result.all_states.push_back(current);
+      result.all_coords.push_back(coords);
+      result.all_ops.push_back(op_code);
 
       if (current == start_state && step > 0) {
         done = true;
@@ -491,22 +476,25 @@ static void analyze_single_combo_to_store(
     }
   }
 
-  // Now write to store in the same layout as old R code:
-  // Row i (0-based): state=all_states[i], op=all_ops[i] (or NA for last), step=i+1 (or NA for last)
-  int n_states = (int)all_states.size(); // N+1
+  return result;
+}
 
-  // all_ops has N entries (one per applied operation)
-  // ops_final = [all_ops[0], all_ops[1], ..., all_ops[N-1], NA]  (N+1)
-  // steps_final = [1, 2, ..., N, NA]                              (N+1)
-
+// Merge a ComboResult into the store (sequential, not thread-safe)
+static void merge_combo_to_store(
+    StateStore* store,
+    const ComboResult& result,
+    int combo_number,
+    int cycle_val)
+{
+  int n_states = (int)result.all_states.size();
   store->ensure_capacity(n_states);
 
   for (int i = 0; i < n_states; i++) {
     int step_val = (i < n_states - 1) ? (i + 1) : NA_INTEGER;
-    OpCode op_val = (i < n_states - 1) ? all_ops[i] : OP_NA;
-    const CelestialCoords& c = all_coords[i];
+    OpCode op_val = (i < n_states - 1) ? result.all_ops[i] : OP_NA;
+    const CelestialCoords& c = result.all_coords[i];
 
-    store->add_state(all_states[i].data(),
+    store->add_state(result.all_states[i].data(),
                      step_val, combo_number, cycle_val, op_val,
                      c.nL, c.nR, c.nX,
                      c.theta, c.phi, c.omega_conformal);
@@ -522,16 +510,27 @@ int analyze_combos_to_store_cpp(SEXP xp,
   StateStorePtr store(xp);
 
   std::vector<int> start(start_state.begin(), start_state.end());
-  int total_added = 0;
+  int n_combos = combinations.size();
   int initial_count = store->count;
 
-  for (int i = 0; i < combinations.size(); i++) {
-    std::string combo_str = as<std::string>(combinations[i]);
-    int before = store->count;
-    analyze_single_combo_to_store(store.get(), combo_str, start, k,
-                                   i + 1, cycle_val); // 1-based combo_number
-    total_added += (store->count - before);
+  // Pre-extract combo strings (R strings not safe in OpenMP)
+  std::vector<std::string> combo_strs(n_combos);
+  for (int i = 0; i < n_combos; i++) {
+    combo_strs[i] = as<std::string>(combinations[i]);
   }
 
-  return total_added;
+  // Phase 1: parallel computation into local buffers
+  std::vector<ComboResult> results(n_combos);
+
+  #pragma omp parallel for schedule(dynamic)
+  for (int i = 0; i < n_combos; i++) {
+    results[i] = analyze_single_combo(combo_strs[i], start, k);
+  }
+
+  // Phase 2: sequential merge into store
+  for (int i = 0; i < n_combos; i++) {
+    merge_combo_to_store(store.get(), results[i], i + 1, cycle_val);
+  }
+
+  return store->count - initial_count;
 }

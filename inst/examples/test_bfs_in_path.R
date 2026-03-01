@@ -6,7 +6,7 @@ n <- 20
 k <- 4
 start_state <- 1:n
 
-final_state <- generate_state(n, k, n_moves = 50)
+final_state <- generate_state(n, k, n_moves = 20)
 #final_state <- convert_digits("1 10 2 4 3 11 6 5 7 8 9")
 
 cat("Start:", paste(start_state, collapse = " "), "\n")
