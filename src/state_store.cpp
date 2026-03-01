@@ -178,6 +178,39 @@ IntegerVector state_store_filter_middle(SEXP xp, int target_cycle,
   return IntegerVector(indices.begin(), indices.end());
 }
 
+// Set OPD combo filter for a cycle
+// combos: integer vector of allowed combo_numbers (empty = clear filter)
+// [[Rcpp::export]]
+void state_store_set_opd(SEXP xp, int target_cycle, IntegerVector combos) {
+  StateStorePtr store(xp);
+  std::vector<int> combo_vec(combos.begin(), combos.end());
+  store->set_opd_combos(target_cycle, combo_vec);
+}
+
+// Clear all OPD filters
+// [[Rcpp::export]]
+void state_store_clear_opd(SEXP xp) {
+  StateStorePtr store(xp);
+  store->clear_opd();
+}
+
+// Find combo_numbers that contain a given state in a given cycle
+// [[Rcpp::export]]
+IntegerVector state_store_combos_for_state(SEXP xp, IntegerVector state_vec, int target_cycle) {
+  StateStorePtr store(xp);
+  std::string key = StateStore::state_to_key_raw(state_vec.begin(), state_vec.size());
+  const auto* indices = store->lookup(key);
+  if (!indices) return IntegerVector(0);
+
+  std::unordered_set<int> combos;
+  for (int idx : *indices) {
+    if (store->cycle[idx] == target_cycle) {
+      combos.insert(store->combo_number[idx]);
+    }
+  }
+  return IntegerVector(combos.begin(), combos.end());
+}
+
 // Convert entire store to a data.frame (for debugging / backward compat)
 // [[Rcpp::export]]
 DataFrame state_store_to_dataframe(SEXP xp) {
@@ -248,12 +281,50 @@ DataFrame state_store_to_dataframe(SEXP xp) {
   return df;
 }
 
-// Reconstruct path from store: trace back through cycles to build operation sequence
-// Returns CharacterVector of operations
+// Helper: collect operations from a combo in a cycle, from step 1 up to (not including) end_step.
+// Uses raw cycle_index (bypasses OPD) to ensure all combo rows are visible.
+static void collect_combo_ops(const StateStore* store, int cyc, int combo, int end_step,
+                               std::vector<std::string>& out) {
+  // Ensure cycle index is built, then get ALL indices (bypass OPD filter)
+  store->build_cycle_index();
+  auto cycle_it = store->cycle_index.find(cyc);
+  if (cycle_it == store->cycle_index.end()) return;
+  const auto& cyc_indices = cycle_it->second;
+
+  std::vector<std::pair<int, int>> combo_rows; // (step, idx)
+  for (int idx : cyc_indices) {
+    if (store->combo_number[idx] == combo && store->step[idx] != NA_INTEGER) {
+      combo_rows.push_back({store->step[idx], idx});
+    }
+  }
+  std::sort(combo_rows.begin(), combo_rows.end());
+
+  for (auto& p : combo_rows) {
+    if (p.first >= end_step) break;
+    std::string op = op_to_string(store->operation[p.second]);
+    if (!op.empty()) {
+      out.push_back(op);
+    }
+  }
+}
+
+// Reconstruct path from store using bridge state chain.
+// bridge_states_mat: matrix (n_bridges x L), row 0 = root (cycle 0),
+//   row i = bridge chosen at cycle i.
+// target_state_vec: the intersection state to reach
+// target_cycle: cycle where target was found
+// target_combo: combo_number of target in target_cycle
+//
+// Path logic for each cycle 1..target_cycle:
+//   - The "start state" of cycle C is bridge_states[C-1] (bridge from previous cycle, or root)
+//   - Find bridge_states[C-1] in cycle C (it's the state with step==1 for some combo,
+//     since analyze_combos starts from that state)
+//   - For cycles < target_cycle: find bridge_states[C] in cycle C, collect ops to reach it
+//   - For target_cycle: find target_state, collect ops to reach it
 // [[Rcpp::export]]
 Nullable<CharacterVector> state_store_reconstruct_path(
     SEXP xp,
-    IntegerVector start_state_vec,
+    IntegerMatrix bridge_states_mat,
     IntegerVector target_state_vec,
     int target_cycle,
     int target_combo) {
@@ -265,117 +336,77 @@ Nullable<CharacterVector> state_store_reconstruct_path(
     return CharacterVector(0);
   }
 
+  int n_bridges = bridge_states_mat.nrow(); // row 0=root(cycle0), row 1=bridge(cycle1), ...
+
   std::vector<int> target_state(target_state_vec.begin(), target_state_vec.end());
   std::vector<std::string> full_path;
 
   for (int cyc = 1; cyc <= target_cycle; cyc++) {
-    // Get all indices for this cycle
-    auto cycle_indices = store->indices_for_cycle(cyc);
-    if (cycle_indices.empty()) {
-      return R_NilValue;
+    // The state that was used as start_state for analyze_combos in this cycle
+    // = bridge from cycle (cyc-1), stored in bridge_states_mat row (cyc-1)
+    // For cyc=1, this is the root state (row 0)
+    int bridge_row = cyc - 1;
+    if (bridge_row >= n_bridges) {
+      return R_NilValue; // not enough bridge states
     }
 
-    // Find initial state of this cycle (step == NA or step == 1)
-    int initial_idx = -1;
-    for (int idx : cycle_indices) {
-      if (store->step[idx] == NA_INTEGER) {
-        initial_idx = idx;
-        break;
+    // What state do we need to reach in this cycle?
+    if (cyc < target_cycle) {
+      // Need to reach bridge_states[cyc] (the bridge chosen at end of this cycle)
+      int next_bridge_row = cyc;
+      if (next_bridge_row >= n_bridges) {
+        return R_NilValue;
       }
-    }
-    if (initial_idx == -1) {
-      // Try step == 1
-      for (int idx : cycle_indices) {
-        if (store->step[idx] == 1) {
-          initial_idx = idx;
-          break;
-        }
+
+      // Build key for the target bridge in this cycle
+      std::vector<int> bridge_target(L);
+      for (int j = 0; j < L; j++) {
+        bridge_target[j] = bridge_states_mat(next_bridge_row, j);
       }
-    }
-    if (initial_idx == -1) {
-      return R_NilValue;
-    }
+      std::string bridge_key = StateStore::state_to_key_raw(bridge_target.data(), L);
 
-    const int* cycle_initial = store->get_state_ptr(initial_idx);
-
-    // For cycles > 1: find this initial state in previous cycle, get path to it
-    if (cyc > 1) {
-      std::string init_key = StateStore::state_to_key_raw(cycle_initial, L);
-      auto prev_indices = store->indices_for_cycle(cyc - 1);
+      // Find this bridge state in this cycle via hash lookup
+      const auto* key_indices = store->lookup(bridge_key);
+      if (!key_indices) return R_NilValue;
 
       int match_idx = -1;
-      for (int idx : prev_indices) {
-        const int* s = store->get_state_ptr(idx);
-        if (StateStore::state_to_key_raw(s, L) == init_key) {
+      for (int idx : *key_indices) {
+        if (store->cycle[idx] == cyc) {
           match_idx = idx;
           break;
         }
       }
-      if (match_idx == -1) {
-        return R_NilValue;
-      }
+      if (match_idx == -1) return R_NilValue;
 
       int match_combo = store->combo_number[match_idx];
       int match_step = store->step[match_idx];
 
-      // Collect operations from this combo up to (but not including) the match step
+      // Collect ops from this combo up to match_step
       if (match_step != NA_INTEGER) {
-        // Get all rows for this combo in prev cycle, sorted by step
-        std::vector<std::pair<int, int>> combo_rows; // (step, idx)
-        for (int idx : prev_indices) {
-          if (store->combo_number[idx] == match_combo && store->step[idx] != NA_INTEGER) {
-            combo_rows.push_back({store->step[idx], idx});
-          }
-        }
-        std::sort(combo_rows.begin(), combo_rows.end());
-
-        for (auto& p : combo_rows) {
-          if (p.first >= match_step) break;
-          std::string op = op_to_string(store->operation[p.second]);
-          if (!op.empty()) {
-            full_path.push_back(op);
-          }
-        }
+        collect_combo_ops(store.get(), cyc, match_combo, match_step, full_path);
       }
-    }
+      // If match_step == NA_INTEGER, bridge is the initial/final state of combo — 0 ops needed
 
-    // For the target cycle: get operations up to the target state
-    if (cyc == target_cycle) {
-      // Find target in this cycle
+    } else {
+      // cyc == target_cycle: reach the target_state in target_combo
+      std::string target_key = StateStore::state_to_key_raw(target_state.data(), L);
+
+      // Find target in this cycle+combo via hash
+      const auto* key_indices = store->lookup(target_key);
+      if (!key_indices) return R_NilValue;
+
       int target_idx = -1;
-      for (int idx : cycle_indices) {
-        if (store->combo_number[idx] != target_combo) continue;
-        const int* s = store->get_state_ptr(idx);
-        bool match = true;
-        for (int j = 0; j < L; j++) {
-          if (s[j] != target_state[j]) { match = false; break; }
+      for (int idx : *key_indices) {
+        if (store->cycle[idx] == cyc && store->combo_number[idx] == target_combo) {
+          target_idx = idx;
+          break;
         }
-        if (match) { target_idx = idx; break; }
       }
-      if (target_idx == -1) {
-        return R_NilValue;
-      }
+      if (target_idx == -1) return R_NilValue;
 
       int target_step_val = store->step[target_idx];
-      if (target_step_val == NA_INTEGER) {
-        // Target is the initial state of this cycle — no additional ops
-      } else {
-        // Get combo operations up to target step
-        std::vector<std::pair<int, int>> combo_rows;
-        for (int idx : cycle_indices) {
-          if (store->combo_number[idx] == target_combo && store->step[idx] != NA_INTEGER) {
-            combo_rows.push_back({store->step[idx], idx});
-          }
-        }
-        std::sort(combo_rows.begin(), combo_rows.end());
-
-        for (auto& p : combo_rows) {
-          if (p.first >= target_step_val) break;
-          std::string op = op_to_string(store->operation[p.second]);
-          if (!op.empty()) {
-            full_path.push_back(op);
-          }
-        }
+      if (target_step_val != NA_INTEGER) {
+        collect_combo_ops(store.get(), cyc, target_combo, target_step_val, full_path);
       }
     }
   }

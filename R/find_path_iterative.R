@@ -358,10 +358,8 @@ find_path_iterative <- function(start_state,
   idx <- indices[1]
   meta <- store_get_meta(store, idx)
 
-  root_state <- bridge_states[[1]]$state
-
   path_full <- store_reconstruct_path(
-    store, root_state, intersection_state,
+    store, bridge_states, intersection_state,
     meta$cycle, meta$combo_number
   )
   if (is.null(path_full)) return(NULL)
@@ -396,15 +394,12 @@ find_path_iterative <- function(start_state,
   meta_start <- store_get_meta(store_start, indices_start[1])
   meta_final <- store_get_meta(store_final, indices_final[1])
 
-  start_root <- bridge_states_start[[1]]$state
-  final_root <- bridge_states_final[[1]]$state
-
   path_start_full <- store_reconstruct_path(
-    store_start, start_root, intersection_state,
+    store_start, bridge_states_start, intersection_state,
     meta_start$cycle, meta_start$combo_number
   )
   path_final_full <- store_reconstruct_path(
-    store_final, final_root, intersection_state,
+    store_final, bridge_states_final, intersection_state,
     meta_final$cycle, meta_final$combo_number
   )
 
@@ -487,14 +482,29 @@ find_path_iterative <- function(start_state,
     omega_conformal = meta_final$omega_conformal
   )
 
-  # OPD filtering: remove states from store for combos that don't contain bridge
-  # Note: with StateStore we can't remove rows, but OPD is used to limit
-  # what gets rbind'd in the next cycle. Since StateStore accumulates everything,
-  # OPD is effectively a no-op for stored states. The bridge selection already
-  # ensures we pick the best next state.
-  if (opd && verbose) {
-    cat("OPD: bridge states selected (store-based, no filtering needed)\n")
-    flush.console()
+  # OPD filtering: restrict cycle to only combos containing bridge state
+  if (opd && cycle_num >= 1) {
+    # START side
+    combos_start <- store_combos_for_state(store_start, new_start, cycle_num)
+    if (length(combos_start) > 0) {
+      store_set_opd(store_start, cycle_num, combos_start)
+      if (verbose) {
+        filtered_count <- length(state_store_indices_for_cycle(store_start, cycle_num))
+        cat("OPD: фильтрация START cycle", cycle_num, "до", filtered_count, "строк\n")
+        flush.console()
+      }
+    }
+
+    # FINAL side
+    combos_final <- store_combos_for_state(store_final, new_final, cycle_num)
+    if (length(combos_final) > 0) {
+      store_set_opd(store_final, cycle_num, combos_final)
+      if (verbose) {
+        filtered_count <- length(state_store_indices_for_cycle(store_final, cycle_num))
+        cat("OPD: фильтрация FINAL cycle", cycle_num, "до", filtered_count, "строк\n")
+        flush.console()
+      }
+    }
   }
 
   list(

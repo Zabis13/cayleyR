@@ -44,7 +44,8 @@ short_position <- function(allowed_positions, n) {
     old_len <- length(allowed_positions)
 
     # Step 0: reduce chains of identical shift operations
-    optimized <- character(0)
+    opt_list <- vector("list", length(allowed_positions))
+    opt_idx <- 0L
     i <- 1
     while (i <= length(allowed_positions)) {
       op <- allowed_positions[i]
@@ -63,23 +64,27 @@ short_position <- function(allowed_positions, n) {
         }
 
         if (residual != 0) {
-          optimized <- c(optimized, rep(op, residual))
+          opt_idx <- opt_idx + 1L
+          opt_list[[opt_idx]] <- rep(op, residual)
         }
         i <- i + count
       } else {
-        optimized <- c(optimized, op)
+        opt_idx <- opt_idx + 1L
+        opt_list[[opt_idx]] <- op
         i <- i + 1
       }
     }
-    allowed_positions <- optimized
+    allowed_positions <- unlist(opt_list[seq_len(opt_idx)])
 
     if (length(allowed_positions) == 0) break
 
     # Step 1: remove adjacent inverse pairs
     i <- 1
-    cleaned <- character(0)
-    while (i <= length(allowed_positions)) {
-      if (i < length(allowed_positions)) {
+    len <- length(allowed_positions)
+    clean_vec <- character(len)
+    clean_idx <- 0L
+    while (i <= len) {
+      if (i < len) {
         curr <- allowed_positions[i]
         next_op <- allowed_positions[i + 1]
 
@@ -90,10 +95,11 @@ short_position <- function(allowed_positions, n) {
           next
         }
       }
-      cleaned <- c(cleaned, allowed_positions[i])
+      clean_idx <- clean_idx + 1L
+      clean_vec[clean_idx] <- allowed_positions[i]
       i <- i + 1
     }
-    allowed_positions <- cleaned
+    allowed_positions <- if (clean_idx > 0L) clean_vec[seq_len(clean_idx)] else character(0)
 
     if (length(allowed_positions) == 0) break
 
@@ -190,7 +196,7 @@ validate_and_simplify_path <- function(path_candidate, start_state, final_state,
   n <- length(start_state)
 
   test_before <- tryCatch({
-    result <- apply_operations(start_state, path_candidate, k)
+    result <- apply_operations(start_state, path_candidate, k, compute_coords = FALSE)
     test_state <- result$state
     identical(as.integer(test_state), as.integer(final_state))
   }, error = function(e) FALSE)
@@ -202,7 +208,7 @@ validate_and_simplify_path <- function(path_candidate, start_state, final_state,
   path_simplified <- short_position(path_candidate, n)
 
   test_after <- tryCatch({
-    result <- apply_operations(start_state, path_simplified, k)
+    result <- apply_operations(start_state, path_simplified, k, compute_coords = FALSE)
     test_state <- result$state
     identical(as.integer(test_state), as.integer(final_state))
   }, error = function(e) FALSE)

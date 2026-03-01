@@ -120,8 +120,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // apply_operations
-List apply_operations(IntegerVector state, CharacterVector operations, int k, Nullable<List> coords);
-RcppExport SEXP _cayleyR_apply_operations(SEXP stateSEXP, SEXP operationsSEXP, SEXP kSEXP, SEXP coordsSEXP) {
+List apply_operations(IntegerVector state, CharacterVector operations, int k, Nullable<List> coords, bool compute_coords);
+RcppExport SEXP _cayleyR_apply_operations(SEXP stateSEXP, SEXP operationsSEXP, SEXP kSEXP, SEXP coordsSEXP, SEXP compute_coordsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -129,7 +129,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< CharacterVector >::type operations(operationsSEXP);
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
     Rcpp::traits::input_parameter< Nullable<List> >::type coords(coordsSEXP);
-    rcpp_result_gen = Rcpp::wrap(apply_operations(state, operations, k, coords));
+    Rcpp::traits::input_parameter< bool >::type compute_coords(compute_coordsSEXP);
+    rcpp_result_gen = Rcpp::wrap(apply_operations(state, operations, k, coords, compute_coords));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -328,6 +329,41 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// state_store_set_opd
+void state_store_set_opd(SEXP xp, int target_cycle, IntegerVector combos);
+RcppExport SEXP _cayleyR_state_store_set_opd(SEXP xpSEXP, SEXP target_cycleSEXP, SEXP combosSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
+    Rcpp::traits::input_parameter< int >::type target_cycle(target_cycleSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type combos(combosSEXP);
+    state_store_set_opd(xp, target_cycle, combos);
+    return R_NilValue;
+END_RCPP
+}
+// state_store_clear_opd
+void state_store_clear_opd(SEXP xp);
+RcppExport SEXP _cayleyR_state_store_clear_opd(SEXP xpSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
+    state_store_clear_opd(xp);
+    return R_NilValue;
+END_RCPP
+}
+// state_store_combos_for_state
+IntegerVector state_store_combos_for_state(SEXP xp, IntegerVector state_vec, int target_cycle);
+RcppExport SEXP _cayleyR_state_store_combos_for_state(SEXP xpSEXP, SEXP state_vecSEXP, SEXP target_cycleSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state_vec(state_vecSEXP);
+    Rcpp::traits::input_parameter< int >::type target_cycle(target_cycleSEXP);
+    rcpp_result_gen = Rcpp::wrap(state_store_combos_for_state(xp, state_vec, target_cycle));
+    return rcpp_result_gen;
+END_RCPP
+}
 // state_store_to_dataframe
 DataFrame state_store_to_dataframe(SEXP xp);
 RcppExport SEXP _cayleyR_state_store_to_dataframe(SEXP xpSEXP) {
@@ -340,17 +376,17 @@ BEGIN_RCPP
 END_RCPP
 }
 // state_store_reconstruct_path
-Nullable<CharacterVector> state_store_reconstruct_path(SEXP xp, IntegerVector start_state_vec, IntegerVector target_state_vec, int target_cycle, int target_combo);
-RcppExport SEXP _cayleyR_state_store_reconstruct_path(SEXP xpSEXP, SEXP start_state_vecSEXP, SEXP target_state_vecSEXP, SEXP target_cycleSEXP, SEXP target_comboSEXP) {
+Nullable<CharacterVector> state_store_reconstruct_path(SEXP xp, IntegerMatrix bridge_states_mat, IntegerVector target_state_vec, int target_cycle, int target_combo);
+RcppExport SEXP _cayleyR_state_store_reconstruct_path(SEXP xpSEXP, SEXP bridge_states_matSEXP, SEXP target_state_vecSEXP, SEXP target_cycleSEXP, SEXP target_comboSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
-    Rcpp::traits::input_parameter< IntegerVector >::type start_state_vec(start_state_vecSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix >::type bridge_states_mat(bridge_states_matSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type target_state_vec(target_state_vecSEXP);
     Rcpp::traits::input_parameter< int >::type target_cycle(target_cycleSEXP);
     Rcpp::traits::input_parameter< int >::type target_combo(target_comboSEXP);
-    rcpp_result_gen = Rcpp::wrap(state_store_reconstruct_path(xp, start_state_vec, target_state_vec, target_cycle, target_combo));
+    rcpp_result_gen = Rcpp::wrap(state_store_reconstruct_path(xp, bridge_states_mat, target_state_vec, target_cycle, target_combo));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -380,7 +416,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_get_reachable_states_light_cpp", (DL_FUNC) &_cayleyR_get_reachable_states_light_cpp, 3},
     {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 5},
     {"_cayleyR_openmp_threads", (DL_FUNC) &_cayleyR_openmp_threads, 0},
-    {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 4},
+    {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 5},
     {"_cayleyR_short_path_bfs_cpp", (DL_FUNC) &_cayleyR_short_path_bfs_cpp, 4},
     {"_cayleyR_sparse_bfs_cpp", (DL_FUNC) &_cayleyR_sparse_bfs_cpp, 5},
     {"_cayleyR_state_store_create", (DL_FUNC) &_cayleyR_state_store_create, 2},
@@ -396,6 +432,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_state_store_find_best_match", (DL_FUNC) &_cayleyR_state_store_find_best_match, 3},
     {"_cayleyR_state_store_indices_for_cycle", (DL_FUNC) &_cayleyR_state_store_indices_for_cycle, 2},
     {"_cayleyR_state_store_filter_middle", (DL_FUNC) &_cayleyR_state_store_filter_middle, 4},
+    {"_cayleyR_state_store_set_opd", (DL_FUNC) &_cayleyR_state_store_set_opd, 3},
+    {"_cayleyR_state_store_clear_opd", (DL_FUNC) &_cayleyR_state_store_clear_opd, 1},
+    {"_cayleyR_state_store_combos_for_state", (DL_FUNC) &_cayleyR_state_store_combos_for_state, 3},
     {"_cayleyR_state_store_to_dataframe", (DL_FUNC) &_cayleyR_state_store_to_dataframe, 1},
     {"_cayleyR_state_store_reconstruct_path", (DL_FUNC) &_cayleyR_state_store_reconstruct_path, 5},
     {"_cayleyR_analyze_combos_to_store_cpp", (DL_FUNC) &_cayleyR_analyze_combos_to_store_cpp, 5},

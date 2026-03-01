@@ -37,8 +37,8 @@ openmp_threads <- function() {
     .Call(`_cayleyR_openmp_threads`)
 }
 
-apply_operations <- function(state, operations, k, coords = NULL) {
-    .Call(`_cayleyR_apply_operations`, state, operations, k, coords)
+apply_operations <- function(state, operations, k, coords = NULL, compute_coords = TRUE) {
+    .Call(`_cayleyR_apply_operations`, state, operations, k, coords, compute_coords)
 }
 
 short_path_bfs_cpp <- function(start_state, path, k, n_hits) {
@@ -101,12 +101,24 @@ state_store_filter_middle <- function(xp, target_cycle, skip_first, skip_last) {
     .Call(`_cayleyR_state_store_filter_middle`, xp, target_cycle, skip_first, skip_last)
 }
 
+state_store_set_opd <- function(xp, target_cycle, combos) {
+    invisible(.Call(`_cayleyR_state_store_set_opd`, xp, target_cycle, combos))
+}
+
+state_store_clear_opd <- function(xp) {
+    invisible(.Call(`_cayleyR_state_store_clear_opd`, xp))
+}
+
+state_store_combos_for_state <- function(xp, state_vec, target_cycle) {
+    .Call(`_cayleyR_state_store_combos_for_state`, xp, state_vec, target_cycle)
+}
+
 state_store_to_dataframe <- function(xp) {
     .Call(`_cayleyR_state_store_to_dataframe`, xp)
 }
 
-state_store_reconstruct_path <- function(xp, start_state_vec, target_state_vec, target_cycle, target_combo) {
-    .Call(`_cayleyR_state_store_reconstruct_path`, xp, start_state_vec, target_state_vec, target_cycle, target_combo)
+state_store_reconstruct_path <- function(xp, bridge_states_mat, target_state_vec, target_cycle, target_combo) {
+    .Call(`_cayleyR_state_store_reconstruct_path`, xp, bridge_states_mat, target_state_vec, target_cycle, target_combo)
 }
 
 analyze_combos_to_store_cpp <- function(xp, combinations, start_state, k, cycle_val) {

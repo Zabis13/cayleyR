@@ -4,6 +4,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <cmath>
 #include <algorithm>
 #include "cayley_utils.h"
@@ -54,8 +55,13 @@ public:
   // Hash index: state_key -> vector of row indices
   std::unordered_map<std::string, std::vector<int>> hash_index;
 
-  // Cycle index: cycle_val -> vector of row indices (O(1) lookup by cycle)
-  std::unordered_map<int, std::vector<int>> cycle_index;
+  // Cycle index: cycle_val -> vector of row indices
+  // Built on demand via build_cycle_index(), NOT maintained in add_state/add_batch
+  mutable std::unordered_map<int, std::vector<int>> cycle_index;
+  mutable int cycle_index_built_up_to = 0; // count at last build (0 = never built)
+
+  // OPD filter: cycle_val -> allowed combo_numbers (empty = no filter)
+  std::unordered_map<int, std::unordered_set<int>> opd_combos;
 
   // ---- Construction ----
 
@@ -117,9 +123,6 @@ public:
     std::string key = state_to_key_raw(state_data, L);
     hash_index[key].push_back(idx);
 
-    // Update cycle index
-    cycle_index[cycle_val].push_back(idx);
-
     count++;
     return idx;
   }
@@ -167,9 +170,6 @@ public:
       // Hash
       std::string key = state_to_key_raw(&states[offset], L);
       hash_index[key].push_back(count);
-
-      // Cycle index
-      cycle_index[cycle_val].push_back(count);
 
       count++;
     }
@@ -249,17 +249,51 @@ public:
     return best_idx;
   }
 
+  // ---- OPD: set allowed combos for a cycle ----
+  void set_opd_combos(int target_cycle, const std::vector<int>& combos) {
+    if (combos.empty()) {
+      opd_combos.erase(target_cycle);
+    } else {
+      opd_combos[target_cycle] = std::unordered_set<int>(combos.begin(), combos.end());
+    }
+  }
+
+  // ---- OPD: clear all filters ----
+  void clear_opd() {
+    opd_combos.clear();
+  }
+
+  // ---- Check if index passes OPD filter ----
+  bool passes_opd(int idx, int target_cycle) const {
+    auto opd_it = opd_combos.find(target_cycle);
+    if (opd_it == opd_combos.end()) return true; // no filter
+    return opd_it->second.count(combo_number[idx]) > 0;
+  }
+
+  // ---- Build cycle index on demand (NOT called from add_state/add_batch) ----
+  void build_cycle_index() const {
+    if (cycle_index_built_up_to == count) return; // already up to date
+
+    // Incremental: only process new states since last build
+    for (int i = cycle_index_built_up_to; i < count; i++) {
+      cycle_index[cycle[i]].push_back(i);
+    }
+    cycle_index_built_up_to = count;
+  }
+
   // ---- Filter: get indices for a cycle, skipping first/last steps per combo ----
   std::vector<int> filter_middle_indices(int target_cycle,
                                           int skip_first, int skip_last) const {
+    build_cycle_index();
     auto cycle_it = cycle_index.find(target_cycle);
     if (cycle_it == cycle_index.end()) return std::vector<int>();
     const auto& cyc_indices = cycle_it->second;
 
-    // First pass: find max step per combo in this cycle
+    // First pass: find max step per combo in this cycle (respecting OPD)
     std::unordered_map<int, int> combo_max_step;
     for (int i : cyc_indices) {
       if (step[i] == NA_INTEGER) continue;
+      if (!passes_opd(i, target_cycle)) continue;
       auto it = combo_max_step.find(combo_number[i]);
       if (it == combo_max_step.end() || step[i] > it->second) {
         combo_max_step[combo_number[i]] = step[i];
@@ -270,6 +304,7 @@ public:
     std::vector<int> result;
     for (int i : cyc_indices) {
       if (step[i] == NA_INTEGER) continue;
+      if (!passes_opd(i, target_cycle)) continue;
       auto it = combo_max_step.find(combo_number[i]);
       if (it == combo_max_step.end()) continue;
       if (step[i] > skip_first && step[i] <= (it->second - skip_last)) {
@@ -279,11 +314,26 @@ public:
     return result;
   }
 
-  // ---- Indices for a given cycle (O(1) via cycle_index) ----
+  // ---- Indices for a given cycle (O(1) via cycle_index, with OPD filter) ----
   std::vector<int> indices_for_cycle(int target_cycle) const {
+    build_cycle_index();
     auto it = cycle_index.find(target_cycle);
     if (it == cycle_index.end()) return std::vector<int>();
-    return it->second;
+
+    // Check if OPD filter active for this cycle
+    auto opd_it = opd_combos.find(target_cycle);
+    if (opd_it == opd_combos.end()) return it->second; // no filter, fast path
+
+    // Filter by allowed combos
+    const auto& allowed = opd_it->second;
+    std::vector<int> result;
+    result.reserve(it->second.size());
+    for (int idx : it->second) {
+      if (allowed.count(combo_number[idx]) > 0) {
+        result.push_back(idx);
+      }
+    }
+    return result;
   }
 
   // ---- Helper: state_to_key from raw pointer ----

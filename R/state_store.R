@@ -139,6 +139,38 @@ store_filter_middle <- function(store, target_cycle, skip_first = 5L, skip_last 
                              as.integer(skip_first), as.integer(skip_last))
 }
 
+#' Set OPD Combo Filter for a Cycle
+#'
+#' Restricts indices_for_cycle and filter_middle_indices to only return
+#' states from the specified combo_numbers for the given cycle.
+#'
+#' @param store External pointer to StateStore
+#' @param target_cycle Integer, cycle number to filter
+#' @param combos Integer vector of allowed combo_numbers
+#' @export
+store_set_opd <- function(store, target_cycle, combos) {
+  state_store_set_opd(store, as.integer(target_cycle), as.integer(combos))
+}
+
+#' Clear All OPD Filters
+#'
+#' @param store External pointer to StateStore
+#' @export
+store_clear_opd <- function(store) {
+  state_store_clear_opd(store)
+}
+
+#' Find Combo Numbers Containing a State in a Cycle
+#'
+#' @param store External pointer to StateStore
+#' @param state Integer vector
+#' @param target_cycle Integer
+#' @return Integer vector of combo_numbers
+#' @export
+store_combos_for_state <- function(store, state, target_cycle) {
+  state_store_combos_for_state(store, as.integer(state), as.integer(target_cycle))
+}
+
 #' Convert Store to Data Frame
 #'
 #' For debugging and backward compatibility. Converts the entire store
@@ -153,21 +185,32 @@ store_to_dataframe <- function(store) {
 
 #' Reconstruct Path from Store
 #'
-#' Traces back through cycle chain to build operation sequence.
-#' C++ implementation of reconstruct_full_path.
+#' Traces back through cycle chain using bridge states to build
+#' the correct operation sequence. Each bridge state defines which
+#' combo path to follow in each cycle.
 #'
 #' @param store External pointer to StateStore
-#' @param start_state Integer vector
+#' @param bridge_states List of bridge state entries, each with \code{$state}
+#'   (integer vector). Element 1 = root (cycle 0), element i+1 = bridge at cycle i.
 #' @param target_state Integer vector
 #' @param target_cycle Integer
 #' @param target_combo Integer
 #' @return Character vector of operations, or NULL
 #' @export
-store_reconstruct_path <- function(store, start_state, target_state,
+store_reconstruct_path <- function(store, bridge_states, target_state,
                                     target_cycle, target_combo) {
+  # Build bridge states matrix: n_bridges x L
+  n_bridges <- length(bridge_states)
+  L <- state_store_perm_length(store)
+  bridge_mat <- matrix(0L, nrow = n_bridges, ncol = L)
+  for (i in seq_along(bridge_states)) {
+    bridge_mat[i, ] <- as.integer(bridge_states[[i]]$state)
+  }
+  storage.mode(bridge_mat) <- "integer"
+
   result <- state_store_reconstruct_path(
     store,
-    as.integer(start_state),
+    bridge_mat,
     as.integer(target_state),
     as.integer(target_cycle),
     as.integer(target_combo)
