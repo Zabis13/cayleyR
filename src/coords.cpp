@@ -5,55 +5,13 @@
 #include <vector>
 #include <unordered_set>
 #include "cayley_utils.h"
+#include "celestial_coords.h"
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
 using namespace Rcpp;
-
-struct CelestialCoords {
-  int nL;
-  int nR;
-  int nX;
-  double theta;
-  double phi;
-  double omega_conformal;
-};
-
-CelestialCoords update_coords(const CelestialCoords& coords, int delta_L, int delta_R, int delta_X) {
-  CelestialCoords new_coords;
-  new_coords.nL = coords.nL + delta_L;
-  new_coords.nR = coords.nR + delta_R;
-  new_coords.nX = coords.nX + delta_X;
-  
-  double r = std::sqrt(new_coords.nL * new_coords.nL + 
-                       new_coords.nR * new_coords.nR + 
-                       new_coords.nX * new_coords.nX);
-  
-  new_coords.omega_conformal = r;
-  
-  if (r > 1e-10) {
-    new_coords.theta = std::acos(new_coords.nX / r);
-    new_coords.phi = std::atan2((double)new_coords.nR, (double)new_coords.nL);
-  } else {
-    new_coords.theta = 0.0;
-    new_coords.phi = 0.0;
-  }
-  
-  return new_coords;
-}
-
-CelestialCoords create_empty_coords() {
-  CelestialCoords coords;
-  coords.nL = 0;
-  coords.nR = 0;
-  coords.nX = 0;
-  coords.theta = 0.0;
-  coords.phi = 0.0;
-  coords.omega_conformal = 0.0;
-  return coords;
-}
 
 CelestialCoords extract_coords_from_list(List cl) {
   CelestialCoords coords;

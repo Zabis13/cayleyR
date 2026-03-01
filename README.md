@@ -11,9 +11,11 @@ operations.
 
 - **Basic permutation operations** (C++): cyclic left/right shifts, prefix reversal
 - **Cycle analysis**: find cycles in Cayley graphs with detailed state information
-- **Sequence optimization**: search for operation sequences with maximum cycle length
+- **Sequence optimization**: search for operation sequences with flexible sorting criteria
+- **C++ StateStore**: compact hash-indexed state storage with O(1) incremental insert and O(min(N,M)) intersection
 - **Bidirectional BFS**: find shortest paths between permutation states
 - **Iterative solver**: find paths between arbitrary states via iterative cycle expansion
+- **BFS highway solver**: combine sparse BFS trees with iterative solver, auto-selects direct vs hub path
 - **Celestial coordinates**: map LRX operation counts to spherical coordinates
 - **GPU acceleration** (optional): Vulkan-based batch computations via ggmlR
 - **Fast processing**: lightweight version for batch testing of combinations
@@ -42,18 +44,58 @@ apply_operations(state, c("L", "R", "X"), k = 4)
 # Find cycle length for an operation sequence
 get_reachable_states_light(state, c("1", "3"), k = 4)
 
-# Find best random operation sequences
+# Find best random operation sequences (flexible sorting)
 find_best_random_combinations(
   moves = c("1", "2", "3"),
   combo_length = 10,
   n_samples = 50,
   n_top = 5,
   start_state = 1:10,
-  k = 4
+  k = 4,
+  sort_by = c("shortest", "most_unique")  # or "longest", "most_repeated", etc.
 )
 
 # Bidirectional BFS shortest path
 bidirectional_bfs(start = 1:10, target = c(2:10, 1), k = 4)
+
+# Iterative path finder
+find_path_iterative(
+  start_state = 1:10,
+  final_state = c(3, 1, 2, 4, 5, 6, 7, 8, 9, 10),
+  k = 4,
+  sort_by = c("longest", "most_unique")
+)
+
+# BFS highway path finder (auto-selects direct vs hub route)
+find_path_bfs(
+  start_state = 1:10,
+  final_state = c(3, 1, 2, 4, 5, 6, 7, 8, 9, 10),
+  k = 4,
+  bfs_levels = 200,
+  sort_by = c("longest", "most_unique")
+)
+```
+
+## C++ StateStore
+
+The core state storage uses a compact C++ backend for high-performance
+state accumulation during iterative search:
+
+```r
+# Create store for permutations of length 10
+store <- create_state_store(10L)
+
+# Analyze combos directly into store (no intermediate data.frames)
+store_analyze_combos(store, top_combos, start_state, k = 4, cycle_val = 1L)
+
+# Hash-based intersection between two stores: O(min(N,M))
+common_keys <- store_find_intersections(store_start, store_final)
+
+# Manhattan distance best match on flat integer array
+best_idx <- store_find_best_match(store, target_state)
+
+# Convert to data.frame for debugging
+df <- store_to_dataframe(store)
 ```
 
 ## GPU acceleration
@@ -87,13 +129,25 @@ manhattan_distance_matrix_gpu(states1, states2)
 **Analysis:**
 - `get_reachable_states()` — full cycle analysis with state tracking
 - `get_reachable_states_light()` — lightweight cycle detection
-- `find_best_random_combinations()` — find best random sequences
+- `find_best_random_combinations()` — find best random sequences with flexible `sort_by`
 - `analyze_top_combinations()` — analyze top operation sequences
+
+**StateStore (C++ backend):**
+- `create_state_store()` — create compact hash-indexed store
+- `store_add_from_df()` — add states from data.frame
+- `store_analyze_combos()` — analyze combos directly into store (no data.frame)
+- `store_find_intersections()` — O(min(N,M)) hash intersection
+- `store_find_best_match()` — Manhattan distance best match
+- `store_filter_middle()` — filter middle steps per combo
+- `store_to_dataframe()` — convert to data.frame for debugging
+- `store_reconstruct_path()` — C++ path reconstruction through cycles
+- `store_lookup()` — hash lookup by state vector
+- `store_get_state()` / `store_get_meta()` — retrieve state and metadata by index
 
 **Pathfinding:**
 - `bidirectional_bfs()` — bidirectional BFS shortest path
-- `find_path_iterative()` — iterative path solver via cycle expansion
-- `find_path_bfs()` — find path via BFS highways + iterative connector
+- `find_path_iterative()` — iterative path solver via cycle expansion (StateStore backend)
+- `find_path_bfs()` — find path via BFS highways + iterative connector (auto direct vs hub)
 - `short_path_bfs()` — shorten existing path via greedy BFS hopping
 - `sparse_bfs()` — sparse BFS with hybrid hub/random selection
 - `reconstruct_bfs_path()` — reconstruct path from sparse BFS result
@@ -110,7 +164,6 @@ manhattan_distance_matrix_gpu(states1, states2)
 - `manhattan_distance()` — Manhattan distance between states
 - `breakpoint_distance()` — breakpoint distance between states
 - `calculate_differences()` — compute distances for all states in a table
-- `find_best_match_state()` — find closest state by distance
 
 **Celestial Coordinates:**
 - `convert_LRX_to_celestial()` — map LRX operation counts to spherical coordinates
@@ -124,7 +177,7 @@ manhattan_distance_matrix_gpu(states1, states2)
 - `check_duplicates()` — find states present in two tables
 - `find_combination_in_states()` — find a specific state in results
 - `save_bridge_states()` — save bridge states to CSV
-- `short_position()` — short string representation of a state
+- `short_position()` — simplify operation path
 - `convert_digits()` — parse operation strings
 
 ## Dependencies

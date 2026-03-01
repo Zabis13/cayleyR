@@ -49,3 +49,67 @@ sparse_bfs_cpp <- function(start_state, k, n_hubs = 7L, n_random = 3L, max_level
     .Call(`_cayleyR_sparse_bfs_cpp`, start_state, k, n_hubs, n_random, max_levels)
 }
 
+state_store_create <- function(perm_length, init_capacity = 10000L) {
+    .Call(`_cayleyR_state_store_create`, perm_length, init_capacity)
+}
+
+state_store_size <- function(xp) {
+    .Call(`_cayleyR_state_store_size`, xp)
+}
+
+state_store_unique_count <- function(xp) {
+    .Call(`_cayleyR_state_store_unique_count`, xp)
+}
+
+state_store_perm_length <- function(xp) {
+    .Call(`_cayleyR_state_store_perm_length`, xp)
+}
+
+state_store_add_batch <- function(xp, states_mat, step_vec, combo_vec, cycle_val, op_vec, nL_vec, nR_vec, nX_vec, theta_vec, phi_vec, omega_vec) {
+    .Call(`_cayleyR_state_store_add_batch`, xp, states_mat, step_vec, combo_vec, cycle_val, op_vec, nL_vec, nR_vec, nX_vec, theta_vec, phi_vec, omega_vec)
+}
+
+state_store_get_state <- function(xp, idx) {
+    .Call(`_cayleyR_state_store_get_state`, xp, idx)
+}
+
+state_store_get_meta <- function(xp, idx) {
+    .Call(`_cayleyR_state_store_get_meta`, xp, idx)
+}
+
+state_store_lookup <- function(xp, key) {
+    .Call(`_cayleyR_state_store_lookup`, xp, key)
+}
+
+state_store_lookup_state <- function(xp, state) {
+    .Call(`_cayleyR_state_store_lookup_state`, xp, state)
+}
+
+state_store_find_intersections <- function(xp_a, xp_b) {
+    .Call(`_cayleyR_state_store_find_intersections`, xp_a, xp_b)
+}
+
+state_store_find_best_match <- function(xp, target, candidate_indices) {
+    .Call(`_cayleyR_state_store_find_best_match`, xp, target, candidate_indices)
+}
+
+state_store_indices_for_cycle <- function(xp, target_cycle) {
+    .Call(`_cayleyR_state_store_indices_for_cycle`, xp, target_cycle)
+}
+
+state_store_filter_middle <- function(xp, target_cycle, skip_first, skip_last) {
+    .Call(`_cayleyR_state_store_filter_middle`, xp, target_cycle, skip_first, skip_last)
+}
+
+state_store_to_dataframe <- function(xp) {
+    .Call(`_cayleyR_state_store_to_dataframe`, xp)
+}
+
+state_store_reconstruct_path <- function(xp, start_state_vec, target_state_vec, target_cycle, target_combo) {
+    .Call(`_cayleyR_state_store_reconstruct_path`, xp, start_state_vec, target_state_vec, target_cycle, target_combo)
+}
+
+analyze_combos_to_store_cpp <- function(xp, combinations, start_state, k, cycle_val) {
+    .Call(`_cayleyR_analyze_combos_to_store_cpp`, xp, combinations, start_state, k, cycle_val)
+}
+

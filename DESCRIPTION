@@ -1,7 +1,7 @@
 Package: cayleyR
 Type: Package
 Title: Cayley Graph Analysis for Permutation Puzzles
-Version: 0.2.1
+Version: 0.2.2
 Authors@R: c(
     person(
       "Yuri", "Baramykov",

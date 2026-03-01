@@ -1,3 +1,40 @@
+# cayleyR 0.2.2
+
+## Breaking changes
+
+* `find_path_iterative()` now uses C++ `StateStore` backend instead of `data.frame` lists — memory usage is linear instead of quadratic
+* `analyze_top_combinations()` still works but the new `store_analyze_combos()` writes directly to C++ store without intermediate data.frames
+
+## New features
+
+* **C++ StateStore** — compact hash-indexed state storage (`src/state_store.h`, `src/state_store.cpp`):
+  - Flat `vector<int>` for states, separate metadata vectors, `unordered_map` hash index
+  - Capacity starts at 10,000 and doubles on demand (amortized O(1) insert)
+  - Operations encoded as `int` (1/2/3) instead of strings for cache efficiency
+  - Incremental hash: keys computed only for new states, never recomputed
+  - `state_store_find_intersections()` — O(min(N,M)) set intersection via hash
+  - `state_store_find_best_match()` — Manhattan distance on flat array
+  - `state_store_filter_middle()` — skip first/last steps per combo
+  - `state_store_reconstruct_path()` — full C++ path reconstruction
+  - `state_store_to_dataframe()` — convert to data.frame for debugging
+
+* **`store_analyze_combos()`** — C++ cycle expansion writing directly to StateStore, bypassing all R-level list/data.frame creation
+
+* **`sort_by` parameter** for `find_best_random_combinations()`:
+  - Flexible vector of sorting criteria: `"longest"`, `"shortest"`, `"most_unique"`, `"least_unique"`, `"most_repeated"`, `"least_repeated"`
+  - Criteria combine freely: e.g. `c("shortest", "most_unique")`
+  - New `repetition_ratio` column in output
+  - `sort_by` parameter propagated to `find_path_iterative()`
+
+* **Bridge state output** — `find_path_iterative()` and `find_path_bfs()` now print bridge state chains with 1-based numbering and labels
+
+* **Direct vs hub distance check** in `find_path_bfs()` — compares Manhattan distance start<->final vs hub_s<->hub_f, skips BFS hubs when direct is closer
+
+## Improvements
+
+* `CelestialCoords` struct extracted to shared header (`celestial_coords.h`) for reuse across C++ files
+* `find_path_bfs()` now returns `bridge_states_start` and `bridge_states_final` in its result, including BFS hub states
+
 # cayleyR 0.2.1
 
 ## Breaking changes

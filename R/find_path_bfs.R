@@ -116,11 +116,45 @@ find_path_bfs <- function(start_state, final_state, k,
   hub_s_key <- start_keys[best_s_idx]
   hub_f_key <- final_keys[best_f_idx]
 
+  # Check if direct start<->final is closer than going through hubs
+  direct_dist <- manhattan_distance(start_state, final_state)
+
   if (verbose) {
     cat("  Hub start:", hub_s_key, "\n")
     cat("  Hub final:", hub_f_key, "\n")
-    cat("  Distance:", best_dist, "\n")
+    cat("  Hub distance:", best_dist, "\n")
+    cat("  Direct distance:", direct_dist, "\n")
     flush.console()
+  }
+
+  if (direct_dist <= best_dist) {
+    if (verbose) {
+      cat("  Direct path is closer, skipping BFS hubs\n")
+      flush.console()
+    }
+
+    mid_result <- find_path_iterative(
+      start_state = start_state,
+      final_state = final_state,
+      k = k,
+      verbose = verbose,
+      ...
+    )
+
+    if (mid_result$found) {
+      return(list(
+        path = mid_result$path, found = TRUE, cycles = mid_result$cycles,
+        bridge_states_start = mid_result$bridge_states_start,
+        bridge_states_final = mid_result$bridge_states_final,
+        bfs_info = list(type = "DIRECT", hub_s = NA, hub_f = NA,
+                        distance = direct_dist)
+      ))
+    }
+    # If direct failed, fall through to try via hubs
+    if (verbose) {
+      cat("  Direct path failed, trying via BFS hubs\n")
+      flush.console()
+    }
   }
 
   # --- Step 3: Check if hubs are the same ---
@@ -135,11 +169,24 @@ find_path_bfs <- function(start_state, final_state, k,
 
     validation <- validate_and_simplify_path(full_path, start_state, final_state, k)
     if (validation$valid) {
+      # Bridge chain: start -> hub (same point) -> final
+      all_bridges_start <- list(
+        list(state = start_state, cycle = 0, label = "start"),
+        list(state = as.integer(hub_s), cycle = 0, label = "BFS hub")
+      )
+      all_bridges_final <- list(
+        list(state = final_state, cycle = 0, label = "final"),
+        list(state = as.integer(hub_f), cycle = 0, label = "BFS hub")
+      )
       if (verbose) {
         cat("  Path validated! Length:", length(validation$path), "\n")
+        .print_bridge_states(all_bridges_start, "start")
+        .print_bridge_states(all_bridges_final, "final")
       }
       return(list(
         path = validation$path, found = TRUE, cycles = 0,
+        bridge_states_start = all_bridges_start,
+        bridge_states_final = all_bridges_final,
         bfs_info = list(type = "BFS_DIRECT", hub_s = hub_s_key, hub_f = hub_f_key, distance = 0)
       ))
     }
@@ -160,7 +207,14 @@ find_path_bfs <- function(start_state, final_state, k,
   )
 
   if (!mid_result$found) {
-    if (verbose) cat("  Middle path not found.\n")
+    if (verbose) {
+      cat("  Middle path not found.\n")
+      # Build full bridge chain with BFS hubs
+      all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
+      all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
+      .print_bridge_states(all_bridges_start, "start")
+      .print_bridge_states(all_bridges_final, "final")
+    }
     return(list(
       path = NULL, found = FALSE, cycles = mid_result$cycles,
       bfs_info = list(type = "FAILED", hub_s = hub_s_key, hub_f = hub_f_key, distance = best_dist)
@@ -193,6 +247,10 @@ find_path_bfs <- function(start_state, final_state, k,
 
   validation <- validate_and_simplify_path(full_path, start_state, final_state, k)
 
+  # Build full bridge chains (BFS start/final + hub + iterative bridges)
+  all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
+  all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
+
   if (validation$valid) {
     if (verbose) {
       cat("\n=== Result ===\n")
@@ -201,6 +259,10 @@ find_path_bfs <- function(start_state, final_state, k,
       cat("  Iterative hub->hub:", length(mid_result$path), "\n")
       cat("  BFS hub->final:", length(path_hub_to_final), "\n")
       cat("Verification passed\n")
+
+      .print_bridge_states(all_bridges_start, "start")
+      .print_bridge_states(all_bridges_final, "final")
+
       flush.console()
     }
 
@@ -214,6 +276,8 @@ find_path_bfs <- function(start_state, final_state, k,
 
     return(list(
       path = final_result_path, found = TRUE, cycles = mid_result$cycles,
+      bridge_states_start = all_bridges_start,
+      bridge_states_final = all_bridges_final,
       bfs_info = list(
         type = "BFS_HIGHWAY", hub_s = hub_s_key, hub_f = hub_f_key,
         distance = best_dist,
@@ -223,9 +287,15 @@ find_path_bfs <- function(start_state, final_state, k,
       )
     ))
   } else {
-    if (verbose) cat("VERIFICATION FAILED\n")
+    if (verbose) {
+      cat("VERIFICATION FAILED\n")
+      .print_bridge_states(all_bridges_start, "start")
+      .print_bridge_states(all_bridges_final, "final")
+    }
     return(list(
       path = full_path, found = FALSE, cycles = mid_result$cycles,
+      bridge_states_start = all_bridges_start,
+      bridge_states_final = all_bridges_final,
       bfs_info = list(type = "VERIFICATION_FAILED")
     ))
   }
@@ -235,4 +305,26 @@ find_path_bfs <- function(start_state, final_state, k,
 .bfs_ops_to_digits <- function(ops) {
   mapping <- c("L" = "1", "R" = "2", "X" = "3")
   unname(mapping[ops])
+}
+
+# Build full bridge chain: BFS origin + hub + iterative bridges (skipping first which is hub)
+.build_full_bridges <- function(bfs_origin, hub_state, iterative_bridges, hub_label) {
+  result <- list(
+    list(state = as.integer(bfs_origin), cycle = 0, label = "origin")
+  )
+
+  # Add BFS hub (if different from origin)
+  hub_int <- as.integer(hub_state)
+  if (!identical(hub_int, as.integer(bfs_origin))) {
+    result[[length(result) + 1]] <- list(state = hub_int, cycle = 0, label = hub_label)
+  }
+
+  # Add iterative bridges, skipping the first one (which is the hub itself, cycle=0)
+  if (length(iterative_bridges) > 1) {
+    for (i in 2:length(iterative_bridges)) {
+      result[[length(result) + 1]] <- iterative_bridges[[i]]
+    }
+  }
+
+  result
 }
