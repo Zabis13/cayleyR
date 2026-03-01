@@ -7,7 +7,7 @@
 add_state_keys(states_df, new_states, v_cols)
 }
 \arguments{
-\item{states_df}{Data frame or Arrow Table}
+\item{states_df}{Data frame}
 
 \item{new_states}{Data frame of newly added states (used when state_key
 column already exists to compute keys only for new rows)}

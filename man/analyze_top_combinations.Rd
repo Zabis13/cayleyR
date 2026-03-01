@@ -15,13 +15,13 @@ analyze_top_combinations(top_combos, start_state, k)
 \item{k}{Integer, parameter for reverse operations}
 }
 \value{
-Arrow Table with columns V1..Vn, operation, step, combo_number,
+Data frame with columns V1..Vn, operation, step, combo_number,
 nL, nR, nX, theta, phi, omega_conformal
 }
 \description{
 For each combination in a data frame of top results, runs a full cycle
 analysis and collects all states with their celestial coordinates into
-a single Arrow Table.
+a single data frame.
 }
 \examples{
 combos <- data.frame(combination = c("13", "23"), stringsAsFactors = FALSE)

@@ -2,20 +2,29 @@
 % Please edit documentation in R/state_utils.R
 \name{generate_state}
 \alias{generate_state}
-\title{Generate Random Permutation State}
+\title{Generate Reachable Random State}
 \usage{
-generate_state(n)
+generate_state(n, k = n, n_moves = 25L, moves = c("1", "2", "3"))
 }
 \arguments{
 \item{n}{Integer, the size of the permutation}
+
+\item{k}{Integer, parameter for reverse_prefix operation}
+
+\item{n_moves}{Integer, number of random operations to apply (default 25)}
+
+\item{moves}{Character vector, allowed operations (default c("1", "2", "3"))}
 }
 \value{
-Integer vector representing a random permutation of 1:n
+Integer vector representing a reachable permutation state
 }
 \description{
-Generates a random permutation of integers from 1 to n.
+Generates a random state reachable from 1:n by applying random
+operations (L, R, X). Guarantees the result is in the same
+connected component as the starting state.
 }
 \examples{
 set.seed(42)
-generate_state(10)
+generate_state(10, k = 4)
+generate_state(10, k = 4, n_moves = 100)
 }

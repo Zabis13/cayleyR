@@ -1,6 +1,3 @@
-# Suppress R CMD check NOTEs for data.table NSE variables
-utils::globalVariables(c("state_key", "source_n", ".", "total_moves", "unique_states_count",
-                         "source", ".N", ".SD"))
 
 #' Calculate Manhattan Distances for All States
 #'
@@ -8,7 +5,7 @@ utils::globalVariables(c("state_key", "source_n", ".", "total_moves", "unique_st
 #' a table of reachable states, adds a `difference` column, and sorts by it.
 #'
 #' @param start_state Integer vector, the reference state
-#' @param reachable_states_start Data frame or Arrow Table with V-columns
+#' @param reachable_states_start Data frame with V-columns
 #' @param method Character, distance method (currently only "manhattan")
 #' @param use_gpu Logical, use GPU acceleration via ggmlR if available (default FALSE)
 #' @return Data frame sorted by difference (ascending)
@@ -18,10 +15,6 @@ utils::globalVariables(c("state_key", "source_n", ".", "total_moves", "unique_st
 #' calculate_differences(c(1, 2), df)
 calculate_differences <- function(start_state, reachable_states_start,
                                   method = "manhattan", use_gpu = FALSE) {
-  if (inherits(reachable_states_start, "ArrowTabular")) {
-    reachable_states_start <- reachable_states_start$to_data_frame()
-  }
-
   v_columns <- grep("^V", names(reachable_states_start), value = TRUE)
   start_state <- as.integer(start_state)
   mat <- as.matrix(reachable_states_start[, v_columns, drop = FALSE])
@@ -50,21 +43,15 @@ calculate_differences <- function(start_state, reachable_states_start,
 #'
 #' Removes duplicate rows based on state columns (V1, V2, ..., Vn).
 #'
-#' @param df Data frame, data.table, or Arrow Table
-#' @return Object of same type with unique states
+#' @param df Data frame
+#' @return Data frame with unique states
 #' @export
 #' @examples
 #' df <- data.frame(V1 = c(1, 1, 2), V2 = c(2, 2, 1), op = c("a", "b", "c"))
 #' select_unique(df)
 select_unique <- function(df) {
-  is_arrow <- inherits(df, "ArrowTabular")
-  if (is_arrow) df <- as.data.frame(df)
-
-  dt <- data.table::as.data.table(df)
-  v_columns <- grep("^V", names(dt), value = TRUE)
-  unique_dt <- unique(dt, by = v_columns)
-
-  if (is_arrow) arrow::as_arrow_table(unique_dt) else unique_dt
+  v_columns <- grep("^V", names(df), value = TRUE)
+  df[!duplicated(df[, v_columns, drop = FALSE]), , drop = FALSE]
 }
 
 #' Find Duplicate States Between Two Tables
@@ -72,8 +59,8 @@ select_unique <- function(df) {
 #' Identifies states that appear in both tables by comparing V-columns.
 #' Used for finding intersections between forward and backward searches.
 #'
-#' @param df1 Data frame or Arrow Table (first set of states)
-#' @param df2 Data frame or Arrow Table (second set of states)
+#' @param df1 Data frame (first set of states)
+#' @param df2 Data frame (second set of states)
 #' @return Data frame of duplicate states with a `source` column, or NULL if none
 #' @export
 #' @examples
@@ -81,29 +68,33 @@ select_unique <- function(df) {
 #' df2 <- data.frame(V1 = c(2, 3), V2 = c(1, 2))
 #' check_duplicates(df1, df2)
 check_duplicates <- function(df1, df2) {
-  if (inherits(df1, "ArrowTabular")) df1 <- df1$to_data_frame()
-  if (inherits(df2, "ArrowTabular")) df2 <- df2$to_data_frame()
+  df1 <- as.data.frame(df1)
+  df2 <- as.data.frame(df2)
 
-  dt1 <- data.table::as.data.table(df1)
-  dt2 <- data.table::as.data.table(df2)
+  v_columns <- grep("^V", names(df1), value = TRUE)
 
-  v_columns <- grep("^V", names(dt1), value = TRUE)
+  df1$source <- "start"
+  df2$source <- "finish"
 
-  dt1[, source := "start"]
-  dt2[, source := "finish"]
+  merged <- if (has_data_table()) {
+    as.data.frame(data.table::rbindlist(
+      list(data.table::as.data.table(df1), data.table::as.data.table(df2)),
+      use.names = TRUE, fill = TRUE
+    ))
+  } else {
+    rbind(df1, df2)
+  }
 
-  merged_dt <- data.table::rbindlist(list(dt1, dt2), use.names = TRUE, fill = TRUE)
-
-  merged_dt[, state_key := apply(.SD, 1L, function(row) paste(row, collapse = "_")),
-            .SDcols = v_columns]
-
-  state_counts <- merged_dt[, .(source_n = data.table::uniqueN(source)), by = state_key]
-  true_keys <- state_counts[source_n >= 2L, state_key]
+  merged$state_key <- apply(merged[, v_columns, drop = FALSE], 1L,
+                            function(row) paste(row, collapse = "_"))
+  key_source <- tapply(merged$source, merged$state_key,
+                       function(x) length(unique(x)))
+  true_keys <- names(key_source[key_source >= 2L])
 
   if (length(true_keys) == 0L) return(NULL)
 
-  result <- merged_dt[state_key %in% true_keys]
-  if (nrow(result) == 0L) NULL else as.data.frame(result)
+  result <- merged[merged$state_key %in% true_keys, , drop = FALSE]
+  if (nrow(result) == 0L) NULL else result
 }
 
 #' Save Bridge States to CSV
@@ -145,17 +136,13 @@ save_bridge_states <- function(bridge_states, filename) {
 #' Removes the first and last steps from each combo within cycle data,
 #' keeping only middle states.
 #'
-#' @param data Data frame or Arrow Table with step and combo_number columns
+#' @param data Data frame with step and combo_number columns
 #' @param skip_first Integer, number of initial steps to skip per combo
 #' @param skip_last Integer, number of final steps to skip per combo
 #' @return Data frame with filtered states
 #' @keywords internal
 filter_middle_states <- function(data, skip_first = 2, skip_last = 2) {
   if (nrow(data) == 0) return(data)
-
-  if (inherits(data, "ArrowTabular")) {
-    data <- data$to_data_frame()
-  }
 
   has_step <- !is.na(data$step)
   max_steps <- tapply(data$step[has_step], data$combo_number[has_step], max)
@@ -174,17 +161,13 @@ filter_middle_states <- function(data, skip_first = 2, skip_last = 2) {
 #' smallest step number.
 #'
 #' @param target_state Integer vector, the target state
-#' @param reachable_states Data frame or Arrow Table with V-columns
+#' @param reachable_states Data frame with V-columns
 #' @return Single-row data frame of the best matching state
 #' @keywords internal
 find_best_match_state <- function(target_state, reachable_states, method = "manhattan",
                                   use_gpu = FALSE) {
-  if (inherits(reachable_states, "ArrowTabular")) {
-    reachable_states <- as.data.frame(reachable_states)
-  }
-
   if (is.environment(reachable_states)) {
-    stop("reachable_states cannot be an environment. Pass a data.frame or Arrow Table.")
+    stop("reachable_states cannot be an environment. Pass a data.frame.")
   }
 
   if (!is.data.frame(reachable_states)) {

@@ -12,9 +12,7 @@
 #'                  step = c(1, 2), combo_number = c(1, 1))
 #' find_combination_in_states(df, c(2, 1))
 find_combination_in_states <- function(reachable_states_start, search_state) {
-  if (inherits(reachable_states_start, "ArrowTabular")) {
-    reachable_states_start <- reachable_states_start$to_data_frame()
-  }
+
 
   n <- length(search_state)
   state_columns <- paste0("V", 1:n)

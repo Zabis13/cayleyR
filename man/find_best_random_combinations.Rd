@@ -27,7 +27,7 @@ find_best_random_combinations(
 \item{k}{Integer, parameter for reverse operations}
 }
 \value{
-data.table with columns:
+Data frame with columns:
 \item{combo_number}{Integer sequence number}
 \item{combination}{String representation of the operation sequence}
 \item{total_moves}{Cycle length for this sequence}

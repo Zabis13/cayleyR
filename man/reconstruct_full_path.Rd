@@ -14,7 +14,7 @@ reconstruct_full_path(
 )
 }
 \arguments{
-\item{reachable_states}{Data frame or Arrow Table of all explored states}
+\item{reachable_states}{Data frame of all explored states}
 
 \item{start_state}{Integer vector, the root start state}
 

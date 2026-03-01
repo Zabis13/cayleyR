@@ -18,7 +18,7 @@ get_reachable_states(start_state, allowed_positions, k, verbose = FALSE)
 \value{
 List containing:
 \item{states}{List of all visited states}
-\item{reachable_states_df}{Arrow Table with states, operations, steps, and celestial coordinates}
+\item{reachable_states_df}{Data frame with states, operations, steps, and celestial coordinates}
 \item{operations}{Vector of operations applied}
 \item{coords}{List of celestial coordinate objects per step}
 \item{nL_total}{Total left shifts}
@@ -32,7 +32,7 @@ List containing:
 Explores the Cayley graph starting from an initial state and applying
 a sequence of operations repeatedly until returning to the start state.
 Returns detailed information about all visited states, the cycle structure,
-and celestial LRX coordinates stored in an Arrow Table.
+and celestial LRX coordinates.
 }
 \examples{
 result <- get_reachable_states(1:10, c("1", "3"), k = 4)

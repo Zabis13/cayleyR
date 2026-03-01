@@ -10,7 +10,7 @@
 #' @param n_top Integer, number of top results to return (sorted by cycle length)
 #' @param start_state Integer vector, initial permutation state
 #' @param k Integer, parameter for reverse operations
-#' @return data.table with columns:
+#' @return Data frame with columns:
 #'   \item{combo_number}{Integer sequence number}
 #'   \item{combination}{String representation of the operation sequence}
 #'   \item{total_moves}{Cycle length for this sequence}
@@ -43,21 +43,25 @@ find_best_random_combinations <- function(moves,
 
   if (length(res$combination) == 0) {
     warning("No successful results found.")
-    return(data.table::data.table(
+    return(data.frame(
       combo_number = integer(0),
       combination = character(0),
       total_moves = integer(0),
-      unique_states_count = integer(0)
+      unique_states_count = integer(0),
+      stringsAsFactors = FALSE
     ))
   }
 
-  results <- data.table::data.table(
+  results <- data.frame(
     combo_number = seq_along(res$combination),
     combination = as.character(res$combination),
     total_moves = as.integer(res$total_moves),
-    unique_states_count = as.integer(res$unique_states_count)
+    unique_states_count = as.integer(res$unique_states_count),
+    stringsAsFactors = FALSE
   )
 
-  top_results <- results[order(-total_moves, -unique_states_count)][1:min(n_top, .N)]
+  results <- results[order(-results$total_moves, -results$unique_states_count), ]
+  top_results <- results[seq_len(min(n_top, nrow(results))), , drop = FALSE]
+  rownames(top_results) <- NULL
   return(top_results)
 }

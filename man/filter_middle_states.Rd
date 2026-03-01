@@ -7,7 +7,7 @@
 filter_middle_states(data, skip_first = 2, skip_last = 2)
 }
 \arguments{
-\item{data}{Data frame or Arrow Table with step and combo_number columns}
+\item{data}{Data frame with step and combo_number columns}
 
 \item{skip_first}{Integer, number of initial steps to skip per combo}
 

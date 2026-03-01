@@ -7,9 +7,9 @@
 check_duplicates(df1, df2)
 }
 \arguments{
-\item{df1}{Data frame or Arrow Table (first set of states)}
+\item{df1}{Data frame (first set of states)}
 
-\item{df2}{Data frame or Arrow Table (second set of states)}
+\item{df2}{Data frame (second set of states)}
 }
 \value{
 Data frame of duplicate states with a \code{source} column, or NULL if none

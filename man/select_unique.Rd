@@ -7,10 +7,10 @@
 select_unique(df)
 }
 \arguments{
-\item{df}{Data frame, data.table, or Arrow Table}
+\item{df}{Data frame}
 }
 \value{
-Object of same type with unique states
+Data frame with unique states
 }
 \description{
 Removes duplicate rows based on state columns (V1, V2, ..., Vn).

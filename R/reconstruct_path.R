@@ -3,7 +3,7 @@
 #' Traces back through a chain of cycles to build the full operation path
 #' from the initial state to a target state.
 #'
-#' @param reachable_states Data frame or Arrow Table of all explored states
+#' @param reachable_states Data frame of all explored states
 #' @param start_state Integer vector, the root start state
 #' @param target_state Integer vector, the target state
 #' @param target_cycle Integer, cycle number containing the target
@@ -17,9 +17,7 @@ reconstruct_full_path <- function(reachable_states,
                                    target_cycle,
                                    target_combo,
                                    v_cols) {
-  if (inherits(reachable_states, "ArrowTabular")) {
-    reachable_states <- as.data.frame(reachable_states)
-  }
+
 
   if (target_cycle == 0) {
     return(character(0))

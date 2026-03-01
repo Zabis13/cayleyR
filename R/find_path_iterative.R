@@ -118,10 +118,6 @@ find_path_iterative <- function(start_state,
       }
 
       new_states <- analyze_top_combinations(top_combos, current_state, k)
-      if (inherits(new_states, "ArrowTabular")) {
-        new_states <- as.data.frame(new_states)
-      }
-
       list(new_states = new_states, cached_combos = cached_combos)
     }
 

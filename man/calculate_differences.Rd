@@ -14,7 +14,7 @@ calculate_differences(
 \arguments{
 \item{start_state}{Integer vector, the reference state}
 
-\item{reachable_states_start}{Data frame or Arrow Table with V-columns}
+\item{reachable_states_start}{Data frame with V-columns}
 
 \item{method}{Character, distance method (currently only "manhattan")}
 

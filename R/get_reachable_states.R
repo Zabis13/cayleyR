@@ -3,7 +3,7 @@
 #' Explores the Cayley graph starting from an initial state and applying
 #' a sequence of operations repeatedly until returning to the start state.
 #' Returns detailed information about all visited states, the cycle structure,
-#' and celestial LRX coordinates stored in an Arrow Table.
+#' and celestial LRX coordinates.
 #'
 #' @param start_state Integer vector, the initial permutation state
 #' @param allowed_positions Character vector, sequence of operations to repeat
@@ -11,7 +11,7 @@
 #' @param verbose Logical; if TRUE, prints progress and cycle information (default FALSE)
 #' @return List containing:
 #'   \item{states}{List of all visited states}
-#'   \item{reachable_states_df}{Arrow Table with states, operations, steps, and celestial coordinates}
+#'   \item{reachable_states_df}{Data frame with states, operations, steps, and celestial coordinates}
 #'   \item{operations}{Vector of operations applied}
 #'   \item{coords}{List of celestial coordinate objects per step}
 #'   \item{nL_total}{Total left shifts}
@@ -81,9 +81,6 @@ get_reachable_states <- function(start_state, allowed_positions, k, verbose = FA
         phi_vec <- c(NA_real_, phi_vec)
         omega_vec <- c(NA_real_, omega_vec)
 
-        state_cols <- lapply(1:n, function(i) arrow::as_arrow_array(states_mat[, i]))
-        names(state_cols) <- paste0("V", 1:n)
-
         main_info <- paste0(
           "Cycle analysis n=", n, ", k=", k, ", ops=[",
           paste(allowed_positions, collapse = ","), "]\n",
@@ -93,14 +90,13 @@ get_reachable_states <- function(start_state, allowed_positions, k, verbose = FA
 
         if (verbose) cat(main_info, "\n")
 
-        reachable_states <- arrow::Table$create(
-          !!!state_cols,
-          operation = arrow::as_arrow_array(ops_final),
-          step = arrow::as_arrow_array(steps_final),
-          theta = arrow::as_arrow_array(theta_vec),
-          phi = arrow::as_arrow_array(phi_vec),
-          omega_conformal = arrow::as_arrow_array(omega_vec)
-        )
+        reachable_states <- as.data.frame(states_mat)
+        colnames(reachable_states) <- paste0("V", 1:n)
+        reachable_states$operation <- ops_final
+        reachable_states$step <- steps_final
+        reachable_states$theta <- theta_vec
+        reachable_states$phi <- phi_vec
+        reachable_states$omega_conformal <- omega_vec
 
         return(list(
           states = states_list,

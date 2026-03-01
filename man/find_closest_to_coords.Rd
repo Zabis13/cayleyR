@@ -7,7 +7,7 @@
 find_closest_to_coords(reachable_states, target_coords, v_cols)
 }
 \arguments{
-\item{reachable_states}{Data frame or Arrow Table with columns theta, phi,
+\item{reachable_states}{Data frame with columns theta, phi,
 omega_conformal, and V-columns for state}
 
 \item{target_coords}{List with component \code{z} (complex number)}

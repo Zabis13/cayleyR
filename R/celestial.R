@@ -135,7 +135,7 @@ calculate_midpoint_z <- function(coords1, coords2) {
 #' Searches a table of reachable states for the state whose celestial
 #' coordinates are closest to a target coordinate set.
 #'
-#' @param reachable_states Data frame or Arrow Table with columns theta, phi,
+#' @param reachable_states Data frame with columns theta, phi,
 #'   omega_conformal, and V-columns for state
 #' @param target_coords List with component `z` (complex number)
 #' @param v_cols Character vector of V-column names
@@ -145,9 +145,7 @@ calculate_midpoint_z <- function(coords1, coords2) {
 #' # Typically used with output from get_reachable_states
 #' # find_closest_to_coords(states_df, target_coords, paste0("V", 1:n))
 find_closest_to_coords <- function(reachable_states, target_coords, v_cols) {
-  if (inherits(reachable_states, "ArrowTabular")) {
-    reachable_states <- as.data.frame(reachable_states)
-  }
+
 
   if (!"omega_conformal" %in% colnames(reachable_states)) {
     stop("reachable_states must contain coordinate columns (omega_conformal, theta, phi)")

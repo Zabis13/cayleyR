@@ -1,5 +1,5 @@
 # cayleyR
-dev
+
 **cayleyR** is an R package for analyzing Cayley graphs of permutation
 groups, with a focus on the TopSpin puzzle and similar combinatorial
 problems. The package implements algorithms for cycle detection, state
@@ -92,25 +92,45 @@ manhattan_distance_matrix_gpu(states1, states2)
 
 **Pathfinding:**
 - `bidirectional_bfs()` — bidirectional BFS shortest path
-- `find_path_iterative()` — iterative path solver
+- `find_path_iterative()` — iterative path solver via cycle expansion
+- `find_path_bfs()` — find path via BFS highways + iterative connector
+- `short_path_bfs()` — shorten existing path via greedy BFS hopping
+- `sparse_bfs()` — sparse BFS with hybrid hub/random selection
+- `reconstruct_bfs_path()` — reconstruct path from sparse BFS result
+- `validate_and_simplify_path()` — validate and simplify operation path
+- `invert_path()` — reverse an operation path
 
 **GPU (optional, requires ggmlR):**
-- `cayley_gpu_available()` / `cayley_gpu_init()` / `cayley_gpu_status()` — GPU management
+- `cayley_gpu_available()` / `cayley_gpu_init()` / `cayley_gpu_status()` / `cayley_gpu_free()` — GPU management
 - `calculate_differences(..., use_gpu = TRUE)` — Manhattan distance on GPU
 - `apply_operations_batch_gpu()` — batch operations via matrix multiplication
 - `manhattan_distance_matrix_gpu()` — pairwise distance matrix
 
-**Utilities:**
-- `convert_digits()` — parse operation strings
+**Distance Metrics:**
+- `manhattan_distance()` — Manhattan distance between states
+- `breakpoint_distance()` — breakpoint distance between states
+- `calculate_differences()` — compute distances for all states in a table
+- `find_best_match_state()` — find closest state by distance
+
+**Celestial Coordinates:**
+- `convert_LRX_to_celestial()` — map LRX operation counts to spherical coordinates
+- `calculate_angular_distance_z()` — angular distance between two coordinate sets
+- `calculate_midpoint_z()` — midpoint between two coordinate sets
+- `find_closest_to_coords()` — find state closest to target coordinates
+
+**State Utilities:**
 - `generate_state()` / `generate_unique_states_df()` — random state generation
-- `manhattan_distance()` — distance between states
-- `convert_LRX_to_celestial()` — map operations to celestial coordinates
+- `select_unique()` — deduplicate states by V-columns
+- `check_duplicates()` — find states present in two tables
+- `find_combination_in_states()` — find a specific state in results
+- `save_bridge_states()` — save bridge states to CSV
+- `short_position()` — short string representation of a state
+- `convert_digits()` — parse operation strings
 
 ## Dependencies
 
-- **Rcpp** — C++ implementations of core operations
-- **data.table** — efficient state storage
-- **arrow** — Arrow Table support
+- **Rcpp** — C++ implementations of core operations (required)
+- **data.table** (optional) — faster `rbindlist` when available
 - **ggmlR** (optional) — GPU acceleration via Vulkan
 
 ## License
