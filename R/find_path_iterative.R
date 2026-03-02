@@ -66,6 +66,18 @@ find_path_iterative <- function(start_state,
   final_state <- as.integer(final_state)
   names(final_state) <- NULL
 
+  if (identical(start_state, final_state)) {
+    if (verbose) cat("Start and final states are identical, no path needed.\n")
+    return(list(
+      path = character(0),
+      found = TRUE,
+      cycles = 0L,
+      selected_info = NULL,
+      bridge_states_start = list(),
+      bridge_states_final = list()
+    ))
+  }
+
   # Create C++ StateStores (replaces states_list_start/final + rbind + hash)
   store_start <- create_state_store(n)
   store_final <- create_state_store(n)

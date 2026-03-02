@@ -43,11 +43,16 @@ convert_digits <- function(s) {
 #' set.seed(42)
 #' generate_state(10, k = 4)
 #' generate_state(10, k = 4, n_moves = 100)
-generate_state <- function(n, k = n, n_moves = 25L, moves = c("1", "2", "3")) {
-  state <- as.integer(1:n)
-  ops <- sample(moves, size = n_moves, replace = TRUE)
-  result <- apply_operations(state, ops, as.integer(k))
-  as.integer(result$state)
+generate_state <- function(n, k = n, n_moves = 25L, moves = c("1", "2", "3"),
+                           max_attempts = 100L) {
+  identity <- as.integer(1:n)
+  for (i in seq_len(max_attempts)) {
+    ops <- sample(moves, size = n_moves, replace = TRUE)
+    result <- apply_operations(identity, ops, as.integer(k))
+    state <- as.integer(result$state)
+    if (!identical(state, identity)) return(state)
+  }
+  stop("generate_state: failed to produce non-identity state in ", max_attempts, " attempts")
 }
 
 #' Generate Data Frame of Unique Random States
