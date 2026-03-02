@@ -20,6 +20,8 @@ generate_state(
 \item{n_moves}{Integer, number of random operations to apply (default 25)}
 
 \item{moves}{Character vector, allowed operations (default c("1", "2", "3"))}
+
+\item{max_attempts}{Integer, maximum attempts to generate a non-identity state (default 100)}
 }
 \value{
 Integer vector representing a reachable permutation state

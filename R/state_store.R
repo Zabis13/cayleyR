@@ -14,6 +14,19 @@ create_state_store <- function(perm_length, init_capacity = 10000L) {
   state_store_create(as.integer(perm_length), as.integer(init_capacity))
 }
 
+#' Get State Store Size
+#'
+#' Returns the number of states currently stored in the StateStore.
+#'
+#' @name state_store_size
+#' @param xp External pointer to StateStore
+#' @return Integer, number of stored states
+#' @export
+#' @examples
+#' store <- create_state_store(6L)
+#' state_store_size(store)
+NULL
+
 #' Add States to Store from Data Frame
 #'
 #' Converts a data.frame/data.table of states (as returned by

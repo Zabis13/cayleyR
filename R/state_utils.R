@@ -37,6 +37,7 @@ convert_digits <- function(s) {
 #' @param k Integer, parameter for reverse_prefix operation
 #' @param n_moves Integer, number of random operations to apply (default 25)
 #' @param moves Character vector, allowed operations (default c("1", "2", "3"))
+#' @param max_attempts Integer, maximum attempts to generate a non-identity state (default 100)
 #' @return Integer vector representing a reachable permutation state
 #' @export
 #' @examples
