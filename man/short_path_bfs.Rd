@@ -2,9 +2,9 @@
 % Please edit documentation in R/short_path_bfs.R
 \name{short_path_bfs}
 \alias{short_path_bfs}
-\title{Shorten Path via Greedy BFS Hopping}
+\title{Shorten Path via Depth-Limited BFS Hopping}
 \usage{
-short_path_bfs(path, start_state, k, n_hits = 5L)
+short_path_bfs(path, start_state, k, depth = 5L)
 }
 \arguments{
 \item{path}{Character vector of operations ("1"/"2"/"3" or "L"/"R"/"X")}
@@ -13,11 +13,16 @@ short_path_bfs(path, start_state, k, n_hits = 5L)
 
 \item{k}{Integer, parameter for reverse_prefix operation}
 
-\item{n_hits}{Integer, number of path points to find in BFS cloud (default 5)}
+\item{depth}{Integer, BFS exploration depth (default 5)}
 }
 \value{
 List with path (shortened), original_length, new_length, savings
 }
 \description{
-Shorten Path via Greedy BFS Hopping
+For each position along the path, explores all reachable states within
+\code{depth} BFS steps. If any of those states appear later in the original
+path (beyond current position + BFS steps taken), the algorithm "jumps"
+to the farthest such match, replacing the skipped segment with the shorter
+BFS route. States are indexed in a hash map supporting duplicate entries
+to catch the farthest possible jumps in paths with repeated states.
 }

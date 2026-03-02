@@ -18,6 +18,7 @@ find_path_iterative(
   opd = FALSE,
   reuse_combos = FALSE,
   distance_method = "manhattan",
+  sort_by = c("longest", "most_unique"),
   verbose = TRUE
 )
 }
@@ -51,6 +52,10 @@ find_path_iterative(
 selection. One of "manhattan" (sum of absolute differences) or "breakpoints"
 (number of adjacency violations). Default "manhattan".}
 
+\item{sort_by}{Character vector of sorting criteria for combo selection.
+See \code{\link{find_best_random_combinations}} for details.
+Default: c("longest", "most_unique").}
+
 \item{verbose}{Logical, if TRUE prints progress messages (default TRUE)}
 }
 \value{
@@ -68,6 +73,10 @@ expansion. Generates random operation sequences, analyzes their cycles,
 and looks for intersections between forward (from start) and backward
 (from final) state sets. Uses bridge states to progressively narrow
 the search space.
+}
+\details{
+Uses a compact C++ StateStore backend for O(1) incremental hash-indexed
+state storage, eliminating quadratic memory growth from repeated rbind.
 }
 \examples{
 # Small example

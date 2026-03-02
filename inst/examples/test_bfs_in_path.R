@@ -7,7 +7,7 @@ k <- 4
 start_state <- 1:n
 
 final_state <- generate_state(n, k, n_moves = 20)
-#final_state <- convert_digits("1 10 2 4 3 11 6 5 7 8 9")
+#final_state <- convert_digits("1 3 19 18 4 20 2 7 5 6 8 9 10 11 12 13 14 15 16 17")
 
 cat("Start:", paste(start_state, collapse = " "), "\n")
 cat("Final:", paste(final_state, collapse = " "), "\n\n")
@@ -39,7 +39,7 @@ cat("BFS info:", paste(names(result$bfs_info), result$bfs_info, sep = "=", colla
 
 # === Сокращение пути через short_path_bfs ===
 if (result$found) {
-  depth <- 10L
+  depth <- 9L
   cat("\n--- short_path_bfs (depth =", depth, ") ---\n")
   short_start <- Sys.time()
   shortened <- short_path_bfs(result$path, start_state, k, depth = depth)

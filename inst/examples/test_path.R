@@ -2,12 +2,12 @@ library(cayleyR)
 
 # === Тест BFS-интеграции в find_path_iterative ===
 
-n <- 11
+n <- 12
 k <- 4
 start_state <- 1:n
-#set.seed(42)
-#final_state <- generate_state(n)
-final_state <- convert_digits("1 10 2 4 3 11 6 5 7 8 9")
+
+final_state <- generate_state(n)
+
 
 
 cat("Start:", paste(start_state, collapse = " "), "\n")
@@ -17,7 +17,7 @@ start_time <- Sys.time()
 result <- find_path_iterative(
   start_state, final_state, k = k,
   combo_length = 25, n_samples = 200, n_top = 120,
-  max_iterations = 50, potc = 1, ptr = 3, opd = TRUE,
+  max_iterations = 150, potc = 1, ptr = 3, opd = TRUE,
   reuse_combos = FALSE
 )
 elapsed <- difftime(Sys.time(), start_time, units = "secs")

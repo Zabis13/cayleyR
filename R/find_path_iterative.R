@@ -484,7 +484,7 @@ find_path_iterative <- function(start_state,
       store_set_opd(store_start, cycle_num, combos_start)
       if (verbose) {
         filtered_count <- length(state_store_indices_for_cycle(store_start, cycle_num))
-        cat("OPD: фильтрация START cycle", cycle_num, "до", filtered_count, "строк\n")
+        cat("OPD: filtered START cycle", cycle_num, "to", filtered_count, "rows\n")
         flush.console()
       }
     }
@@ -495,7 +495,7 @@ find_path_iterative <- function(start_state,
       store_set_opd(store_final, cycle_num, combos_final)
       if (verbose) {
         filtered_count <- length(state_store_indices_for_cycle(store_final, cycle_num))
-        cat("OPD: фильтрация FINAL cycle", cycle_num, "до", filtered_count, "строк\n")
+        cat("OPD: filtered FINAL cycle", cycle_num, "to", filtered_count, "rows\n")
         flush.console()
       }
     }

@@ -4,7 +4,13 @@
 \alias{generate_state}
 \title{Generate Reachable Random State}
 \usage{
-generate_state(n, k = n, n_moves = 25L, moves = c("1", "2", "3"))
+generate_state(
+  n,
+  k = n,
+  n_moves = 25L,
+  moves = c("1", "2", "3"),
+  max_attempts = 100L
+)
 }
 \arguments{
 \item{n}{Integer, the size of the permutation}

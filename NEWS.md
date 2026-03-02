@@ -1,3 +1,18 @@
+# cayleyR 0.2.3
+
+## Breaking changes
+
+* Disabled GPU for `store_analyze_combos()` — benchmarks showed GPU (Vulkan via ggmlR) is ~24x slower than CPU (C++) for this workload. ggmlR remains as optional dependency for other use cases.
+
+## New features
+
+* **`short_path_bfs.cpp`** — `short_path_bfs()` rewritten entirely in C++ with depth-limited BFS and multi-index lookup, replacing the previous R implementation for significantly better performance.
+
+## Bug fixes
+
+* Fixed non-ASCII characters in R code (replaced Russian text with English in diagnostic messages)
+* Fixed documentation mismatches: `sort_by` parameter now properly documented in `find_best_random_combinations()` and `find_path_iterative()`
+
 # cayleyR 0.2.2
 
 ## Breaking changes

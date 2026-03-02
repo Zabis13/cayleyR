@@ -10,7 +10,8 @@ find_best_random_combinations(
   n_samples,
   n_top,
   start_state,
-  k
+  k,
+  sort_by = c("longest", "most_unique")
 )
 }
 \arguments{
@@ -20,11 +21,23 @@ find_best_random_combinations(
 
 \item{n_samples}{Integer, number of random sequences to generate and test}
 
-\item{n_top}{Integer, number of top results to return (sorted by cycle length)}
+\item{n_top}{Integer, number of top results to return}
 
 \item{start_state}{Integer vector, initial permutation state}
 
 \item{k}{Integer, parameter for reverse operations}
+
+\item{sort_by}{Character vector of sorting criteria, applied in order.
+Available criteria:
+\describe{
+\item{"longest"}{Prefer longer cycles (descending total_moves)}
+\item{"shortest"}{Prefer shorter cycles (ascending total_moves)}
+\item{"most_unique"}{Prefer more unique states (descending unique_states_count)}
+\item{"least_unique"}{Prefer fewer unique states (ascending unique_states_count)}
+\item{"most_repeated"}{Prefer higher repetition ratio total_moves/unique_states_count (descending)}
+\item{"least_repeated"}{Prefer lower repetition ratio (ascending)}
+}
+Default: \code{c("longest", "most_unique")} (original behavior).}
 }
 \value{
 Data frame with columns:
@@ -32,13 +45,15 @@ Data frame with columns:
 \item{combination}{String representation of the operation sequence}
 \item{total_moves}{Cycle length for this sequence}
 \item{unique_states_count}{Number of unique states visited in the cycle}
+\item{repetition_ratio}{Ratio total_moves / unique_states_count}
 }
 \description{
 Generates random sequences of operations and evaluates their cycle lengths
-to find sequences that produce the longest cycles in the Cayley graph.
+to find sequences that produce the best cycles in the Cayley graph.
 Uses C++ with OpenMP for parallel evaluation of combinations.
 }
 \examples{
+# Default: longest cycles
 best <- find_best_random_combinations(
   moves = c("1", "2", "3"),
   combo_length = 10,
@@ -47,5 +62,15 @@ best <- find_best_random_combinations(
   start_state = 1:10,
   k = 4
 )
-print(best)
+
+# Short cycles with many unique states
+best2 <- find_best_random_combinations(
+  moves = c("1", "2", "3"),
+  combo_length = 10,
+  n_samples = 50,
+  n_top = 5,
+  start_state = 1:10,
+  k = 4,
+  sort_by = c("shortest", "most_unique")
+)
 }
