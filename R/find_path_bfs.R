@@ -180,8 +180,6 @@ find_path_bfs <- function(start_state, final_state, k,
       )
       if (verbose) {
         cat("  Path validated! Length:", length(validation$path), "\n")
-        .print_bridge_states(all_bridges_start, "start")
-        .print_bridge_states(all_bridges_final, "final")
       }
       return(list(
         path = validation$path, found = TRUE, cycles = 0,
@@ -212,8 +210,6 @@ find_path_bfs <- function(start_state, final_state, k,
       # Build full bridge chain with BFS hubs
       all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
       all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
-      .print_bridge_states(all_bridges_start, "start")
-      .print_bridge_states(all_bridges_final, "final")
     }
     return(list(
       path = NULL, found = FALSE, cycles = mid_result$cycles,
@@ -246,7 +242,6 @@ find_path_bfs <- function(start_state, final_state, k,
   full_path <- c(path_start_to_hub, mid_result$path, path_hub_to_final)
 
   validation <- validate_and_simplify_path(full_path, start_state, final_state, k)
-
   # Build full bridge chains (BFS start/final + hub + iterative bridges)
   all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
   all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
@@ -259,9 +254,6 @@ find_path_bfs <- function(start_state, final_state, k,
       cat("  Iterative hub->hub:", length(mid_result$path), "\n")
       cat("  BFS hub->final:", length(path_hub_to_final), "\n")
       cat("Verification passed\n")
-
-      .print_bridge_states(all_bridges_start, "start")
-      .print_bridge_states(all_bridges_final, "final")
 
       flush.console()
     }
@@ -289,8 +281,6 @@ find_path_bfs <- function(start_state, final_state, k,
   } else {
     if (verbose) {
       cat("VERIFICATION FAILED\n")
-      .print_bridge_states(all_bridges_start, "start")
-      .print_bridge_states(all_bridges_final, "final")
     }
     return(list(
       path = full_path, found = FALSE, cycles = mid_result$cycles,

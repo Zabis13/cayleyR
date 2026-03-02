@@ -36,3 +36,17 @@ cat("Найден:", result$found, "\n")
 cat("Циклов:", result$cycles, "\n")
 if (result$found) cat("Длина пути:", length(result$path), "\n")
 cat("BFS info:", paste(names(result$bfs_info), result$bfs_info, sep = "=", collapse = ", "), "\n")
+
+# === Сокращение пути через short_path_bfs ===
+if (result$found) {
+  depth <- 10L
+  cat("\n--- short_path_bfs (depth =", depth, ") ---\n")
+  short_start <- Sys.time()
+  shortened <- short_path_bfs(result$path, start_state, k, depth = depth)
+  short_elapsed <- difftime(Sys.time(), short_start, units = "secs")
+  cat("До:", shortened$original_length, "\n")
+  cat("После:", shortened$new_length, "\n")
+  cat("Экономия:", shortened$savings, "\n")
+  cat("Время:", round(short_elapsed, 1), "сек\n")
+  cat("Путь:", paste(shortened$path, collapse = " "), "\n")
+}

@@ -307,9 +307,6 @@ find_path_iterative <- function(start_state,
         cat("VERIFICATION FAILED\n")
       }
 
-      .print_bridge_states(bridge_states_start, "start")
-      .print_bridge_states(bridge_states_final, "final")
-
       cat("\nPath:\n")
       cat(paste(final_path, collapse = " "), "\n")
       flush.console()
@@ -317,9 +314,6 @@ find_path_iterative <- function(start_state,
   } else {
     if (verbose) {
       cat("Path not found in", max_iterations, "cycles\n")
-
-      .print_bridge_states(bridge_states_start, "start")
-      .print_bridge_states(bridge_states_final, "final")
 
       flush.console()
     }

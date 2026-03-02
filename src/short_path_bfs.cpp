@@ -28,7 +28,7 @@ static std::vector<std::string> reconstruct_path(
 List short_path_bfs_cpp(IntegerVector start_state,
                         CharacterVector path,
                         int k,
-                        int n_hits) {
+                        int depth) {
 
   int n_ops = path.size();
   if (n_ops == 0) {
@@ -40,8 +40,7 @@ List short_path_bfs_cpp(IntegerVector start_state,
     );
   }
 
-  // Path too short to compress — return as-is
-  if (n_ops <= n_hits) {
+  if (n_ops <= depth) {
     return List::create(
       Named("path") = path,
       Named("original_length") = n_ops,
@@ -50,24 +49,24 @@ List short_path_bfs_cpp(IntegerVector start_state,
     );
   }
 
-  // 1. Replay path to get all intermediate states and build lookup
-  std::unordered_map<std::string, int> path_index_map;
+  // 1. Replay path to get all intermediate states and build multi-index lookup
+  //    state -> vector of all path indices where this state occurs
+  std::unordered_map<std::string, std::vector<int>> path_index_map;
   std::vector<std::vector<int>> path_states;
   path_states.reserve(n_ops + 1);
 
   std::vector<int> current(start_state.begin(), start_state.end());
   path_states.push_back(current);
-  path_index_map[state_to_key(current)] = 0;
+  path_index_map[state_to_key(current)].push_back(0);
 
   for (int i = 0; i < n_ops; i++) {
     std::string op = as<std::string>(path[i]);
     apply_op_inplace(current, op, k);
     path_states.push_back(current);
-    std::string key = state_to_key(current);
-    path_index_map[key] = i + 1;
+    path_index_map[state_to_key(current)].push_back(i + 1);
   }
 
-  // 2. Greedy BFS hopping
+  // 2. Greedy BFS hopping with depth-limited exploration
   const std::vector<std::string> ops = {"L", "R", "X"};
   std::vector<std::string> result_path;
   int cursor = 0;
@@ -77,20 +76,22 @@ List short_path_bfs_cpp(IntegerVector start_state,
 
     std::string start_key = state_to_key(path_states[cursor]);
 
+    // BFS structures
     std::unordered_map<std::string, std::pair<std::string, std::string>> parent_map;
     std::unordered_map<std::string, std::vector<int>> state_map;
-    std::vector<std::string> frontier_keys = {start_key};
     state_map[start_key] = path_states[cursor];
+
+    std::vector<std::string> frontier_keys = {start_key};
 
     int best_path_idx = cursor;
     std::string best_key = start_key;
-    int hits = 0;
 
-    while (!frontier_keys.empty() && hits < n_hits) {
+
+    // BFS limited to `depth` levels
+    for (int d = 0; d < depth && !frontier_keys.empty(); d++) {
       std::vector<std::string> new_frontier;
 
       for (const auto& pkey : frontier_keys) {
-        if (hits >= n_hits) break;
         const auto& pstate = state_map[pkey];
 
         for (int oi = 0; oi < 3; oi++) {
@@ -104,12 +105,22 @@ List short_path_bfs_cpp(IntegerVector start_state,
           state_map[ckey] = child;
           new_frontier.push_back(ckey);
 
+          // Check if this state appears on the path ahead of cursor + bfs_steps
           auto pit = path_index_map.find(ckey);
-          if (pit != path_index_map.end() && pit->second > cursor) {
-            hits++;
-            if (pit->second > best_path_idx) {
-              best_path_idx = pit->second;
-              best_key = ckey;
+          if (pit != path_index_map.end()) {
+            // Find the maximum index that is strictly greater than cursor + (d+1)
+            // (we reached this state in d+1 BFS steps, so it must save at least 1 step)
+            const auto& indices = pit->second;
+            // indices are sorted ascending (built in order)
+            for (int idx = (int)indices.size() - 1; idx >= 0; idx--) {
+              if (indices[idx] > cursor + (d + 1)) {
+                if (indices[idx] > best_path_idx) {
+                  best_path_idx = indices[idx];
+                  best_key = ckey;
+
+                }
+                break; // found max for this state
+              }
             }
           }
         }
@@ -119,17 +130,15 @@ List short_path_bfs_cpp(IntegerVector start_state,
     }
 
     if (best_path_idx == cursor) {
+      // No shortcut found — follow original path one step
       result_path.push_back(as<std::string>(path[cursor]));
       cursor++;
     } else {
+      // Reconstruct the BFS path from cursor's state to best_key
       std::vector<std::string> segment = reconstruct_path(parent_map, start_key, best_key);
       result_path.insert(result_path.end(), segment.begin(), segment.end());
       cursor = best_path_idx;
     }
-
-    // Free BFS memory
-    parent_map.clear();
-    state_map.clear();
   }
 
   CharacterVector result_cv(result_path.size());

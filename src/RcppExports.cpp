@@ -135,16 +135,16 @@ BEGIN_RCPP
 END_RCPP
 }
 // short_path_bfs_cpp
-List short_path_bfs_cpp(IntegerVector start_state, CharacterVector path, int k, int n_hits);
-RcppExport SEXP _cayleyR_short_path_bfs_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP kSEXP, SEXP n_hitsSEXP) {
+List short_path_bfs_cpp(IntegerVector start_state, CharacterVector path, int k, int depth);
+RcppExport SEXP _cayleyR_short_path_bfs_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP kSEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
     Rcpp::traits::input_parameter< CharacterVector >::type path(pathSEXP);
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< int >::type n_hits(n_hitsSEXP);
-    rcpp_result_gen = Rcpp::wrap(short_path_bfs_cpp(start_state, path, k, n_hits));
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(short_path_bfs_cpp(start_state, path, k, depth));
     return rcpp_result_gen;
 END_RCPP
 }

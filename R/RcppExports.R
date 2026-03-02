@@ -41,8 +41,8 @@ apply_operations <- function(state, operations, k, coords = NULL, compute_coords
     .Call(`_cayleyR_apply_operations`, state, operations, k, coords, compute_coords)
 }
 
-short_path_bfs_cpp <- function(start_state, path, k, n_hits) {
-    .Call(`_cayleyR_short_path_bfs_cpp`, start_state, path, k, n_hits)
+short_path_bfs_cpp <- function(start_state, path, k, depth) {
+    .Call(`_cayleyR_short_path_bfs_cpp`, start_state, path, k, depth)
 }
 
 sparse_bfs_cpp <- function(start_state, k, n_hubs = 7L, n_random = 3L, max_levels = 1000L) {
