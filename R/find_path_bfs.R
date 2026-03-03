@@ -205,14 +205,13 @@ find_path_bfs <- function(start_state, final_state, k,
   )
 
   if (!mid_result$found) {
-    if (verbose) {
-      cat("  Middle path not found.\n")
-      # Build full bridge chain with BFS hubs
-      all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
-      all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
-    }
+    if (verbose) cat("  Middle path not found.\n")
+    all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
+    all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
     return(list(
       path = NULL, found = FALSE, cycles = mid_result$cycles,
+      bridge_states_start = all_bridges_start,
+      bridge_states_final = all_bridges_final,
       bfs_info = list(type = "FAILED", hub_s = hub_s_key, hub_f = hub_f_key, distance = best_dist)
     ))
   }
