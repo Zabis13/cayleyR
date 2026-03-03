@@ -76,17 +76,23 @@ public:
   void reserve(int new_cap) {
     if (new_cap <= capacity && (int)states.size() >= new_cap * L) return;
     capacity = new_cap;
-    states.reserve(capacity * L);
-    step.reserve(capacity);
-    combo_number.reserve(capacity);
-    cycle.reserve(capacity);
-    operation.reserve(capacity);
-    nL_vec.reserve(capacity);
-    nR_vec.reserve(capacity);
-    nX_vec.reserve(capacity);
-    theta_vec.reserve(capacity);
-    phi_vec.reserve(capacity);
-    omega_vec.reserve(capacity);
+    size_t states_cap = (size_t)capacity * (size_t)L;
+    try {
+      states.reserve(states_cap);
+      step.reserve(capacity);
+      combo_number.reserve(capacity);
+      cycle.reserve(capacity);
+      operation.reserve(capacity);
+      nL_vec.reserve(capacity);
+      nR_vec.reserve(capacity);
+      nX_vec.reserve(capacity);
+      theta_vec.reserve(capacity);
+      phi_vec.reserve(capacity);
+      omega_vec.reserve(capacity);
+    } catch (const std::exception& e) {
+      Rcpp::stop("StateStore: failed to reserve %d states (%.1f MB): %s",
+                 new_cap, (double)(states_cap * sizeof(int)) / 1e6, e.what());
+    }
   }
 
   void ensure_capacity(int n_new) {
