@@ -6,7 +6,7 @@ n <- 20
 k <- 4
 start_state <- 1:n
 
-final_state <- generate_state(n, k, n_moves = 50)
+final_state <- generate_state(n, k, n_moves = 100)
 #final_state <- convert_digits("1 3 19 18 4 20 2 7 5 6 8 9 10 11 12 13 14 15 16 17")
 
 start_time <- Sys.time()
@@ -14,7 +14,7 @@ result <- find_path_bfs(
   start_state, final_state, k = k,
   bfs_levels = 200, bfs_n_hubs = 7, bfs_n_random = 3,
   distance_method = "manhattan",
-  verbose = FALSE,
+  verbose = TRUE,
   # параметры для find_path_iterative (через ...)
   moves = c("1", "2", "3"),
   combo_length = 25,
