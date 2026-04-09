@@ -15,3 +15,5 @@
 ^CLAUDE\.md$
 ^LICENSE\.md$
 ^ \.github$
+^paper\.bib$
+^paper\.md$
