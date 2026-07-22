@@ -15,6 +15,7 @@ by shift and reverse operations.
 - **Bidirectional BFS**: find shortest paths between permutation states
 - **Iterative solver**: find paths between arbitrary states via iterative cycle expansion
 - **BFS highway solver**: combine sparse BFS trees with iterative solver, auto-selects direct vs hub path
+- **Human-style solver**: solve the way a person does — grow a sorted run, then finish the tail with derived cycle primitives
 - **Celestial coordinates**: map LRX operation counts to spherical coordinates
 - **GPU acceleration** (optional): Vulkan-based batch computations via ggmlR
 - **Fast processing**: lightweight version for batch testing of combinations
@@ -73,6 +74,15 @@ find_path_bfs(
   bfs_levels = 200,
   sort_by = c("longest", "most_unique")
 )
+
+# Human-style solver: sort a scrambled ring the way a person would
+state <- generate_state(20, k = 4, n_moves = 60)
+res <- human_algorithm(state, k = 4)
+res$found
+res$path
+
+# Or aim at an arbitrary target instead of 1:n
+human_algorithm(state, final_state = c(2:20, 1), k = 4)
 ```
 
 ## C++ StateStore
@@ -148,6 +158,7 @@ manhattan_distance_matrix_gpu(states1, states2)
 - `find_path_iterative()` — iterative path solver via cycle expansion (StateStore backend)
 - `find_path_bfs()` — find path via BFS highways + iterative connector (auto direct vs hub)
 - `short_path_bfs()` — shorten existing path via greedy BFS hopping
+- `human_algorithm()` — human-style solver: grow a sorted run, finish the tail with derived cycle primitives
 - `sparse_bfs()` — sparse BFS with hybrid hub/random selection
 - `reconstruct_bfs_path()` — reconstruct path from sparse BFS result
 - `validate_and_simplify_path()` — validate and simplify operation path

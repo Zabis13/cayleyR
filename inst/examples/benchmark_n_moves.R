@@ -1,13 +1,13 @@
 library(cayleyR)
 
-# === Бенчмарк: растущий n (от 5 до 30), фиксированный n_moves ===
-# Усложнение через увеличение размера перестановки, сложность - n_moves = 100
+# === Benchmark: growing n (5 to 30), fixed n_moves ===
+# Difficulty scales with permutation size; difficulty setting is n_moves = 100
 
 k <- 4
 n_moves <- 20
 depth <- 8L
 
-n_seq <- 10:16
+n_seq <- 10:100
 results <- vector("list", length(n_seq))
 
 for (i in seq_along(n_seq)) {
@@ -25,13 +25,13 @@ for (i in seq_along(n_seq)) {
   result <- find_path_bfs(
     start_state, final_state, k = k,
     bfs_levels = 200, bfs_n_hubs = 7, bfs_n_random = 3,
-    distance_method = "manhattan",
+    highway_distance_method = "manhattan",
     verbose = TRUE,
     moves = c("1", "2", "3"),
     combo_length = 25,
     n_samples = 400,
     n_top = 100,
-    max_iterations = 150,
+    max_iterations = 30,
     potc = 1,
     ptr = 3,
     opd = TRUE,
@@ -55,7 +55,7 @@ for (i in seq_along(n_seq)) {
   results[[i]] <- data.frame(
     n = n,
     k = k,
-    n_moves = nm,
+    n_moves = n_moves,
     final_state = paste(final_state, collapse = " "),
     found = result$found,
     cycles = result$cycles,
@@ -69,26 +69,26 @@ for (i in seq_along(n_seq)) {
   )
 }
 
-# === Итоговая таблица ===
+# === Summary table ===
 stats <- do.call(rbind, results)
 
 cat("\n\n========================================\n")
-cat("ИТОГО: бенчмарк по n_moves\n")
-cat(sprintf("n = %d, k = %d, n_moves от %d до %d\n", n, k, min(n_moves_seq), max(n_moves_seq)))
+cat("SUMMARY: benchmark over n_moves\n")
+cat(sprintf("n_moves = %d, k = %d, n from %d to %d\n", n_moves, k, min(n_seq), max(n_seq)))
 cat("========================================\n")
 print(stats[, c("n_moves", "found", "cycles", "path_length",
                  "short_path_length", "short_savings",
                  "bfs_time_sec", "short_time_sec", "total_time_sec")])
 
-cat(sprintf("\nНайдено: %d / %d\n", sum(stats$found), nrow(stats)))
-cat(sprintf("Средняя длина пути: %.1f\n", mean(stats$path_length, na.rm = TRUE)))
-cat(sprintf("Средняя длина после short: %.1f\n", mean(stats$short_path_length, na.rm = TRUE)))
-cat(sprintf("Среднее время поиска: %.2f сек\n", mean(stats$bfs_time_sec, na.rm = TRUE)))
-cat(sprintf("Среднее время short: %.2f сек\n", mean(stats$short_time_sec, na.rm = TRUE)))
+cat(sprintf("\nFound: %d / %d\n", sum(stats$found), nrow(stats)))
+cat(sprintf("Mean path length: %.1f\n", mean(stats$path_length, na.rm = TRUE)))
+cat(sprintf("Mean length after short: %.1f\n", mean(stats$short_path_length, na.rm = TRUE)))
+cat(sprintf("Mean search time: %.2f sec\n", mean(stats$bfs_time_sec, na.rm = TRUE)))
+cat(sprintf("Mean short time: %.2f sec\n", mean(stats$short_time_sec, na.rm = TRUE)))
 
 # === CSV ===
 out_dir <- file.path(system.file("examples", package = "cayleyR"), "output")
 dir.create(out_dir, showWarnings = FALSE, recursive = TRUE)
 out_file <- file.path(out_dir, "benchmark_n_moves.csv")
 write.csv(stats, file = out_file, row.names = FALSE)
-cat("\nCSV сохранён:", out_file, "\n")
+cat("\nCSV written:", out_file, "\n")

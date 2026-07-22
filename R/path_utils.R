@@ -75,6 +75,7 @@ short_position <- function(allowed_positions, n) {
       }
     }
     allowed_positions <- unlist(opt_list[seq_len(opt_idx)])
+    if (is.null(allowed_positions)) allowed_positions <- character(0)
 
     if (length(allowed_positions) == 0) break
 
@@ -159,7 +160,10 @@ short_position <- function(allowed_positions, n) {
       }
     }
 
+    # unlist() on an empty list yields NULL, which downstream C++ rejects;
+    # a fully cancelled path is an empty character vector, not NULL.
     allowed_positions <- unlist(new_blocks)
+    if (is.null(allowed_positions)) allowed_positions <- character(0)
 
     if (length(allowed_positions) == old_len) break
   }
@@ -206,6 +210,7 @@ validate_and_simplify_path <- function(path_candidate, start_state, final_state,
   }
 
   path_simplified <- short_position(path_candidate, n)
+  if (is.null(path_simplified)) path_simplified <- character(0)
 
   test_after <- tryCatch({
     result <- apply_operations(start_state, path_simplified, k, compute_coords = FALSE)

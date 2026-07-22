@@ -11,7 +11,8 @@ find_path_bfs(
   bfs_levels = 500L,
   bfs_n_hubs = 7L,
   bfs_n_random = 3L,
-  distance_method = "manhattan",
+  highway_distance_method = "manhattan",
+  iterative_distance_method = highway_distance_method,
   verbose = TRUE,
   ...
 )
@@ -29,7 +30,17 @@ find_path_bfs(
 
 \item{bfs_n_random}{Integer, random nodes per BFS level (default 3)}
 
-\item{distance_method}{Character, "manhattan" or "breakpoints" (default "manhattan")}
+\item{highway_distance_method}{Character, "manhattan", "breakpoints" or
+"human" (default "manhattan"). Used to pair the two BFS highway ends.
+"human" scores a state by how much of the sorted run 1..r it has built, so
+it is only meaningful when \code{final_state} is 1:n.}
+
+\item{iterative_distance_method}{Character, the method \code{find_path_iterative}
+uses to pick bridges when searching between the hubs. Defaults to
+\code{highway_distance_method}. Kept separate because the two steps compare
+different things: highway pairing measures the gap between the two ends,
+while the search targets a hub, not 1:n, so "human" fits it only when that
+hub is 1:n.}
 
 \item{verbose}{Logical, print progress (default TRUE)}
 

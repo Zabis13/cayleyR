@@ -161,6 +161,152 @@ int state_store_find_best_match(SEXP xp, IntegerVector target,
   return store->find_best_match_manhattan(target.begin(), candidates);
 }
 
+// Extract many states at once as a matrix (one row per index).
+// Pulling candidates one at a time from R is too slow when a custom distance
+// method has to score every candidate.
+// [[Rcpp::export]]
+IntegerMatrix state_store_get_states(SEXP xp, IntegerVector indices) {
+  StateStorePtr store(xp);
+  const int L = store->L;
+  const int m = indices.size();
+  IntegerMatrix out(m, L);
+
+  for (int i = 0; i < m; i++) {
+    int idx = indices[i];
+    if (idx < 0 || idx >= store->count) {
+      stop("state_store_get_states: index %d out of range", idx);
+    }
+    const int* s = store->get_state_ptr(idx);
+    for (int j = 0; j < L; j++) out(i, j) = s[j];
+  }
+  return out;
+}
+
+// Score a state the way a person solves: how much of the sorted run is still
+// missing. Ties within a run length break on the gap phase 1 is working to
+// close -- among states with an equal run, the one closest to placing its next
+// value scores lower. The tie-break is scaled below 1 so it can never outweigh
+// a longer run.
+//
+static double human_score_core(const std::vector<int>& st, int k) {
+  const int n = (int)st.size();
+  const int r = run_length_of(st);
+  if (r >= n) return 0.0;
+
+  // Position of the pair phase 1 would work on next: prev = r, m = r + 1.
+  int p_prev = -1, p_m = -1;
+  for (int i = 0; i < n; i++) {
+    if (st[i] == r) p_prev = i;
+    else if (st[i] == r + 1) p_m = i;
+  }
+
+  // Best gap reachable by one phase 1 move, not the raw gap as it stands.
+  // Phase 1 never judges a state by where m happens to sit: it judges it by
+  // how close one legal flip can bring m to distance k behind prev. Mirrors
+  // the window scan in place_value() -- windows overlapping the finished run
+  // are skipped, since phase 1 may not disturb it.
+  int best_gap = n;  // sentinel: no legal window
+  if (p_prev >= 0 && p_m >= 0) {
+    const int g0 = fwd_gap_of(p_prev, p_m, n);
+    best_gap = (g0 == 1) ? 0 : std::abs(g0 - k);
+
+    for (int off = 0; off < k; off++) {
+      const int start = ((p_m - off) % n + n) % n;
+
+      bool hits = false;
+      for (int i = 0; i < k && !hits; i++) {
+        if (fwd_gap_of((start + i) % n, p_prev, n) < r) hits = true;
+      }
+      if (hits) continue;
+
+      const int newp = (start + (k - 1 - off)) % n;
+      const int ng = fwd_gap_of(p_prev, newp, n);
+      if (ng == 0) continue;
+
+      const int sc = (ng == 1) ? 0 : std::abs(ng - k);
+      if (sc < best_gap) best_gap = sc;
+    }
+  }
+
+  // Tie-break only: scaled strictly below 1 so a longer run always wins.
+  if (best_gap > n - 1) best_gap = n - 1;
+  return (double)(n - r) + (double)best_gap / (double)n;
+}
+
+// Scoring is against the identity 1:n, deliberately: run_length only means
+// anything when the goal is the sorted ring. Relabelling into an arbitrary
+// target's frame was tried and makes the metric worse -- the side of a
+// two-ended search that grows from an unstructured state gets judged against a
+// goal phase 1 cannot read, and the score degenerates into noise. So this
+// method is for searches heading for 1:n, which is what the tail search after
+// phase 1 does; `target` is accepted for interface uniformity and ignored.
+static double human_score_towards(const std::vector<int>& st,
+                                  const std::vector<int>& /*target*/, int k) {
+  return human_score_core(st, k);
+}
+
+// [[Rcpp::export]]
+NumericVector human_distance_cpp(IntegerMatrix states, IntegerVector target,
+                                 int k) {
+  const int m = states.nrow(), L = states.ncol();
+  if (target.size() != L) {
+    stop("human_distance_cpp: target length %d != state length %d",
+         target.size(), L);
+  }
+  const std::vector<int> tgt(target.begin(), target.end());
+
+  NumericVector out(m);
+  std::vector<int> buf(L);
+
+  for (int i = 0; i < m; i++) {
+    for (int j = 0; j < L; j++) buf[j] = states(i, j);
+    out[i] = human_score_towards(buf, tgt, k);
+  }
+  return out;
+}
+
+// Score every candidate in the store directly, without shipping states to R.
+// [[Rcpp::export]]
+NumericVector state_store_human_scores(SEXP xp, IntegerVector candidate_indices,
+                                       IntegerVector target, int k) {
+  StateStorePtr store(xp);
+  const int L = store->L;
+  if (target.size() != L) {
+    stop("state_store_human_scores: target length %d != perm_length %d",
+         target.size(), L);
+  }
+  const std::vector<int> tgt(target.begin(), target.end());
+
+  const int m = candidate_indices.size();
+  NumericVector out(m);
+  std::vector<int> buf(L);
+
+  for (int i = 0; i < m; i++) {
+    const int idx = candidate_indices[i];
+    if (idx < 0 || idx >= store->count) {
+      stop("state_store_human_scores: index %d out of range", idx);
+    }
+    const int* s = store->get_state_ptr(idx);
+    for (int j = 0; j < L; j++) buf[j] = s[j];
+    out[i] = human_score_towards(buf, tgt, k);
+  }
+  return out;
+}
+
+// Pick the candidate with the lowest caller-supplied score.
+// Lets R plug in any distance method without reimplementing it in C++.
+// [[Rcpp::export]]
+int state_store_find_best_match_scored(SEXP xp, IntegerVector candidate_indices,
+                                       NumericVector scores) {
+  StateStorePtr store(xp);
+  if (candidate_indices.size() != scores.size()) {
+    stop("state_store_find_best_match_scored: %d candidates but %d scores",
+         candidate_indices.size(), scores.size());
+  }
+  std::vector<int> candidates(candidate_indices.begin(), candidate_indices.end());
+  return store->find_best_match_scored(candidates, scores.begin());
+}
+
 // Get indices for a given cycle
 // [[Rcpp::export]]
 IntegerVector state_store_indices_for_cycle(SEXP xp, int target_cycle) {
@@ -192,6 +338,13 @@ void state_store_set_opd(SEXP xp, int target_cycle, IntegerVector combos) {
 void state_store_clear_opd(SEXP xp) {
   StateStorePtr store(xp);
   store->clear_opd();
+}
+
+// Drop all states and indices, keeping allocated capacity
+// [[Rcpp::export]]
+void state_store_clear(SEXP xp) {
+  StateStorePtr store(xp);
+  store->clear();
 }
 
 // Find combo_numbers that contain a given state in a given cycle
@@ -306,6 +459,23 @@ static void collect_combo_ops(const StateStore* store, int cyc, int combo, int e
       out.push_back(op);
     }
   }
+}
+
+// Collect the operations leading to a state within one cycle+combo.
+// Lets the caller keep the path segment to a bridge before the cycle's states
+// are dropped, so reconstruction no longer needs earlier cycles in the store.
+// Returns an empty vector when the state is the combo's start (step == NA).
+// [[Rcpp::export]]
+CharacterVector state_store_collect_ops(SEXP xp, int target_cycle,
+                                        int target_combo, int end_step) {
+  StateStorePtr store(xp);
+  std::vector<std::string> ops;
+  if (end_step != NA_INTEGER) {
+    collect_combo_ops(store.get(), target_cycle, target_combo, end_step, ops);
+  }
+  CharacterVector result(ops.size());
+  for (size_t i = 0; i < ops.size(); i++) result[i] = ops[i];
+  return result;
 }
 
 // Reconstruct path from store using bridge state chain.

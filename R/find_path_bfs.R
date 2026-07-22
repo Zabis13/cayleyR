@@ -11,7 +11,16 @@
 #' @param bfs_levels Integer, depth of sparse BFS from each side (default 500)
 #' @param bfs_n_hubs Integer, top-degree nodes per BFS level (default 7)
 #' @param bfs_n_random Integer, random nodes per BFS level (default 3)
-#' @param distance_method Character, "manhattan" or "breakpoints" (default "manhattan")
+#' @param highway_distance_method Character, "manhattan", "breakpoints" or
+#'   "human" (default "manhattan"). Used to pair the two BFS highway ends.
+#'   "human" scores a state by how much of the sorted run 1..r it has built, so
+#'   it is only meaningful when \code{final_state} is 1:n.
+#' @param iterative_distance_method Character, the method \code{find_path_iterative}
+#'   uses to pick bridges when searching between the hubs. Defaults to
+#'   \code{highway_distance_method}. Kept separate because the two steps compare
+#'   different things: highway pairing measures the gap between the two ends,
+#'   while the search targets a hub, not 1:n, so "human" fits it only when that
+#'   hub is 1:n.
 #' @param verbose Logical, print progress (default TRUE)
 #' @param ... Additional arguments passed to find_path_iterative
 #' @return List with path, found, cycles, bfs_info
@@ -20,7 +29,8 @@ find_path_bfs <- function(start_state, final_state, k,
                           bfs_levels = 500L,
                           bfs_n_hubs = 7L,
                           bfs_n_random = 3L,
-                          distance_method = "manhattan",
+                          highway_distance_method = "manhattan",
+                          iterative_distance_method = highway_distance_method,
                           verbose = TRUE,
                           ...) {
 
@@ -28,6 +38,22 @@ find_path_bfs <- function(start_state, final_state, k,
   final_state <- as.integer(final_state)
   names(start_state) <- NULL
   names(final_state) <- NULL
+
+  # find_path_iterative's method is set via iterative_distance_method; a
+  # distance_method in ... would clash with the explicit one passed below.
+  if ("distance_method" %in% names(list(...))) {
+    stop("Pass the search method as iterative_distance_method, ",
+         "not distance_method, through ...")
+  }
+
+  # "human" ranks a state by the sorted run it has built, i.e. by closeness to
+  # 1:n. Against any other goal it still returns numbers, but they say nothing
+  # about the pair being compared, so warn rather than pick silently.
+  if (highway_distance_method == "human" &&
+      !identical(final_state, seq_len(length(final_state)))) {
+    warning("highway_distance_method = \"human\" scores closeness to 1:n, but ",
+            "final_state is not 1:n; hub pairing will be meaningless.")
+  }
 
   # --- Step 1: Build BFS highways ---
   if (verbose) {
@@ -64,7 +90,7 @@ find_path_bfs <- function(start_state, final_state, k,
   s_idx <- if (nrow(start_mat) > max_compare) sample.int(nrow(start_mat), max_compare) else seq_len(nrow(start_mat))
   f_idx <- if (nrow(final_mat) > max_compare) sample.int(nrow(final_mat), max_compare) else seq_len(nrow(final_mat))
 
-  gpu_ok <- distance_method == "manhattan" &&
+  gpu_ok <- highway_distance_method == "manhattan" &&
     tryCatch(cayley_gpu_available(), error = function(e) FALSE)
 
   if (gpu_ok) {
@@ -89,10 +115,15 @@ find_path_bfs <- function(start_state, final_state, k,
   if (!gpu_ok) {
     # CPU fallback
     distance_func <- switch(
-      distance_method,
+      highway_distance_method,
       "manhattan" = function(v1, v2) sum(abs(v1 - v2)),
       "breakpoints" = function(v1, v2) breakpoint_distance(v1, v2),
-      stop("Unsupported method: ", distance_method)
+      # "human" scores a single state by how much of the sorted run 1..r it has
+      # built, so it measures closeness to 1:n rather than to v2. Pairing the two
+      # highway ends by it only means anything when the goal is 1:n; the caller
+      # is warned above when it is not.
+      "human" = function(v1, v2) length(v1) - run_length(v1),
+      stop("Unsupported method: ", highway_distance_method)
     )
 
     best_dist <- Inf
@@ -137,6 +168,7 @@ find_path_bfs <- function(start_state, final_state, k,
       start_state = start_state,
       final_state = final_state,
       k = k,
+      distance_method = iterative_distance_method,
       verbose = verbose,
       ...
     )
@@ -200,6 +232,7 @@ find_path_bfs <- function(start_state, final_state, k,
     start_state = as.integer(hub_s),
     final_state = as.integer(hub_f),
     k = k,
+    distance_method = iterative_distance_method,
     verbose = verbose,
     ...
   )

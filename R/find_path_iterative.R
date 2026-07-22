@@ -22,6 +22,15 @@
 #' @param opd Logical, if TRUE filters states to only combos containing bridge state (default FALSE)
 #' @param reuse_combos Logical, if TRUE generates random combos only once per side
 #'   (cycle 1) and reuses them in subsequent cycles. Saves time but reduces diversity (default FALSE)
+#' @param keep_states Logical, if TRUE every cycle's states stay in the store
+#'   (memory grows with the number of cycles). If FALSE (default) each cycle's
+#'   states are dropped once its bridge is chosen, so memory stays flat: only
+#'   the current cycle plus the operation segment recorded on each bridge is
+#'   kept. Intersections are then found only between states of the same cycle,
+#'   never across cycles.
+#' @param one_sided Logical, if TRUE the final side is expanded only in cycle 1
+#'   and then left frozen, with the search advancing from the start side alone
+#'   (default FALSE)
 #' @param distance_method Character, method for comparing states during bridge
 #'   selection. One of "manhattan" (sum of absolute differences) or "breakpoints"
 #'   (number of adjacency violations). Default "manhattan".
@@ -55,6 +64,8 @@ find_path_iterative <- function(start_state,
                                  ptr = 10,
                                  opd = FALSE,
                                  reuse_combos = FALSE,
+                                 keep_states = FALSE,
+                                 one_sided = FALSE,
                                  distance_method = "manhattan",
                                  sort_by = c("longest", "most_unique"),
                                  verbose = TRUE) {
@@ -141,7 +152,16 @@ find_path_iterative <- function(start_state,
     }
 
     res_start <- .run_side_store(store_start, current_start, cached_combos_start)
-    res_final <- .run_side_store(store_final, current_final, cached_combos_final)
+
+    # one_sided: the final side is expanded once and then frozen, so the search
+    # advances from the start side only. Its cycle-1 states must therefore
+    # survive, which rules out clearing that store.
+    expand_final <- !one_sided || cycle_num == 1
+    if (expand_final) {
+      res_final <- .run_side_store(store_final, current_final, cached_combos_final)
+    } else {
+      res_final <- list(cached_combos = cached_combos_final, n_added = 0L)
+    }
 
     if (reuse_combos) {
       cached_combos_start <- res_start$cached_combos
@@ -270,7 +290,8 @@ find_path_iterative <- function(start_state,
             cycle_num, current_start, current_final,
             bridge_states_start, bridge_states_final,
             opd, verbose,
-            distance_method = distance_method
+            distance_method = distance_method,
+            final_cycle = if (one_sided) 1L else cycle_num
           )
 
           current_start <- bridge_result$current_start
@@ -291,13 +312,23 @@ find_path_iterative <- function(start_state,
         cycle_num, current_start, current_final,
         bridge_states_start, bridge_states_final,
         opd, verbose,
-        distance_method = distance_method
-      )
+            distance_method = distance_method,
+            final_cycle = if (one_sided) 1L else cycle_num
+          )
 
       current_start <- bridge_result$current_start
       current_final <- bridge_result$current_final
       bridge_states_start <- bridge_result$bridge_states_start
       bridge_states_final <- bridge_result$bridge_states_final
+    }
+
+    # Drop this cycle's states now that its bridge (and the ops reaching it)
+    # have been recorded. Reached only when no path was found, i.e. a bridge was
+    # just chosen; on success the loop exits above with the store intact.
+    if (!keep_states && !path_found) {
+      store_clear(store_start)
+      # Frozen under one_sided: its cycle-1 states are still being searched.
+      if (expand_final) store_clear(store_final)
     }
   }
 
@@ -342,6 +373,30 @@ find_path_iterative <- function(start_state,
 }
 
 
+# --- Internal: path reconstruction from bridge ops + the live cycle ---
+#
+# Concatenates the ops captured on each bridge (cycles 1..target_cycle-1) with
+# the segment reaching the target inside target_cycle, which is the only cycle
+# that must still be in the store. This is what lets the store hold a single
+# cycle at a time; the full-history walk lives in store_reconstruct_path.
+.reconstruct_windowed <- function(store, bridge_states, target_cycle,
+                                  target_combo, target_step) {
+  if (target_cycle == 0) return(character(0))
+
+  # bridge_states[[1]] is the root (cycle 0) and carries no ops; bridge i+1
+  # holds the segment traversed during cycle i.
+  if (target_cycle > length(bridge_states)) return(NULL)
+  prior <- character(0)
+  if (target_cycle > 1) {
+    segments <- lapply(bridge_states[2:target_cycle], function(b) b$ops)
+    if (any(vapply(segments, is.null, logical(1)))) return(NULL)
+    prior <- unlist(segments, use.names = FALSE)
+  }
+
+  last <- store_collect_ops(store, target_cycle, target_combo, target_step)
+  c(prior, last)
+}
+
 # --- Internal: process intersection using StateStore ---
 
 # For START or FINAL type intersections (one-sided path reconstruction)
@@ -352,9 +407,8 @@ find_path_iterative <- function(start_state,
   idx <- indices[1]
   meta <- store_get_meta(store, idx)
 
-  path_full <- store_reconstruct_path(
-    store, bridge_states, intersection_state,
-    meta$cycle, meta$combo_number
+  path_full <- .reconstruct_windowed(
+    store, bridge_states, meta$cycle, meta$combo_number, meta$step
   )
   if (is.null(path_full)) return(NULL)
 
@@ -388,13 +442,13 @@ find_path_iterative <- function(start_state,
   meta_start <- store_get_meta(store_start, indices_start[1])
   meta_final <- store_get_meta(store_final, indices_final[1])
 
-  path_start_full <- store_reconstruct_path(
-    store_start, bridge_states_start, intersection_state,
-    meta_start$cycle, meta_start$combo_number
+  path_start_full <- .reconstruct_windowed(
+    store_start, bridge_states_start,
+    meta_start$cycle, meta_start$combo_number, meta_start$step
   )
-  path_final_full <- store_reconstruct_path(
-    store_final, bridge_states_final, intersection_state,
-    meta_final$cycle, meta_final$combo_number
+  path_final_full <- .reconstruct_windowed(
+    store_final, bridge_states_final,
+    meta_final$cycle, meta_final$combo_number, meta_final$step
   )
 
   if (is.null(path_start_full) || is.null(path_final_full)) return(NULL)
@@ -418,38 +472,59 @@ find_path_iterative <- function(start_state,
                                        cycle_num, current_start, current_final,
                                        bridge_states_start, bridge_states_final,
                                        opd, verbose,
-                                       distance_method = "manhattan") {
+                                       distance_method = "manhattan",
+                                       final_cycle = cycle_num) {
 
   n <- state_store_perm_length(store_start)
 
-  # Filter middle states for current cycle
+  # Filter middle states for current cycle. Under one_sided the final store is
+  # frozen at cycle 1, so it is filtered by the cycle it actually holds.
   start_filtered <- store_filter_middle(store_start, cycle_num, skip_first = 5L, skip_last = 5L)
-  final_filtered <- store_filter_middle(store_final, cycle_num, skip_first = 5L, skip_last = 5L)
+  final_filtered <- store_filter_middle(store_final, final_cycle, skip_first = 5L, skip_last = 5L)
 
   # Fallback: if no middle states, use all states for this cycle
   if (length(start_filtered) == 0) {
     start_filtered <- state_store_indices_for_cycle(store_start, cycle_num)
   }
   if (length(final_filtered) == 0) {
-    final_filtered <- state_store_indices_for_cycle(store_final, cycle_num)
+    final_filtered <- state_store_indices_for_cycle(store_final, final_cycle)
+  }
+
+  # Best match under the selected distance method. "manhattan" and "human" both
+  # score entirely in C++, never materialising the candidate states in R; other
+  # methods fall back to scoring a matrix through the registry.
+  .best_match <- function(store, target, candidates) {
+    if (distance_method == "manhattan") {
+      return(store_find_best_match(store, target, candidates))
+    }
+    if (length(candidates) == 0) return(-1L)
+    candidates <- as.integer(candidates)
+
+    scores <- if (distance_method == "human") {
+      state_store_human_scores(store, candidates, as.integer(target),
+                                     as.integer(k))
+    } else {
+      states <- state_store_get_states(store, candidates)
+      cayley_distance(distance_method)(states, target, k)
+    }
+
+    state_store_find_best_match_scored(store, candidates, as.numeric(scores))
   }
 
   # Find best match: start side closest to current_final
-  best_start_idx <- store_find_best_match(store_start, current_final, start_filtered)
+  best_start_idx <- .best_match(store_start, current_final, start_filtered)
   new_start <- store_get_state(store_start, best_start_idx)
   new_start <- as.integer(new_start)
   names(new_start) <- NULL
 
   # Find best match: final side closest to new_start
-  best_final_idx <- store_find_best_match(store_final, new_start, final_filtered)
+  best_final_idx <- .best_match(store_final, new_start, final_filtered)
   new_final <- store_get_state(store_final, best_final_idx)
   new_final <- as.integer(new_final)
   names(new_final) <- NULL
 
-  bridge_dist <- switch(
-    distance_method,
-    "manhattan" = manhattan_distance(new_start, new_final),
-    "breakpoints" = breakpoint_distance(new_start, new_final)
+  bridge_dist <- cayley_distance(distance_method)(
+    matrix(new_start, nrow = 1L), new_final, k
   )
   if (verbose) {
     cat("Bridge", distance_method, "distance:", bridge_dist, "\n")
@@ -460,9 +535,18 @@ find_path_iterative <- function(start_state,
   meta_start <- store_get_meta(store_start, best_start_idx)
   meta_final <- store_get_meta(store_final, best_final_idx)
 
+  # Capture the ops reaching each bridge now, while this cycle's states are
+  # still in the store. Once captured, reconstruction never needs to look back
+  # at this cycle, so the store can be cleared before the next one.
+  ops_start <- store_collect_ops(store_start, cycle_num,
+                                 meta_start$combo_number, meta_start$step)
+  ops_final <- store_collect_ops(store_final, final_cycle,
+                                 meta_final$combo_number, meta_final$step)
+
   bridge_states_start[[length(bridge_states_start) + 1]] <- list(
     state = new_start,
     cycle = cycle_num,
+    ops = ops_start,
     theta = meta_start$theta,
     phi = meta_start$phi,
     omega_conformal = meta_start$omega_conformal
@@ -471,6 +555,7 @@ find_path_iterative <- function(start_state,
   bridge_states_final[[length(bridge_states_final) + 1]] <- list(
     state = new_final,
     cycle = cycle_num,
+    ops = ops_final,
     theta = meta_final$theta,
     phi = meta_final$phi,
     omega_conformal = meta_final$omega_conformal
@@ -490,12 +575,12 @@ find_path_iterative <- function(start_state,
     }
 
     # FINAL side
-    combos_final <- store_combos_for_state(store_final, new_final, cycle_num)
+    combos_final <- store_combos_for_state(store_final, new_final, final_cycle)
     if (length(combos_final) > 0) {
-      store_set_opd(store_final, cycle_num, combos_final)
+      store_set_opd(store_final, final_cycle, combos_final)
       if (verbose) {
-        filtered_count <- length(state_store_indices_for_cycle(store_final, cycle_num))
-        cat("OPD: filtered FINAL cycle", cycle_num, "to", filtered_count, "rows\n")
+        filtered_count <- length(state_store_indices_for_cycle(store_final, final_cycle))
+        cat("OPD: filtered FINAL cycle", final_cycle, "to", filtered_count, "rows\n")
         flush.console()
       }
     }

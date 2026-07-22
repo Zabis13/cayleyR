@@ -20,4 +20,3 @@ Numeric vector of length n*n (column-major permutation matrix)
 Creates an n x n permutation matrix (column-major, F32) that represents
 a single operation. When multiplied: new_state = state \%*\% P.
 }
-\keyword{internal}

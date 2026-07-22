@@ -17,6 +17,8 @@ find_path_iterative(
   ptr = 10,
   opd = FALSE,
   reuse_combos = FALSE,
+  keep_states = FALSE,
+  one_sided = FALSE,
   distance_method = "manhattan",
   sort_by = c("longest", "most_unique"),
   verbose = TRUE
@@ -47,6 +49,17 @@ find_path_iterative(
 
 \item{reuse_combos}{Logical, if TRUE generates random combos only once per side
 (cycle 1) and reuses them in subsequent cycles. Saves time but reduces diversity (default FALSE)}
+
+\item{keep_states}{Logical, if TRUE every cycle's states stay in the store
+(memory grows with the number of cycles). If FALSE (default) each cycle's
+states are dropped once its bridge is chosen, so memory stays flat: only
+the current cycle plus the operation segment recorded on each bridge is
+kept. Intersections are then found only between states of the same cycle,
+never across cycles.}
+
+\item{one_sided}{Logical, if TRUE the final side is expanded only in cycle 1
+and then left frozen, with the search advancing from the start side alone
+(default FALSE)}
 
 \item{distance_method}{Character, method for comparing states during bridge
 selection. One of "manhattan" (sum of absolute differences) or "breakpoints"

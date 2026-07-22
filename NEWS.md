@@ -1,3 +1,25 @@
+# cayleyR 0.2.4
+
+## New features
+
+* **`human_algorithm()`** — solver that follows the way a person solves TopSpin by hand, implemented in C++ (`src/human_algorithm.cpp`):
+  - Phase 1 grows a sorted run one value at a time: the ring is manoeuvred until the new value sits exactly `k` positions after its predecessor, and a single reverse-prefix drops it into place. The run is tracked as a contiguous range of ring positions, and auxiliary flips only use windows lying wholly inside the unsorted arc, so the run is never disturbed.
+  - Phase 2 finishes the last eight tiles with local cycle primitives that leave the rest of the ring untouched. The primitives are *derived by search* for each `k` rather than hard-coded — a word's effect depends on the ring it runs on, so fixed words do not carry over between sizes.
+  - Conjugates of those primitives generate the alternating group on the tail, so the finish is a table lookup rather than a search. The table is built once per `(n, k)` and cached.
+  - Cycle primitives are even permutations, so odd tail arrangements are out of their reach; those are handled by firing one flip across the block boundary and rebuilding the run, which changes the parity of the split.
+  - Accepts an arbitrary target state (`human_algorithm(start, final, k)`), not just sorting to `1:n`.
+  - Coverage: solves all tested states for even ring sizes with `k` from 3 to 6, including the classic `n = 20, k = 4` TopSpin. Odd `n` combined with odd `k` succeeds only partially — see TODO.
+
+## Bug fixes
+
+* Fixed `short_position()` returning `NULL` instead of `character(0)` when a path cancels out completely (`unlist()` on an empty list). The `NULL` then reached the C++ layer through `validate_and_simplify_path()` and crashed the session with "Not compatible with STRSXP". Triggered by any fully reducible path, e.g. `RRRRRRRRLLLLLLLL`.
+* Exported `state_store_size()`, `state_store_perm_length()`, `state_store_unique_count()` and `state_store_indices_for_cycle()` — documented and used by tests, but missing from NAMESPACE.
+* Exported `build_permutation_matrix()` and `compose_permutation_matrix()`, previously marked internal but referenced by the GPU tests.
+
+## Tests
+
+* Added `tests/testthat/test-human-algorithm.R` — sorting, arbitrary targets, already-sorted input, several ring sizes and flipper widths, and argument validation.
+
 # cayleyR 0.2.3
 
 ## Breaking changes

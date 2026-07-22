@@ -71,6 +71,32 @@ public:
     reserve(capacity);
   }
 
+  // ---- Reset ----
+  // Drops all stored states and every index, keeping the allocated capacity so
+  // the next cycle refills without reallocating. Frees deterministically, unlike
+  // dropping the XPtr and building a fresh store (that defers to R's GC and can
+  // hold two full stores at once).
+  void clear() {
+    states.clear();
+    step.clear();
+    combo_number.clear();
+    cycle.clear();
+    operation.clear();
+    nL_vec.clear();
+    nR_vec.clear();
+    nX_vec.clear();
+    theta_vec.clear();
+    phi_vec.clear();
+    omega_vec.clear();
+
+    hash_index.clear();
+    cycle_index.clear();
+    cycle_index_built_up_to = 0; // must reset, or build_cycle_index() skips rows
+    opd_combos.clear();
+
+    count = 0;
+  }
+
   // ---- Capacity management ----
 
   void reserve(int new_cap) {
@@ -228,6 +254,28 @@ public:
       dist += std::abs(target[j] - s[j]);
     }
     return dist;
+  }
+
+  // Pick the candidate with the lowest caller-supplied score.
+  // Scores line up with 'candidates' by position. Ties break on smaller step,
+  // matching find_best_match_manhattan. NA scores are skipped.
+  int find_best_match_scored(const std::vector<int>& candidates,
+                             const double* scores) const {
+    int best_idx = -1;
+    double best_score = R_PosInf;
+    int best_step = INT_MAX;
+
+    for (size_t i = 0; i < candidates.size(); i++) {
+      double s = scores[i];
+      if (!R_finite(s)) continue;
+      int idx = candidates[i];
+      if (s < best_score || (s == best_score && step[idx] < best_step)) {
+        best_score = s;
+        best_step = step[idx];
+        best_idx = idx;
+      }
+    }
+    return best_idx;
   }
 
   // Find index of state closest to target (manhattan), among indices in 'candidates'

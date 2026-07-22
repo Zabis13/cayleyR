@@ -1,6 +1,6 @@
 library(cayleyR)
 
-# === Тест BFS-интеграции в find_path_iterative ===
+# === BFS integration test for find_path_iterative ===
 
 n <- 12
 k <- 4
@@ -22,12 +22,12 @@ result <- find_path_iterative(
 )
 elapsed <- difftime(Sys.time(), start_time, units = "secs")
 
-cat("\nВремя:", round(elapsed, 1), "сек\n")
-cat("Найден:", result$found, "\n")
-cat("Циклов:", result$cycles, "\n")
-if (result$found) cat("Длина пути:", length(result$path), "\n")
+cat("\nElapsed:", round(elapsed, 1), "sec\n")
+cat("Found:", result$found, "\n")
+cat("Cycles:", result$cycles, "\n")
+if (result$found) cat("Path length:", length(result$path), "\n")
 
-# === Bridge states для отладки ===
+# === Bridge states, for debugging ===
 cat("\n--- Bridge states START ---\n")
 for (i in seq_along(result$bridge_states_start)) {
   bs <- result$bridge_states_start[[i]]
@@ -42,7 +42,7 @@ for (i in seq_along(result$bridge_states_final)) {
       " state:", paste(bs$state, collapse = " "), "\n")
 }
 
-# Manhattan между последними bridge-ами
+# Manhattan distance between the last bridges
 last_s <- result$bridge_states_start[[length(result$bridge_states_start)]]$state
 last_f <- result$bridge_states_final[[length(result$bridge_states_final)]]$state
-cat("\nПоследние bridge states Manhattan:", sum(abs(last_s - last_f)), "\n")
+cat("\nLast bridge states, Manhattan:", sum(abs(last_s - last_f)), "\n")

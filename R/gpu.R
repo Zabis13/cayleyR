@@ -201,7 +201,7 @@ calculate_differences_gpu <- function(start_state, states_matrix) {
 #' @param n Integer, state length
 #' @param k Integer, reverse prefix length
 #' @return Numeric vector of length n*n (column-major permutation matrix)
-#' @keywords internal
+#' @export
 build_permutation_matrix <- function(op, n, k) {
   P <- matrix(0, nrow = n, ncol = n)
 
@@ -245,7 +245,7 @@ build_permutation_matrix <- function(op, n, k) {
 #' @param n Integer, state length
 #' @param k Integer, reverse prefix length
 #' @return Numeric vector of length n*n (combined permutation matrix, column-major)
-#' @keywords internal
+#' @export
 compose_permutation_matrix <- function(operations, n, k) {
   result <- diag(n)
   for (op in operations) {

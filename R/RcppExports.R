@@ -41,6 +41,22 @@ apply_operations <- function(state, operations, k, coords = NULL, compute_coords
     .Call(`_cayleyR_apply_operations`, state, operations, k, coords, compute_coords)
 }
 
+human_table_probe_cpp <- function(n, k) {
+    .Call(`_cayleyR_human_table_probe_cpp`, n, k)
+}
+
+run_length_cpp <- function(state) {
+    .Call(`_cayleyR_run_length_cpp`, state)
+}
+
+human_phase1_rank_cpp <- function(state, k) {
+    .Call(`_cayleyR_human_phase1_rank_cpp`, state, k)
+}
+
+human_algorithm_cpp <- function(start_state, k, max_ops, final_rotate) {
+    .Call(`_cayleyR_human_algorithm_cpp`, start_state, k, max_ops, final_rotate)
+}
+
 short_path_bfs_cpp <- function(start_state, path, k, depth) {
     .Call(`_cayleyR_short_path_bfs_cpp`, start_state, path, k, depth)
 }
@@ -93,6 +109,22 @@ state_store_find_best_match <- function(xp, target, candidate_indices) {
     .Call(`_cayleyR_state_store_find_best_match`, xp, target, candidate_indices)
 }
 
+state_store_get_states <- function(xp, indices) {
+    .Call(`_cayleyR_state_store_get_states`, xp, indices)
+}
+
+human_distance_cpp <- function(states, target, k) {
+    .Call(`_cayleyR_human_distance_cpp`, states, target, k)
+}
+
+state_store_human_scores <- function(xp, candidate_indices, target, k) {
+    .Call(`_cayleyR_state_store_human_scores`, xp, candidate_indices, target, k)
+}
+
+state_store_find_best_match_scored <- function(xp, candidate_indices, scores) {
+    .Call(`_cayleyR_state_store_find_best_match_scored`, xp, candidate_indices, scores)
+}
+
 state_store_indices_for_cycle <- function(xp, target_cycle) {
     .Call(`_cayleyR_state_store_indices_for_cycle`, xp, target_cycle)
 }
@@ -109,12 +141,20 @@ state_store_clear_opd <- function(xp) {
     invisible(.Call(`_cayleyR_state_store_clear_opd`, xp))
 }
 
+state_store_clear <- function(xp) {
+    invisible(.Call(`_cayleyR_state_store_clear`, xp))
+}
+
 state_store_combos_for_state <- function(xp, state_vec, target_cycle) {
     .Call(`_cayleyR_state_store_combos_for_state`, xp, state_vec, target_cycle)
 }
 
 state_store_to_dataframe <- function(xp) {
     .Call(`_cayleyR_state_store_to_dataframe`, xp)
+}
+
+state_store_collect_ops <- function(xp, target_cycle, target_combo, end_step) {
+    .Call(`_cayleyR_state_store_collect_ops`, xp, target_cycle, target_combo, end_step)
 }
 
 state_store_reconstruct_path <- function(xp, bridge_states_mat, target_state_vec, target_cycle, target_combo) {

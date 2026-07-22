@@ -202,6 +202,62 @@ test_that("StateStore incremental add across cycles", {
   expect_equal(c2, 1L)
 })
 
+test_that("store_clear empties the store and all its indices", {
+  store <- create_state_store(3L)
+  df <- data.frame(
+    V1 = c(1L, 2L), V2 = c(2L, 1L), V3 = c(3L, 3L),
+    operation = c("1", "2"), step = 1:2, combo_number = c(1L, 1L),
+    nL = integer(2), nR = integer(2), nX = integer(2),
+    theta = numeric(2), phi = numeric(2), omega_conformal = numeric(2),
+    stringsAsFactors = FALSE
+  )
+  store_add_from_df(store, df, cycle_val = 1L)
+
+  # Build the cycle index and set an OPD filter, so clear() has to reset both
+  expect_equal(state_store_indices_for_cycle(store, 1L), c(0L, 1L))
+  store_set_opd(store, 1L, 1L)
+
+  store_clear(store)
+
+  expect_equal(state_store_size(store), 0L)
+  expect_equal(state_store_unique_count(store), 0L)
+  expect_length(store_lookup(store, c(1L, 2L, 3L)), 0L)
+  expect_length(state_store_indices_for_cycle(store, 1L), 0L)
+  expect_equal(state_store_perm_length(store), 3L) # geometry survives
+})
+
+test_that("store_clear leaves the store reusable with correct indices", {
+  store <- create_state_store(3L)
+  df <- data.frame(
+    V1 = c(1L, 2L), V2 = c(2L, 1L), V3 = c(3L, 3L),
+    operation = c("1", "2"), step = 1:2, combo_number = c(1L, 1L),
+    nL = integer(2), nR = integer(2), nX = integer(2),
+    theta = numeric(2), phi = numeric(2), omega_conformal = numeric(2),
+    stringsAsFactors = FALSE
+  )
+  store_add_from_df(store, df, cycle_val = 1L)
+  store_clear(store)
+
+  # Refill with a different state. A stale cycle_index_built_up_to would make
+  # build_cycle_index() skip these rows and silently return wrong indices.
+  df2 <- data.frame(
+    V1 = 7L, V2 = 8L, V3 = 9L,
+    operation = "3", step = 1L, combo_number = 1L,
+    nL = 0L, nR = 0L, nX = 0L,
+    theta = 0, phi = 0, omega_conformal = 0,
+    stringsAsFactors = FALSE
+  )
+  store_add_from_df(store, df2, cycle_val = 1L)
+
+  expect_equal(state_store_size(store), 1L)
+  expect_equal(state_store_indices_for_cycle(store, 1L), 0L)
+  expect_equal(store_lookup(store, c(7L, 8L, 9L)), 0L)
+  expect_equal(store_get_state(store, 0L), c(7L, 8L, 9L))
+
+  # The OPD filter set before clear() must not still be filtering
+  expect_equal(store_get_meta(store, 0L)$operation, "3")
+})
+
 test_that("store_analyze_combos_gpu matches CPU store_analyze_combos", {
   skip_if_not_installed("ggmlR")
   skip_if(!cayley_gpu_available(), "GPU not available")

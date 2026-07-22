@@ -19,4 +19,3 @@ Numeric vector of length n*n (combined permutation matrix, column-major)
 \description{
 Multiplies individual permutation matrices into one combined matrix.
 }
-\keyword{internal}

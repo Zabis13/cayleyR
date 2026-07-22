@@ -14,17 +14,36 @@ create_state_store <- function(perm_length, init_capacity = 10000L) {
   state_store_create(as.integer(perm_length), as.integer(init_capacity))
 }
 
-#' Get State Store Size
+#' Query a State Store
 #'
-#' Returns the number of states currently stored in the StateStore.
+#' Accessors for a StateStore created by \code{\link{create_state_store}}.
+#' The implementations come from the C++ layer; these blocks document and
+#' export them.
 #'
-#' @name state_store_size
+#' \describe{
+#'   \item{\code{state_store_size}}{Number of states currently stored.}
+#'   \item{\code{state_store_perm_length}}{Length of each permutation state.}
+#'   \item{\code{state_store_unique_count}}{Number of distinct states.}
+#'   \item{\code{state_store_indices_for_cycle}}{Row indices belonging to a
+#'     given cycle.}
+#' }
+#'
+#' The functions themselves are generated into \code{RcppExports.R}; these
+#' \code{@export} tags are what put them in the NAMESPACE.
+#'
+#' @name state_store_query
 #' @param xp External pointer to StateStore
-#' @return Integer, number of stored states
-#' @export
+#' @param cycle_val Integer, cycle number to look up
+#' @return Integer, or an integer vector for
+#'   \code{state_store_indices_for_cycle}
 #' @examples
 #' store <- create_state_store(6L)
 #' state_store_size(store)
+#' state_store_perm_length(store)
+#' @export state_store_size
+#' @export state_store_perm_length
+#' @export state_store_unique_count
+#' @export state_store_indices_for_cycle
 NULL
 
 #' Add States to Store from Data Frame
@@ -171,6 +190,42 @@ store_set_opd <- function(store, target_cycle, combos) {
 #' @export
 store_clear_opd <- function(store) {
   state_store_clear_opd(store)
+}
+
+#' Collect Operations Leading to a State Within One Cycle
+#'
+#' Returns the operation sequence from the start of \code{target_combo} up to
+#' (not including) \code{end_step}. Used to capture the path segment reaching a
+#' bridge while that cycle's states are still in the store, so the segment
+#' survives \code{\link{store_clear}}.
+#'
+#' @param store External pointer to StateStore
+#' @param target_cycle Integer, cycle the state belongs to
+#' @param target_combo Integer, combo_number of the state
+#' @param end_step Integer, step of the state; \code{NA} yields no operations
+#'   (the state is the combo's starting point)
+#' @return Character vector of operations
+#' @export
+store_collect_ops <- function(store, target_cycle, target_combo, end_step) {
+  if (is.na(end_step)) return(character(0))
+  as.character(state_store_collect_ops(
+    store, as.integer(target_cycle), as.integer(target_combo),
+    as.integer(end_step)
+  ))
+}
+
+#' Drop All States From a Store
+#'
+#' Removes every stored state and rebuilds no indices, keeping the allocated
+#' capacity so the store can be refilled without reallocating. Frees memory
+#' immediately, unlike replacing the store with a fresh one (which defers
+#' release to R's garbage collector and can hold two stores at once).
+#'
+#' @param store External pointer to StateStore
+#' @export
+store_clear <- function(store) {
+  state_store_clear(store)
+  invisible(store)
 }
 
 #' Find Combo Numbers Containing a State in a Cycle
