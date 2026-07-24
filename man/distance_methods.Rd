@@ -12,16 +12,10 @@ cayley_distance(method)
 }
 \arguments{
 \item{method}{Character, name of a registered method}
-
-\item{states}{Integer matrix, one candidate state per row}
-
-\item{target}{Integer vector, the state being approached}
-
-\item{k}{Integer, flipper width (used by \code{human}; ignored by the rest)}
 }
 \value{
-Numeric vector of scores, one per row; lower is better. \code{NA}
-marks a candidate the method rejects.
+\code{cayley_distance_methods()} returns the registered names;
+\code{cayley_distance()} returns the method itself, as a function.
 }
 \description{
 The registry of methods \code{\link{find_path_iterative}} may use to score
@@ -45,6 +39,12 @@ so it applies only to searches heading for the sorted ring. Ties break
 on the gap phase 1 works to close. See
 \code{\link{find_best_match_human}}.}
 }
+
+Every method is a function of \code{(states, target, k)}: a matrix with one
+candidate state per row, the state being approached, and the flipper width
+(used by \code{human}, ignored by the rest). It returns one score per row,
+lower being better, with \code{NA} marking a candidate it rejects. Those are
+the arguments of the returned method, not of the two functions here.
 }
 \examples{
 m <- rbind(c(1L, 2L, 3L, 4L), c(4L, 3L, 2L, 1L))

@@ -21,11 +21,14 @@
 #'     \code{\link{find_best_match_human}}.}
 #' }
 #'
-#' @param states Integer matrix, one candidate state per row
-#' @param target Integer vector, the state being approached
-#' @param k Integer, flipper width (used by \code{human}; ignored by the rest)
-#' @return Numeric vector of scores, one per row; lower is better. \code{NA}
-#'   marks a candidate the method rejects.
+#' Every method is a function of \code{(states, target, k)}: a matrix with one
+#' candidate state per row, the state being approached, and the flipper width
+#' (used by \code{human}, ignored by the rest). It returns one score per row,
+#' lower being better, with \code{NA} marking a candidate it rejects. Those are
+#' the arguments of the returned method, not of the two functions here.
+#'
+#' @return \code{cayley_distance_methods()} returns the registered names;
+#'   \code{cayley_distance()} returns the method itself, as a function.
 #' @name distance_methods
 #' @seealso \code{\link{find_path_iterative}}, \code{\link{human_phase1_rank}}
 #' @examples

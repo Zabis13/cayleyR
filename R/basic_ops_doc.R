@@ -120,3 +120,19 @@ NULL
 #' result$state
 #' @name apply_operations
 NULL
+
+#' Number of OpenMP Threads Available
+#'
+#' Reports how many threads OpenMP would use by default, which is the core
+#' count unless \code{OMP_NUM_THREADS} says otherwise. Returns 1 when the
+#' package was built without OpenMP.
+#'
+#' Useful for sizing the \code{n_threads} argument of
+#' \code{\link{cycle_shortcut}}, whose own default is two below this number.
+#'
+#' @return Integer, the thread count
+#' @export
+#' @examples
+#' openmp_threads()
+#' @name openmp_threads
+NULL

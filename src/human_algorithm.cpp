@@ -212,16 +212,22 @@ std::vector<std::string> invert_word(const std::vector<std::string>& w) {
   return out;
 }
 
-// Pack the first TAIL tile numbers into one integer, six bits each. TAIL <= 10
-// (tail_size caps at k+4 and rings stay small), so 60 bits fit a long long and
-// tile numbers stay under 64. This replaces per-state string keys in the table
-// BFS, where hashing and building millions of strings dominated the build.
+// Pack the first TAIL tile numbers into one integer. This replaces per-state
+// string keys in the table BFS, where hashing and building millions of strings
+// dominated the build.
+//
+// The tiles keyed here are always the tail values bs+1 .. n (see build_table's
+// goal and the probe check in try_table), so what is stored is the offset
+// v - bs, which runs 1 .. TAIL rather than the absolute tile number. TAIL <= 10
+// (tail_size caps at k+4), so six bits per slot cover every offset and 60 bits
+// fit a long long -- and the ring size no longer bounds the key, which is what
+// used to cap n at 63.
 typedef long long TailKey;
 
-inline TailKey tail_key(const std::vector<int>& st, int TAIL) {
+inline TailKey tail_key(const std::vector<int>& st, int TAIL, int bs) {
   TailKey key = 0;
   for (int i = 0; i < TAIL; i++) {
-    key = (key << 6) | (st[i] & 0x3F);
+    key = (key << 6) | ((st[i] - bs) & 0x3F);
   }
   return key;
 }
@@ -282,7 +288,7 @@ Table build_table(int n, int k) {
   // per node inside the loop. key_of_node maps each key to its node so the final
   // pass can rebuild that key's word by walking parent links to the root.
   std::unordered_map<TailKey, int> key_of_node;
-  key_of_node[tail_key(goal, TAIL)] = 0;
+  key_of_node[tail_key(goal, TAIL, bs)] = 0;
 
   std::vector<int> frontier;
   frontier.push_back(0);
@@ -307,7 +313,7 @@ Table build_table(int n, int k) {
         }
         if (!block_ok) continue;
 
-        TailKey key = tail_key(s_buf, TAIL);
+        TailKey key = tail_key(s_buf, TAIL, bs);
         int idx = (int)nodes.size();
         // One hash lookup: inserts only if new, and tells us if it was.
         if (!key_of_node.emplace(key, idx).second) continue;
@@ -405,7 +411,7 @@ bool try_table(Solver& S, const Table& tbl) {
     if (probe.state[TAIL + i] != i + 1) return false;
   }
 
-  auto it = tbl.find(tail_key(probe.state, TAIL));
+  auto it = tbl.find(tail_key(probe.state, TAIL, bs));
   if (it == tbl.end()) return false;
 
   probe.emit_word(it->second);
@@ -424,7 +430,6 @@ bool try_table(Solver& S, const Table& tbl) {
 // bs = n - TAIL, which barely moves it.
 // [[Rcpp::export]]
 List human_table_probe_cpp(int n, int k) {
-  if (n > 63) stop("human_table_probe: ring size must be <= 63");
   const int TAIL = tail_size(k);
   Table tbl = build_table(n, k);
   return List::create(
@@ -582,12 +587,6 @@ List human_algorithm_cpp(IntegerVector start_state, int k, double max_ops,
   if (n < tail_size(k) + 2 || k < 3 || k > n) {
     stop("human_algorithm: need n >= k + 6 and 3 <= k <= n");
   }
-  // The finish table packs tile numbers into a 6-bit-per-slot key, so tile
-  // values must stay under 64.
-  if (n > 63) {
-    stop("human_algorithm: ring size must be <= 63");
-  }
-
   Solver S(st, k);
   phase1(S);
 

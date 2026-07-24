@@ -41,6 +41,18 @@ apply_operations <- function(state, operations, k, coords = NULL, compute_coords
     .Call(`_cayleyR_apply_operations`, state, operations, k, coords, compute_coords)
 }
 
+cycle_shortcut_cpp <- function(start_state, path, k, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose) {
+    .Call(`_cayleyR_cycle_shortcut_cpp`, start_state, path, k, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose)
+}
+
+cayley_bfs_full_cpp <- function(start_state, k, moves) {
+    .Call(`_cayleyR_cayley_bfs_full_cpp`, start_state, k, moves)
+}
+
+cayley_graph_diameter_cpp <- function(start_state, k, moves, method, max_pairs, verbose) {
+    .Call(`_cayleyR_cayley_graph_diameter_cpp`, start_state, k, moves, method, max_pairs, verbose)
+}
+
 human_table_probe_cpp <- function(n, k) {
     .Call(`_cayleyR_human_table_probe_cpp`, n, k)
 }

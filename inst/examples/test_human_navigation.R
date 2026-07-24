@@ -28,7 +28,7 @@ library(cayleyR)
 # navigator works in, since it can only build the sorted run up, never take it
 # apart. The solving path is the answer; it is not turned back around.
 
-n <- 21
+n <- 20
 k <- 4
 solved_state <- 1:n   # the goal: the sorted ring
 
@@ -37,7 +37,8 @@ use_phase1 <- TRUE    # run phase 1 of the human algorithm before searching
 
 
 #set.seed(42)
-final_state <- generate_state(n, k, n_moves = 997)
+n_moves <- sample(200:1000, 1)
+final_state <- generate_state(n, k, n_moves = n_moves)
 #final_state <- convert_digits("1 3 19 18 4 20 2 7 5 6 8 9 10 11 12 13 14 15 16 17")
 
 cat("solved:", solved_state, "\n")

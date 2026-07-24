@@ -2,6 +2,7 @@
 ^\.Rproj\.user$
 ^LICENSE\.md$
 ^doc$
+^docs$
 ^Meta$
 ^README\.Rmd$
 ^README-ru\.Rmd$
@@ -18,3 +19,14 @@
 ^paper\.md$
 ^\.git$
 ^\.github$
+^\.RData$
+^\.Rhistory$
+^\.\.Rcheck$
+^.*\.tar\.gz$
+^cleanup$
+^cleanup\.win$
+\.o$
+\.so$
+\.a$
+\.dll$
+\.dylib$

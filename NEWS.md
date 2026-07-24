@@ -1,3 +1,34 @@
+# cayleyR 0.2.5
+
+## New features
+
+* **`human_algorithm_to()`** (`R/human_algorithm_to.R`) — reaches an arbitrary target without routing through the identity state. `human_algorithm()` solves both endpoints to `1:n` and concatenates the first path with the inverse of the second, so the word comes out roughly twice as long as it needs to be. Here the problem is relabelled instead: the three operations permute *positions* and treat the values as inert labels, so renaming every value to its position in the target turns "reach the target" into "reach `1:n`", and the solver runs once. Measured over 20 random pairs at `n = 20, k = 4`: mean 183 operations against 344 for the old route.
+
+* **`cycle_shortcut()`** (`R/cycle_shortcut.R`, `src/cycle_shortcut.cpp`) — shortens a path by cutting across cycles. A combo word applied round and round from a point on the path traces a loop; where that loop meets a state occurring later in the path, the stretch between the two meeting points can be replaced by the stretch of the loop. Complements `short_path_bfs()`, which only sees rejoin points within its BFS depth.
+  - Points are processed one at a time and a cut is applied the moment it is found, so every later point searches the already-shortened path. Points are carried as states rather than positions, because a cut renumbers everything downstream of it; points swallowed by an earlier cut are skipped.
+  - Combos are sampled and ranked per point (`n_samples`, `n_top`, `sort_by`, all six criteria of `find_best_random_combinations()`); `sort_by = NULL` skips ranking altogether, which is markedly cheaper since ranking has to unroll every candidate to score it.
+  - Scoring and searching run under OpenMP, `n_threads` defaulting to two below the core count. Points themselves stay sequential by construction. Measured 6x on 12 cores.
+  - The result is verified by applying it to the start state; on a mismatch the original path is returned.
+
+* **`cayley_bfs_full()`** and **`cayley_graph_diameter()`** (`R/graph_metrics.R`, `src/graph_metrics.cpp`) — full BFS over the reachable component with per-state graph distance, and graph diameter by all-pairs or from-start, with `max_pairs` sampling for sizes where all-pairs is out of reach.
+
+* **`openmp_threads()`** is now exported. It was already present but missing from NAMESPACE, so it was unavailable to anything outside the package.
+
+## Improvements
+
+* **The ring-size cap of 63 is gone** — `human_algorithm()` and `human_algorithm_to()` now run at `n = 1000` and beyond. The limit was never algorithmic: the finish table packed tile numbers six bits to a slot, so values had to stay under 64. The tiles keyed there are always the tail values `bs+1 .. n`, so what is stored is now the offset `v - bs`, which runs `1 .. TAIL` and always fits. Verified to `n = 1000` at `k = 4` and `n = 150` at `k = 6`, each by applying the returned path and comparing against the target.
+
+## Tests
+
+* `tests/testthat/test-human-algorithm.R` now covers both solvers. The two files were merged: the C++ core caches its finish table per `(n, k)`, and building that table is what the runtime consists of, so split across two files the same pairs were built twice over. Ring sizes are deliberately few for the same reason — phase 1 is insensitive to `n`, so sweeping sizes mostly re-pays the table cost.
+* `k = 6` was dropped from the suite. Its table takes about 45 seconds to build, against well under a second for every other width, and it exercises no path the narrower widths miss. Runtime went from 57s across the two files to 7s.
+* Added `tests/testthat/test-graph-metrics.R`.
+
+## Examples
+
+* `inst/examples/benchmark_human_algorithm_to.R` and `inst/examples/benchmark_cycle_shortcut.R`.
+* Example scripts are now plain ASCII on disk. `Rscript` takes the locale of whatever shell starts it, and a literal multi-byte character in the source breaks the parser in a non-UTF-8 one — the script would run to completion and then die on its final print. Box-drawing frames are written as `\u` escapes and built at run time instead.
+
 # cayleyR 0.2.4
 
 ## New features

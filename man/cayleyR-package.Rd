@@ -79,6 +79,7 @@ calculations and parallel state transformations.
 Useful links:
 \itemize{
   \item \url{https://github.com/Zabis13/cayleyR}
+  \item \url{https://arxiv.org/abs/2607.13219}
   \item Report bugs at \url{https://github.com/Zabis13/cayleyR/issues}
 }
 

@@ -289,7 +289,7 @@ find_path_iterative <- function(start_state,
             store_start, store_final,
             cycle_num, current_start, current_final,
             bridge_states_start, bridge_states_final,
-            opd, verbose,
+            opd, verbose, k,
             distance_method = distance_method,
             final_cycle = if (one_sided) 1L else cycle_num
           )
@@ -311,10 +311,10 @@ find_path_iterative <- function(start_state,
         store_start, store_final,
         cycle_num, current_start, current_final,
         bridge_states_start, bridge_states_final,
-        opd, verbose,
-            distance_method = distance_method,
-            final_cycle = if (one_sided) 1L else cycle_num
-          )
+        opd, verbose, k,
+        distance_method = distance_method,
+        final_cycle = if (one_sided) 1L else cycle_num
+      )
 
       current_start <- bridge_result$current_start
       current_final <- bridge_result$current_final
@@ -471,7 +471,7 @@ find_path_iterative <- function(start_state,
 .select_new_bridges_store <- function(store_start, store_final,
                                        cycle_num, current_start, current_final,
                                        bridge_states_start, bridge_states_final,
-                                       opd, verbose,
+                                       opd, verbose, k,
                                        distance_method = "manhattan",
                                        final_cycle = cycle_num) {
 

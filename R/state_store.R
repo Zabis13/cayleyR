@@ -32,6 +32,8 @@ create_state_store <- function(perm_length, init_capacity = 10000L) {
 #' \code{@export} tags are what put them in the NAMESPACE.
 #'
 #' @name state_store_query
+#' @aliases state_store_size state_store_perm_length state_store_unique_count
+#'   state_store_indices_for_cycle
 #' @param xp External pointer to StateStore
 #' @param cycle_val Integer, cycle number to look up
 #' @return Integer, or an integer vector for

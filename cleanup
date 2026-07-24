@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Cleanup script for cayleyR package
+# Removes compiled objects and shared libraries.
+#
+# R CMD build runs this automatically, so a tarball never carries the
+# build products of whoever happened to make it.
+
+rm -f src/*.o src/*.so src/*.dll src/*.dylib src/*.a

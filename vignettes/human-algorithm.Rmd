@@ -1,0 +1,162 @@
+---
+title: "Solving Top Spin by Hand"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Solving Top Spin by Hand}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+A step-by-step method a person can follow, revised against what the
+implementation in `human_algorithm()` actually needed. The main departure from
+the usual description: **the phase boundary falls at 12/13, not 16/17**, and
+the endgame needs a different tool rather than more of the same move.
+
+## Notation
+
+- **L** — rotate the ring one position left
+- **R** — rotate one position right
+- **X** — flip: reverse the four tiles sitting in the flipper window
+
+"Distance from a to b" means counting forward around the ring.
+
+---
+
+## Phase 1: build 1…12
+
+**Step 0.** Find tile 1. It anchors the chain; where it sits does not matter,
+since the whole ring can be rotated at the end.
+
+**For each m from 2 to 12:**
+
+**1.** Locate m and m−1 (the end of the finished chain).
+
+**2.** Measure the distance from m−1 to m.
+
+- **Exactly 4** → go to step 3.
+- **Exactly 1** → m already follows m−1; the chain has grown, move on.
+- **Anything else** → nudge it. Place the flipper over a window that
+  **contains m but lies entirely outside the finished chain**, and flip.
+  Repeat until the distance is 4. Among the four possible window placements,
+  pick the one that leaves the distance closest to 4.
+
+**3.** Rotate so the flipper covers exactly the four positions **immediately
+after** m−1: the three tiles in between plus m itself.
+
+**4.** Flip (**X**). The window reverses, m ends up first in it — directly
+behind m−1. The chain is one tile longer.
+
+**The rule that holds throughout phase 1:** the flipper window must never
+overlap the finished chain. The chain only ever moves as a whole, by rotation.
+
+---
+
+## Why stop at 12 rather than 16
+
+This is where the familiar description breaks down, and not for lack of care.
+
+With 16 tiles placed, four remain loose. The phase 1 move needs **three
+intermediate tiles** between m−1 and m, and needs the window to clear the
+finished chain. All three intermediates would have to come from the loose
+tiles — but there are only four of them, and they already sit consecutively.
+Rotation cannot spread them out: it shifts the entire ring and leaves every
+distance unchanged.
+
+So on the last four tiles the move is not merely awkward, it is
+**inapplicable**. A different tool is required, and the tail has to be eight
+tiles rather than four.
+
+---
+
+## Phase 2: sort the eight-tile tail (13…20)
+
+The chain 1…12 is now frozen: it may ride along with rotations, but the
+flipper must not touch it.
+
+The tail is handled with **two memorised sequences**. Each permutes exactly
+three tail tiles and leaves everything else — including the whole chain —
+where it was.
+
+Rotate so the eight loose tiles sit in front of the flipper and the chain
+trails behind them. Number positions from the start of the window: 1, 2, 3, …
+
+### Sequence A
+
+```
+X L X L X R X   then R
+```
+
+Cycles the tiles at positions **1 → 4 → 6 → 1**.
+
+### Sequence B
+
+```
+L X R X L X L X   then R R
+```
+
+Cycles the tiles at positions **1 → 3 → 6 → 1**.
+
+Both touch only the first six positions; anything beyond that, chain included,
+is untouched.
+
+**Using them.** Rotating one or two positions before a sequence and back
+afterwards shifts the same triple further along the tail. Combining A and B
+with such shifts reaches **any even permutation** of the tail, which is enough
+to bring 13…20 into order.
+
+Two sequences are essential: a single one yields only three arrangements and
+can never sort the tail. They must differ in geometry, as A and B do.
+
+---
+
+## Parity: why it sometimes refuses to finish
+
+Occasionally the tail comes out nearly sorted, with two tiles swapped, and no
+combination of A and B fixes it.
+
+The reason: both sequences are 3-cycles, which are **even** permutations, so
+every combination of them is even too. If the tail needs an odd permutation, A
+and B will never produce it, however long you try.
+
+**The fix.** Make **one flip across the chain boundary**, letting the window
+bite into the chain's edge. The chain breaks. Rebuild it with the phase 1
+move. One tile crosses between chain and tail, the parity of the split flips,
+and A and B work again.
+
+If the first attempt does not take, repeat with the boundary flip one position
+further along.
+
+---
+
+## Finishing
+
+Once the ring reads 1, 2, …, 20, rotate freely to bring 1 back to wherever you
+want it to start.
+
+---
+
+## Differences from the common description
+
+| | Usual version | Here |
+|---|---|---|
+| Phase boundary | 16 / 17 | **12 / 13** |
+| Endgame | same "distance 4, then flip" move | **two sequences, A and B** |
+| "Cycling" | repeat one pattern until it lands | does not work: repeating a single word preserves the cyclic order of the tiles, so it can never sort them |
+| Parity | not mentioned | **a distinct case**, fixed by a boundary flip |
+
+---
+
+## Scope
+
+Everything above is specific to **n = 20, k = 4**.
+
+Sequences A and B were found by searching short move sequences and checking
+that each acts as a clean 3-cycle without disturbing the chain — they do not
+follow from the phase 1 rule. A person can memorise them but would not derive
+them at the table.
+
+For other flipper widths the sequences differ. For an odd ring size combined
+with an odd k the tail often cannot be sorted at all: a reverse of odd length
+preserves the parity of a position, so the tail separates into two halves that
+never mix. `human_algorithm()` derives the sequences per k at runtime for this
+reason, and reports `found = FALSE` when the tail is out of reach.

@@ -2,6 +2,10 @@
 % Please edit documentation in R/state_store.R
 \name{state_store_query}
 \alias{state_store_query}
+\alias{state_store_size}
+\alias{state_store_perm_length}
+\alias{state_store_unique_count}
+\alias{state_store_indices_for_cycle}
 \title{Query a State Store}
 \arguments{
 \item{xp}{External pointer to StateStore}

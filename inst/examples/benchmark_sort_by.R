@@ -19,7 +19,7 @@ n <- 14
 k <- 4
 timeout <- 30
 
-# --- Generate states (no fixed seed — each run is different) ---
+# --- Generate states (no fixed seed: each run is different) ---
 start_state <- 1:n
 final_state <- generate_state(n, k, n_moves = 100)
 

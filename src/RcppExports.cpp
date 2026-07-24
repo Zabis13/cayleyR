@@ -134,6 +134,57 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cycle_shortcut_cpp
+List cycle_shortcut_cpp(IntegerVector start_state, IntegerVector path, int k, IntegerVector points, IntegerVector moves, int combo_length, int n_samples, int n_top, IntegerVector sort_by, int max_cycle_len, int n_threads, bool verbose);
+RcppExport SEXP _cayleyR_cycle_shortcut_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP kSEXP, SEXP pointsSEXP, SEXP movesSEXP, SEXP combo_lengthSEXP, SEXP n_samplesSEXP, SEXP n_topSEXP, SEXP sort_bySEXP, SEXP max_cycle_lenSEXP, SEXP n_threadsSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type path(pathSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type points(pointsSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
+    Rcpp::traits::input_parameter< int >::type combo_length(combo_lengthSEXP);
+    Rcpp::traits::input_parameter< int >::type n_samples(n_samplesSEXP);
+    Rcpp::traits::input_parameter< int >::type n_top(n_topSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type sort_by(sort_bySEXP);
+    Rcpp::traits::input_parameter< int >::type max_cycle_len(max_cycle_lenSEXP);
+    Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cycle_shortcut_cpp(start_state, path, k, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cayley_bfs_full_cpp
+DataFrame cayley_bfs_full_cpp(IntegerVector start_state, int k, CharacterVector moves);
+RcppExport SEXP _cayleyR_cayley_bfs_full_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP movesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type moves(movesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cayley_bfs_full_cpp(start_state, k, moves));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cayley_graph_diameter_cpp
+List cayley_graph_diameter_cpp(IntegerVector start_state, int k, CharacterVector moves, int method, double max_pairs, bool verbose);
+RcppExport SEXP _cayleyR_cayley_graph_diameter_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP movesSEXP, SEXP methodSEXP, SEXP max_pairsSEXP, SEXP verboseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type moves(movesSEXP);
+    Rcpp::traits::input_parameter< int >::type method(methodSEXP);
+    Rcpp::traits::input_parameter< double >::type max_pairs(max_pairsSEXP);
+    Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cayley_graph_diameter_cpp(start_state, k, moves, method, max_pairs, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
 // human_table_probe_cpp
 List human_table_probe_cpp(int n, int k);
 RcppExport SEXP _cayleyR_human_table_probe_cpp(SEXP nSEXP, SEXP kSEXP) {
@@ -542,6 +593,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 5},
     {"_cayleyR_openmp_threads", (DL_FUNC) &_cayleyR_openmp_threads, 0},
     {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 5},
+    {"_cayleyR_cycle_shortcut_cpp", (DL_FUNC) &_cayleyR_cycle_shortcut_cpp, 12},
+    {"_cayleyR_cayley_bfs_full_cpp", (DL_FUNC) &_cayleyR_cayley_bfs_full_cpp, 3},
+    {"_cayleyR_cayley_graph_diameter_cpp", (DL_FUNC) &_cayleyR_cayley_graph_diameter_cpp, 6},
     {"_cayleyR_human_table_probe_cpp", (DL_FUNC) &_cayleyR_human_table_probe_cpp, 2},
     {"_cayleyR_run_length_cpp", (DL_FUNC) &_cayleyR_run_length_cpp, 1},
     {"_cayleyR_human_phase1_rank_cpp", (DL_FUNC) &_cayleyR_human_phase1_rank_cpp, 2},
