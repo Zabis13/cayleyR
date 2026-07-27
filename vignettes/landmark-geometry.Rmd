@@ -1,0 +1,220 @@
+---
+title: "Landmark States and the Solid They Span"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Landmark States and the Solid They Span}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+A Cayley graph of TopSpin at `n = 20` has 20! vertices, so nothing about it can
+be measured by enumeration. This vignette describes an indirect route: pick a
+small set of states defined by rules rather than by chance, measure the
+distances between them, and read the geometry off that.
+
+The pipeline has four steps, each with its own pitfall. The pitfalls are the
+interesting part, so they are described alongside the results.
+
+```{r setup}
+library(cayleyR)
+```
+
+## 1. Landmark states
+
+`landmark_states(n)` returns 25 permutations of `1:n`, each built by a rule that
+generalises across `n` -- a full reversal, a riffle shuffle, the doubling map
+`2j mod (n+1)`, and so on.
+
+```{r}
+lm <- landmark_states(20)
+head(lm[, c("id", "name", "state_str")], 5)
+```
+
+### Rotations are free
+
+The first attempt at this set had a flaw that only shows up in the graph, not in
+the permutations. Consider `reverse_first` and an early version of
+`derangement`:
+
+```
+reverse_first:  10 9 8 7 6 5 4 3 2 1 | 11 12 ... 20
+derangement:    11 12 ... 20 | 10 9 8 7 6 5 4 3 2 1
+```
+
+As permutations these are different: one has eight fixed points, the other none.
+But they are the same sequence cut at a different place, and cutting the ring at
+a different place is exactly what `L` does. The two states sat 7 moves apart at
+`n = 14`, against a mean of 133 -- effectively one point, not two.
+
+Three constructions were affected (`block_swap`, `block_rotate3`, `shift_third`
+were mutual rotations; so were `reverse_first` and `derangement`). Fixing them
+one at a time did not work: each hand-tuned formula collided with something
+else. `landmark_states()` now detects the collisions instead. It reduces every
+state to a canonical form -- the lexicographic minimum over all `n` rotations --
+and breaks any tie by transposing one adjacent pair in the later construction,
+repeating until all 25 canonical forms differ. Verified for every `n` from 6 to
+20.
+
+The cost is that a state may differ by one transposition from its stated
+formula. That is the price of having 25 genuinely distinct points.
+
+## 2. Distances
+
+The distance between two landmarks is the length of a path between them, found
+with the human solver and then compressed:
+
+```{r, eval = FALSE}
+p <- human_algorithm_to(from, to, k = 4)
+p <- short_path_bfs(p$path, from, k = 4, depth = 5)$path
+```
+
+### Why not `human_algorithm()`
+
+`human_algorithm(from, final_state = to)` reaches an arbitrary target by solving
+*both* endpoints down to `1:n` and splicing the first word with the inverse of
+the second. Every route therefore detours through the identity. Measured on the
+path from `envelope` to `riffle` at `n = 20`, the walk reaches a state with 11 of
+20 tiles already home -- it passes right by the solved state on its way.
+
+Drawn, that puts every arc through one point and the picture collapses into a
+star. `human_algorithm_to()` relabels the problem instead (renaming each value to
+its position in the target turns "reach `to`" into "reach `1:n`") and goes
+direct. At `n = 20` the paths came out roughly three times shorter:
+
+| pair | via identity | direct |
+|------|-------------:|-------:|
+| `two_cycles` -- `full_reverse` | 441 | 141 |
+| `envelope` -- `riffle` | 329 | 146 |
+
+Switching solvers changed the whole distance matrix -- median 238.5 to 158 --
+which in turn changed which pairs are far apart. Any selection made before the
+switch had to be redone.
+
+## 3. Picking six pairs
+
+With 25 landmarks there are 300 pairs. To find six pairs that are far apart
+*and* use twelve distinct landmarks, taking the six longest rows of the matrix
+does not work: the two extreme points of the graph appear in nearly every long
+pair, so a greedy pick exhausts them immediately. Maximising the total of six
+disjoint distances spreads the endpoints out instead. The script does that with
+a local search -- swap partners between pairs, substitute unused landmarks,
+restart from many random matchings.
+
+At `n = 20`, with the corrected landmark set:
+
+| pair | distance |
+|------|---------:|
+| `alt_pairs` -- `full_reverse` | 269 |
+| `reverse_first` -- `pair_shift` | 240 |
+| `cycles3` -- `block_reverse_pairs` | 188 |
+| `block_rotate3` -- `zigzag` | 181 |
+| `spiral` -- `adjacent_swaps` | 159 |
+| `reverse_second` -- `two_cycles` | 81 |
+
+At `n = 50` the same twelve landmarks give 1213 to 1975, except
+`reverse_second` -- `two_cycles` at 643, which stays short at both sizes.
+
+The pairs stored in the example script were found before the landmark fix of
+section 1 and are kept as literals for reproducibility; re-run with
+`SELECT = "pairs"` to search again on the current set.
+
+## 4. Where a landmark sits
+
+Celestial coordinates map the `(nL, nR, nX)` move counts of a route to
+`(theta, phi, omega)`. They describe the **route**, not the state -- which means
+a state has no position until you say how you got there.
+
+Drawing six arcs, each accumulating counts from zero, therefore put all six
+starting points at the origin no matter which landmarks they joined. The fix is
+to solve the identity-to-landmark path first and use its counters as the
+landmark's absolute position; the arcs then continue from there. Those paths are
+measured but never drawn.
+
+```{r}
+lm20 <- landmark_states(20)
+i <- match("block_reverse_pairs", lm20$name)
+p <- human_algorithm_to(seq_len(20), lm20$state[[i]], k = 4)
+ops <- c("1" = "L", "2" = "R", "3" = "X")[p$path]
+table(ops)
+```
+
+The counters differ sharply between landmarks -- at `n = 20`,
+`block_reverse_pairs` sits at `L=63 R=125 X=58` while `two_cycles` is at
+`L=34 R=16 X=29` -- which is what separates the arcs in space.
+
+A caveat worth stating plainly: the position depends on the route the solver
+happened to take, and that route is not guaranteed shortest. These coordinates
+describe a particular set of walks, not an invariant of the graph.
+
+## 5. The solid
+
+Twelve points in space bound a figure. Note that a solid with twelve *vertices*
+is an icosahedron; a dodecahedron has twelve *faces* and twenty vertices. Our
+points are neither -- they are an arbitrary cloud, so the figure is a hull.
+
+`convex_hull_3d()` gives the smallest convex body containing them. But convexity
+means some points end up strictly inside and are not corners: at both `n = 20`
+and `n = 50`, eleven of the twelve landmarks are vertices and one is swallowed.
+
+`enclosing_hull_3d()` starts from that convex hull and, for each interior point,
+replaces the nearest face with three triangles meeting at the point. The surface
+dents inwards, the body stops being convex, and every landmark becomes a corner.
+
+```{r}
+cube <- as.matrix(expand.grid(c(0, 1), c(0, 1), c(0, 1)))
+convex_hull_3d(cube)[c("area", "volume")]
+
+# the same cube with a point at its centre
+withcentre <- rbind(cube, c(0.5, 0.5, 0.5))
+h <- enclosing_hull_3d(withcentre)
+c(vertices = length(h$vertices), area = h$area, volume = h$volume)
+```
+
+The dent costs volume and adds area, exactly as it should.
+
+### Results
+
+| | `n = 20` convex | `n = 20` enclosing | `n = 50` convex | `n = 50` enclosing |
+|---|---:|---:|---:|---:|
+| vertices | 11 of 12 | 12 of 12 | 11 of 12 | 12 of 12 |
+| faces | 18 | 20 | 18 | 20 |
+| surface area | 5 950.57 | 5 956.42 | 530 374.12 | 531 911.41 |
+| volume | 14 173.83 | 14 165.50 | 6 141 465.83 | 5 928 340.50 |
+
+The point left inside is `adjacent_swaps` at `n = 20` and `spiral` at `n = 50`.
+
+Both hull functions are implemented in the package rather than taken from
+`geometry`, keeping the dependency list at Rcpp alone. They are checked against
+solids with known values -- a cube, a box, a tetrahedron, and a regular
+icosahedron -- and agree to six decimal places.
+
+## What this does and does not establish
+
+The volume grows by a factor of roughly 420 between `n = 20` and `n = 50` while
+the mean pair distance grows by about a factor of 8. That is a statement about
+these twelve routes under this solver, and reading a graph diameter off it would
+require the routes to be shortest, which they are not.
+
+What the construction does give is a reproducible probe: fixed states, a fixed
+solver, and a figure whose size can be compared across `n` or across changes to
+the solver. If a shortening pass improves, the paths get shorter and the solid
+shrinks -- and that comparison is meaningful even when the absolute numbers are
+not.
+
+## Running it
+
+```{r, eval = FALSE}
+# the network between landmarks, and the solid they span
+source(system.file("examples", "demo_landmark_network.R", package = "cayleyR"))
+
+# the star of paths from the identity out to each landmark
+source(system.file("examples", "demo_landmark_paths.R", package = "cayleyR"))
+```
+
+Both scripts carry their parameters in a block at the top: `N`, the layout
+(`celestial`, `spectral`, `diffusion`), whether to draw the hull or the arcs,
+and how the landmarks are selected.

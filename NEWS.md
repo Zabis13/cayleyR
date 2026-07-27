@@ -1,3 +1,8 @@
+# cayleyR 0.2.6
+
+* **`landmark_states()`** — 25 rule-defined permutations of `1:n` as fixed probe points for graphs too large to enumerate; rotation-equivalent constructions are detected and separated automatically.
+* **`convex_hull_3d()`, `enclosing_hull_3d()`** — the solid a point cloud bounds, with area and volume; the second passes through every point, not just the convex ones. New vignette `landmark-geometry` and two example scripts.
+
 # cayleyR 0.2.5
 
 * **`human_algorithm_to()`** — reaches an arbitrary target by relabelling values to their target positions and solving once, instead of routing through `1:n` twice. About half the word length of the old route.

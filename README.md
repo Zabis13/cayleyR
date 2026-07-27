@@ -27,6 +27,8 @@ search. It is described in the accompanying paper:
 - **Relabelling solver**: reach an arbitrary target in one pass instead of routing through the sorted state, roughly halving the word
 - **Cycle shortcut**: shorten a path by cutting across cycles that leave it and rejoin it further along (OpenMP)
 - **Graph metrics**: full BFS over the reachable component, and graph diameter by all-pairs or sampling
+- **Landmark states**: 25 permutations defined by rules rather than by chance, as fixed probe points in graphs too large to enumerate
+- **Hull geometry**: convex hull of a point cloud, or a non-convex one passing through every point, with surface area and volume
 - **Celestial coordinates**: map LRX operation counts to spherical coordinates
 - **GPU acceleration** (optional): Vulkan-based batch computations via ggmlR
 - **Fast processing**: lightweight version for batch testing of combinations
@@ -95,6 +97,116 @@ res$path
 # Or aim at an arbitrary target instead of 1:n
 human_algorithm(state, final_state = c(2:20, 1), k = 4)
 ```
+
+## Landmark states and the solid they span
+
+A Cayley graph at `n = 20` has 20! vertices, so nothing about it can be measured
+by enumeration. `landmark_states()` gives a set of fixed probe points instead:
+25 permutations defined by rules that generalise across `n` — a full reversal, a
+riffle shuffle, the doubling map `2j mod (n+1)`, and so on — so the same
+construction can be compared between graph sizes.
+
+```r
+lm <- landmark_states(20)
+lm[, c("name", "state_str")]
+```
+
+### Rotations are free
+
+Two constructions can be different permutations and still be the same point of
+the graph. An early version of `derangement` looked like this next to
+`reverse_first`:
+
+```
+reverse_first:  10 9 8 7 6 5 4 3 2 1 | 11 12 ... 20
+derangement:    11 12 ... 20 | 10 9 8 7 6 5 4 3 2 1
+```
+
+One has eight fixed points, the other none — but they are the same sequence cut
+at a different place, and cutting the ring elsewhere is exactly what `L` does.
+The two sat 7 moves apart at `n = 14`, against a mean of 133. `block_swap`,
+`block_rotate3` and `shift_third` collided for the same reason.
+
+Fixing the formulas by hand did not work: each correction collided with
+something else. `landmark_states()` now detects collisions instead — it reduces
+every state to its lexicographic minimum over all `n` rotations and breaks a tie
+by transposing one adjacent pair in the later construction. Verified distinct
+for every `n` from 6 to 20. The cost is that a state may differ by one
+transposition from its stated formula.
+
+### Distances between landmarks
+
+Use `human_algorithm_to()`, not `human_algorithm()`. The latter reaches an
+arbitrary target by solving *both* endpoints down to `1:n` and splicing the
+first word with the inverse of the second, so every route detours through the
+identity — measurably so: the path from `envelope` to `riffle` at `n = 20`
+passes a state with 11 of 20 tiles already home.
+
+```r
+a <- lm$state[[match("full_reverse", lm$name)]]
+b <- lm$state[[match("riffle", lm$name)]]
+
+human_algorithm_to(a, b, k = 4)$length          # direct
+human_algorithm(a, final_state = b, k = 4)$length  # via the identity
+```
+
+| pair (`n = 20`) | via identity | direct |
+|------|-------------:|-------:|
+| `two_cycles` — `full_reverse` | 441 | 141 |
+| `envelope` — `riffle` | 329 | 146 |
+
+Switching solvers moved the median of all 300 pairwise distances from 238.5 to
+158, which in turn changed which pairs count as far apart.
+
+### The solid
+
+Twelve points in space bound a figure. `convex_hull_3d()` gives the smallest
+convex body containing them, but convexity means some points end up strictly
+inside and are not corners. `enclosing_hull_3d()` dents that hull inwards until
+every point is a vertex.
+
+```r
+cube <- as.matrix(expand.grid(c(0, 1), c(0, 1), c(0, 1)))
+convex_hull_3d(cube)[c("area", "volume")]      # 6 and 1
+
+withcentre <- rbind(cube, c(0.5, 0.5, 0.5))
+h <- enclosing_hull_3d(withcentre)
+length(h$vertices)                             # 9 -- the centre is a corner too
+c(h$area, h$volume)                            # 6.5607 and 0.9167
+```
+
+The dent costs volume and adds area, as it should. Both functions are
+implemented in the package rather than taken from `geometry`, keeping the
+dependency list at Rcpp alone; they are checked against a cube, a box, a
+tetrahedron and a regular icosahedron and agree to six decimal places.
+
+Measured on twelve landmarks chosen to be far apart:
+
+| | `n = 20` convex | `n = 20` enclosing | `n = 50` convex | `n = 50` enclosing |
+|---|---:|---:|---:|---:|
+| vertices | 11 of 12 | 12 of 12 | 11 of 12 | 12 of 12 |
+| faces | 18 | 20 | 18 | 20 |
+| surface area | 5 950.57 | 5 956.42 | 530 374.12 | 531 911.41 |
+| volume | 14 173.83 | 14 165.50 | 6 141 465.83 | 5 928 340.50 |
+
+A caveat worth stating plainly: a landmark's position comes from the celestial
+coordinates of the route that reached it, and that route is not guaranteed
+shortest. These numbers describe a particular set of walks under a particular
+solver — comparable across `n` or across solver changes, but not an invariant of
+the graph.
+
+### Running it
+
+```r
+source(system.file("examples", "demo_landmark_network.R", package = "cayleyR"))
+source(system.file("examples", "demo_landmark_paths.R", package = "cayleyR"))
+```
+
+The first measures the distances, picks disjoint pairs that are far apart, and
+draws either the paths or the solid; the second draws the star of paths from the
+identity out to each landmark. Parameters sit in a block at the top of each:
+`N`, the layout (`celestial`, `spectral`, `diffusion`), and how landmarks are
+selected. See `vignette("landmark-geometry")` for the full pipeline.
 
 ## C++ StateStore
 
