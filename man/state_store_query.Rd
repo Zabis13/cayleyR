@@ -7,10 +7,16 @@
 \alias{state_store_unique_count}
 \alias{state_store_indices_for_cycle}
 \title{Query a State Store}
+\usage{
+state_store_size(xp)
+state_store_perm_length(xp)
+state_store_unique_count(xp)
+state_store_indices_for_cycle(xp, target_cycle)
+}
 \arguments{
 \item{xp}{External pointer to StateStore}
 
-\item{cycle_val}{Integer, cycle number to look up}
+\item{target_cycle}{Integer, cycle number to look up}
 }
 \value{
 Integer, or an integer vector for

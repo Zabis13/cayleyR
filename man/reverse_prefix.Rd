@@ -3,6 +3,9 @@
 \name{reverse_prefix}
 \alias{reverse_prefix}
 \title{Reverse First k Elements (with Coordinates)}
+\usage{
+reverse_prefix(state, k, coords = NULL)
+}
 \arguments{
 \item{state}{Integer vector representing the current permutation state}
 

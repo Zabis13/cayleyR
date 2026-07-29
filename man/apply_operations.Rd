@@ -3,6 +3,9 @@
 \name{apply_operations}
 \alias{apply_operations}
 \title{Apply Sequence of Operations}
+\usage{
+apply_operations(state, operations, k, coords = NULL, compute_coords = TRUE)
+}
 \arguments{
 \item{state}{Integer vector representing the current permutation state}
 
@@ -12,6 +15,9 @@
 
 \item{coords}{Optional list of current celestial coordinates. If NULL,
 starts from zero coordinates.}
+
+\item{compute_coords}{Logical, whether to track celestial coordinates.
+If FALSE, the returned \code{coords} component is NULL.}
 }
 \value{
 List with components:

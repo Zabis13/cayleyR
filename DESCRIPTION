@@ -18,7 +18,7 @@ Description: Implements algorithms for analyzing Cayley graphs of
     graphs too large to enumerate, and convex and non-convex hulls for
     measuring the solid such states span. The method Iterative Cycle
     Intersection (ICI) is described in Yuri Baramykov (2026)
-    <arXiv:2607.13219>.
+    <doi:10.48550/arXiv.2607.13219>.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

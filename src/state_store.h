@@ -171,7 +171,6 @@ public:
                 const int* nL_data, const int* nR_data, const int* nX_data,
                 const double* theta_data, const double* phi_data, const double* omega_data) {
     ensure_capacity(n_rows);
-    int start_idx = count;
 
     for (int i = 0; i < n_rows; i++) {
       // Extract state row

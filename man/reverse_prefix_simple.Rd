@@ -3,6 +3,9 @@
 \name{reverse_prefix_simple}
 \alias{reverse_prefix_simple}
 \title{Reverse First k Elements (Simple)}
+\usage{
+reverse_prefix_simple(state, k)
+}
 \arguments{
 \item{state}{Integer vector representing the current permutation state}
 

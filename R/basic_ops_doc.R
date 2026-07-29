@@ -3,6 +3,7 @@
 #' Performs a cyclic left shift on the state vector, moving the first element
 #' to the end. Tracks celestial coordinates (LRX momentum).
 #'
+#' @usage shift_left(state, coords = NULL)
 #' @param state Integer vector representing the current permutation state
 #' @param coords Optional list of current celestial coordinates. If NULL,
 #'   starts from zero coordinates.
@@ -27,6 +28,7 @@ NULL
 #' Performs a cyclic right shift on the state vector, moving the last element
 #' to the front. Tracks celestial coordinates (LRX momentum).
 #'
+#' @usage shift_right(state, coords = NULL)
 #' @param state Integer vector representing the current permutation state
 #' @param coords Optional list of current celestial coordinates. If NULL,
 #'   starts from zero coordinates.
@@ -45,6 +47,7 @@ NULL
 #' Reverses the first k elements of the state vector (turnstile operation).
 #' Tracks celestial coordinates (LRX momentum).
 #'
+#' @usage reverse_prefix(state, k, coords = NULL)
 #' @param state Integer vector representing the current permutation state
 #' @param k Integer, number of elements to reverse from the beginning
 #' @param coords Optional list of current celestial coordinates. If NULL,
@@ -63,6 +66,7 @@ NULL
 #'
 #' Simple cyclic left shift without coordinate tracking.
 #'
+#' @usage shift_left_simple(state)
 #' @param state Integer vector representing the current permutation state
 #' @return Integer vector with elements shifted left by one position
 #' @export
@@ -75,6 +79,7 @@ NULL
 #'
 #' Simple cyclic right shift without coordinate tracking.
 #'
+#' @usage shift_right_simple(state)
 #' @param state Integer vector representing the current permutation state
 #' @return Integer vector with elements shifted right by one position
 #' @export
@@ -87,6 +92,7 @@ NULL
 #'
 #' Simple prefix reversal without coordinate tracking.
 #'
+#' @usage reverse_prefix_simple(state, k)
 #' @param state Integer vector representing the current permutation state
 #' @param k Integer, number of elements to reverse from the beginning
 #' @return Integer vector with first k elements reversed
@@ -102,11 +108,14 @@ NULL
 #' Operations can be specified as "1"/"L" (shift left), "2"/"R" (shift right),
 #' or "3"/"X" (reverse prefix). Tracks celestial coordinates.
 #'
+#' @usage apply_operations(state, operations, k, coords = NULL, compute_coords = TRUE)
 #' @param state Integer vector representing the current permutation state
 #' @param operations Character vector of operations ("1"/"L", "2"/"R", "3"/"X")
 #' @param k Integer, parameter for reverse operations
 #' @param coords Optional list of current celestial coordinates. If NULL,
 #'   starts from zero coordinates.
+#' @param compute_coords Logical, whether to track celestial coordinates.
+#'   If FALSE, the returned \code{coords} component is NULL.
 #' @return List with components:
 #'   \item{state}{Integer vector after all operations applied}
 #'   \item{coords}{List of final celestial coordinates (nL, nR, nX, theta, phi, omega_conformal)}
@@ -130,6 +139,7 @@ NULL
 #' Useful for sizing the \code{n_threads} argument of
 #' \code{\link{cycle_shortcut}}, whose own default is two below this number.
 #'
+#' @usage openmp_threads()
 #' @return Integer, the thread count
 #' @export
 #' @examples

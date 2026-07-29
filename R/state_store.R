@@ -34,8 +34,13 @@ create_state_store <- function(perm_length, init_capacity = 10000L) {
 #' @name state_store_query
 #' @aliases state_store_size state_store_perm_length state_store_unique_count
 #'   state_store_indices_for_cycle
+#' @usage
+#' state_store_size(xp)
+#' state_store_perm_length(xp)
+#' state_store_unique_count(xp)
+#' state_store_indices_for_cycle(xp, target_cycle)
 #' @param xp External pointer to StateStore
-#' @param cycle_val Integer, cycle number to look up
+#' @param target_cycle Integer, cycle number to look up
 #' @return Integer, or an integer vector for
 #'   \code{state_store_indices_for_cycle}
 #' @examples

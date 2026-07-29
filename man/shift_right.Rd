@@ -3,6 +3,9 @@
 \name{shift_right}
 \alias{shift_right}
 \title{Shift State Right (with Coordinates)}
+\usage{
+shift_right(state, coords = NULL)
+}
 \arguments{
 \item{state}{Integer vector representing the current permutation state}
 

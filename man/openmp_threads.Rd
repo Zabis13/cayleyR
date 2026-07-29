@@ -3,6 +3,9 @@
 \name{openmp_threads}
 \alias{openmp_threads}
 \title{Number of OpenMP Threads Available}
+\usage{
+openmp_threads()
+}
 \value{
 Integer, the thread count
 }

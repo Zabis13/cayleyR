@@ -3,6 +3,9 @@
 \name{shift_left_simple}
 \alias{shift_left_simple}
 \title{Shift State Left (Simple)}
+\usage{
+shift_left_simple(state)
+}
 \arguments{
 \item{state}{Integer vector representing the current permutation state}
 }
