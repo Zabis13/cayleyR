@@ -4,7 +4,15 @@
 \alias{store_analyze_combos}
 \title{Analyze Combinations Directly into Store}
 \usage{
-store_analyze_combos(store, top_combos, start_state, k, cycle_val)
+store_analyze_combos(
+  store,
+  top_combos,
+  start_state,
+  k = NULL,
+  cycle_val,
+  group = NULL,
+  max_reps = 100000L
+)
 }
 \arguments{
 \item{store}{External pointer to StateStore}
@@ -13,9 +21,16 @@ store_analyze_combos(store, top_combos, start_state, k, cycle_val)
 
 \item{start_state}{Integer vector, the initial permutation state}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when the store
+carries a group, or when \code{group} is given.}
 
 \item{cycle_val}{Integer, cycle number to assign}
+
+\item{group}{A \code{\link{perm_group}}. Defaults to the store's own group,
+and to TopSpin if it has none.}
+
+\item{max_reps}{Integer, cap on repetitions of a word before its cycle is
+abandoned as non-closing (default 100000)}
 }
 \value{
 Number of states added (invisible)
@@ -24,4 +39,13 @@ Number of states added (invisible)
 C++ implementation that runs full cycle expansion for each combination
 and writes states + coordinates directly into the StateStore,
 bypassing data.frame creation entirely.
+}
+\details{
+Each combination is spun until the state returns to where it started, so a
+single short word yields its whole cycle. Words are written in the group's
+own spelling and may be unseparated (\code{"1231"}, \code{"RM'R'"}) or
+spaced.
+}
+\seealso{
+\code{\link{perm_group}}, \code{\link{group_parse_word}}
 }

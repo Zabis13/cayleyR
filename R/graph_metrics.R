@@ -11,27 +11,41 @@
 #' happened to find first, and `theta`, `phi`, `omega` are derived from them via
 #' \code{\link{convert_LRX_to_celestial}}.
 #'
+#' The search runs over a \code{\link{perm_group}}, so the same sweep enumerates
+#' a TopSpin ring or a Rubik's cube. Passing `k` without a group means TopSpin,
+#' exactly as before.
+#'
 #' @param start_state Integer vector, the state to explore from
-#' @param k Integer, parameter for the reverse-prefix operation
-#' @param moves Character vector of allowed operations, e.g. c("L", "R", "X")
-#'   or c("1", "2", "3") (default: all three)
+#' @param k Integer, parameter for the reverse-prefix operation. Ignored when
+#'   `group` is given, since a group already knows what its own moves do.
+#' @param moves Allowed operations, naming a subset of the group's alphabet
+#'   (default: all of it). For TopSpin these are c("L","R","X") or c("1","2","3")
+#'   as before.
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the arguments
+#'   describe TopSpin and the group is built from `k` and `moves`.
 #' @return Data frame with one row per reachable state:
 #'   \item{state_str}{State as an underscore-separated key}
 #'   \item{dist}{Graph distance from `start_state`}
-#'   \item{nL, nR, nX}{Operation counts along the BFS shortest path}
+#'   \item{nL, nR, nX}{Operation counts along the BFS shortest path. Zero for
+#'     groups other than TopSpin, whose alphabet has no L/R/X to count}
 #'   \item{theta, phi, omega}{Celestial coordinates derived from those counts}
-#' @seealso \code{\link{cayley_graph_diameter}}, \code{\link{sparse_bfs}}
+#' @seealso \code{\link{cayley_graph_diameter}}, \code{\link{sparse_bfs}},
+#'   \code{\link{perm_group}}
 #' @export
 #' @examples
 #' d <- cayley_bfs_full(1:5, k = 3)
 #' nrow(d)
 #' table(d$dist)
-cayley_bfs_full <- function(start_state, k, moves = c("L", "R", "X")) {
-  cayley_bfs_full_cpp(
-    as.integer(start_state),
-    as.integer(k),
-    as.character(moves)
-  )
+#'
+#' # the same sweep over a cube subgroup: the middle slice, on its own
+#' g <- cube_group(3, moves = c("M", "M'"))
+#' d2 <- cayley_bfs_full(group_identity(g), group = g)
+#' nrow(d2)
+cayley_bfs_full <- function(start_state, k = NULL, moves = NULL,
+                            group = NULL) {
+  start_state <- as.integer(start_state)
+  res <- resolve_group(group, length(start_state), k, moves)
+  cayley_bfs_full_cpp(start_state, res$group$ptr, res$moves)
 }
 
 #' Cayley Graph Diameter and Maximally Distant State Pairs
@@ -49,8 +63,12 @@ cayley_bfs_full <- function(start_state, k, moves = c("L", "R", "X")) {
 #' vertex-transitive, but it scales to much larger graphs.
 #'
 #' @param start_state Integer vector, the state to explore from
-#' @param k Integer, parameter for the reverse-prefix operation
-#' @param moves Character vector of allowed operations (default: c("L","R","X"))
+#' @param k Integer, parameter for the reverse-prefix operation. Ignored when
+#'   `group` is given.
+#' @param moves Allowed operations, naming a subset of the group's alphabet
+#'   (default: all of it)
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the arguments
+#'   describe TopSpin, as they always have.
 #' @param method Either "all_pairs" (default, exact) or "from_start" (single
 #'   BFS, exact only for vertex-transitive graphs)
 #' @param max_pairs Numeric, maximum number of pairs to materialise in
@@ -75,17 +93,25 @@ cayley_bfs_full <- function(start_state, k, moves = c("L", "R", "X")) {
 #' res <- cayley_graph_diameter(1:5, k = 3)
 #' res$diameter
 #' head(res$pairs_df)
-cayley_graph_diameter <- function(start_state, k,
-                                  moves = c("L", "R", "X"),
+#'
+#' # God's number for a small cube subgroup: the middle slice, on its own
+#' g <- cube_group(3, moves = c("M", "M'"))
+#' cayley_graph_diameter(group_identity(g), group = g,
+#'                       method = "from_start")$diameter
+cayley_graph_diameter <- function(start_state, k = NULL,
+                                  moves = NULL,
+                                  group = NULL,
                                   method = c("all_pairs", "from_start"),
                                   max_pairs = Inf,
                                   verbose = FALSE) {
   method <- match.arg(method)
+  start_state <- as.integer(start_state)
+  res <- resolve_group(group, length(start_state), k, moves)
 
   raw <- cayley_graph_diameter_cpp(
-    as.integer(start_state),
-    as.integer(k),
-    as.character(moves),
+    start_state,
+    res$group$ptr,
+    res$moves,
     if (method == "from_start") 1L else 0L,
     as.numeric(max_pairs),
     isTRUE(verbose)

@@ -4,21 +4,27 @@
 \alias{cayley_bfs_full}
 \title{Full Breadth-First Search Over the Cayley Graph}
 \usage{
-cayley_bfs_full(start_state, k, moves = c("L", "R", "X"))
+cayley_bfs_full(start_state, k = NULL, moves = NULL, group = NULL)
 }
 \arguments{
 \item{start_state}{Integer vector, the state to explore from}
 
-\item{k}{Integer, parameter for the reverse-prefix operation}
+\item{k}{Integer, parameter for the reverse-prefix operation. Ignored when
+\code{group} is given, since a group already knows what its own moves do.}
 
-\item{moves}{Character vector of allowed operations, e.g. c("L", "R", "X")
-or c("1", "2", "3") (default: all three)}
+\item{moves}{Allowed operations, naming a subset of the group's alphabet
+(default: all of it). For TopSpin these are c("L","R","X") or c("1","2","3")
+as before.}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin and the group is built from \code{k} and \code{moves}.}
 }
 \value{
 Data frame with one row per reachable state:
 \item{state_str}{State as an underscore-separated key}
 \item{dist}{Graph distance from \code{start_state}}
-\item{nL, nR, nX}{Operation counts along the BFS shortest path}
+\item{nL, nR, nX}{Operation counts along the BFS shortest path. Zero for
+groups other than TopSpin, whose alphabet has no L/R/X to count}
 \item{theta, phi, omega}{Celestial coordinates derived from those counts}
 }
 \description{
@@ -33,12 +39,22 @@ the same state can be reached by many different operation sequences. The
 \code{nL}, \code{nR}, \code{nX} counters reported here are those of the shortest path BFS
 happened to find first, and \code{theta}, \code{phi}, \code{omega} are derived from them via
 \code{\link{convert_LRX_to_celestial}}.
+
+The search runs over a \code{\link{perm_group}}, so the same sweep enumerates
+a TopSpin ring or a Rubik's cube. Passing \code{k} without a group means TopSpin,
+exactly as before.
 }
 \examples{
 d <- cayley_bfs_full(1:5, k = 3)
 nrow(d)
 table(d$dist)
+
+# the same sweep over a cube subgroup: the middle slice, on its own
+g <- cube_group(3, moves = c("M", "M'"))
+d2 <- cayley_bfs_full(group_identity(g), group = g)
+nrow(d2)
 }
 \seealso{
-\code{\link{cayley_graph_diameter}}, \code{\link{sparse_bfs}}
+\code{\link{cayley_graph_diameter}}, \code{\link{sparse_bfs}},
+\code{\link{perm_group}}
 }

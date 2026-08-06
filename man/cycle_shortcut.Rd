@@ -7,9 +7,10 @@
 cycle_shortcut(
   path,
   start_state,
-  k,
+  k = NULL,
   n_points = 20L,
-  moves = c("1", "2", "3"),
+  moves = NULL,
+  group = NULL,
   combo_length = 20L,
   n_samples = 200L,
   n_top = 5L,
@@ -20,18 +21,22 @@ cycle_shortcut(
 )
 }
 \arguments{
-\item{path}{Character vector of operations ("1"/"2"/"3")}
+\item{path}{Character vector of operations, in the group's own spelling}
 
 \item{start_state}{Integer vector, the state the path starts from}
 
-\item{k}{Integer, length of the reverse-prefix (flipper) operation}
+\item{k}{Integer, length of the reverse-prefix (flipper) operation. Ignored
+when \code{group} is given.}
 
 \item{n_points}{Integer, how many places along the path to try. Points are
 spread evenly with a random jitter; cost grows linearly with this, path
 coverage does not (default 20)}
 
-\item{moves}{Character vector, operations the combos are drawn from
-(default c("1", "2", "3"))}
+\item{moves}{Operations the combos are drawn from, naming a subset of the
+group's alphabet (default: all of it)}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin.}
 
 \item{combo_length}{Integer, length of each sampled combo word (default 20)}
 

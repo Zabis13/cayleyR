@@ -4,14 +4,28 @@
 \alias{get_reachable_states_light}
 \title{Find Cycle Length (Lightweight Version)}
 \usage{
-get_reachable_states_light(start_state, allowed_positions, k)
+get_reachable_states_light(
+  start_state,
+  allowed_positions,
+  k = NULL,
+  group = NULL,
+  max_moves = 10000000L
+)
 }
 \arguments{
 \item{start_state}{Integer vector, the initial permutation state}
 
-\item{allowed_positions}{Character vector, sequence of operations to repeat}
+\item{allowed_positions}{Sequence of operations to repeat, in the group's
+own move names}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when \code{group} is
+given.}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the
+arguments describe TopSpin.}
+
+\item{max_moves}{Integer, cap on how far the word is spun before giving up
+(default 1e7)}
 }
 \value{
 List containing:
@@ -27,4 +41,8 @@ many operation sequences efficiently. Implemented in C++ for performance.
 result <- get_reachable_states_light(1:10, c("1", "3"), k = 4)
 cat("Cycle length:", result$total_moves, "\n")
 cat("Unique states:", result$unique_states_count, "\n")
+
+# the order of the sexy move, the long way round
+g <- cube_group(3)
+get_reachable_states_light(group_identity(g), "R U R' U'", group = g)
 }

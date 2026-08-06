@@ -4,16 +4,32 @@
 \alias{short_path_bfs}
 \title{Shorten Path via Depth-Limited BFS Hopping}
 \usage{
-short_path_bfs(path, start_state, k, depth = 5L)
+short_path_bfs(
+  path,
+  start_state,
+  k = NULL,
+  depth = 5L,
+  moves = NULL,
+  group = NULL
+)
 }
 \arguments{
-\item{path}{Character vector of operations ("1"/"2"/"3" or "L"/"R"/"X")}
+\item{path}{Move sequence to shorten, in the group's own spelling. For
+TopSpin that is "1"/"2"/"3" or "L"/"R"/"X" as before; for a cube, names
+such as "R" or "M'".}
 
 \item{start_state}{Integer vector, the starting permutation state}
 
-\item{k}{Integer, parameter for reverse_prefix operation}
+\item{k}{Integer, parameter for reverse_prefix operation. Ignored when
+\code{group} is given.}
 
 \item{depth}{Integer, BFS exploration depth (default 5)}
+
+\item{moves}{Allowed operations for the rewrite, naming a subset of the
+group's alphabet (default: all of it)}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin.}
 }
 \value{
 List with path (shortened), original_length, new_length, savings
@@ -25,4 +41,20 @@ path (beyond current position + BFS steps taken), the algorithm "jumps"
 to the farthest such match, replacing the skipped segment with the shorter
 BFS route. States are indexed in a hash map supporting duplicate entries
 to catch the farthest possible jumps in paths with repeated states.
+}
+\details{
+Works over any \code{\link{perm_group}}: the shortener only needs to apply
+moves and compare states, so a cube solution shortens the same way a TopSpin
+path does. The result is spelled in the same move names as the input.
+}
+\examples{
+# a path with an obvious detour: L then R cancel
+short_path_bfs(c("1", "2", "1", "3"), 1:8, k = 4)$path
+
+# the same on a cube: R R' is a no-op
+g <- cube_group(3)
+short_path_bfs(c("R", "R'", "U"), group_identity(g), group = g)$path
+}
+\seealso{
+\code{\link{perm_group}}
 }

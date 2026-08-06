@@ -4,15 +4,16 @@
 #include <string>
 #include <algorithm>
 #include "cayley_utils.h"
+#include "perm_group.h"
 
 using namespace Rcpp;
 
-static std::vector<std::string> reconstruct_path(
-    const std::unordered_map<std::string, std::pair<std::string, std::string>>& parent_map,
+static std::vector<int> reconstruct_path(
+    const std::unordered_map<std::string, std::pair<std::string, int>>& parent_map,
     const std::string& start_key,
     const std::string& target_key)
 {
-  std::vector<std::string> path;
+  std::vector<int> path;
   std::string cur = target_key;
   while (cur != start_key) {
     auto it = parent_map.find(cur);
@@ -26,14 +27,28 @@ static std::vector<std::string> reconstruct_path(
 
 // [[Rcpp::export]]
 List short_path_bfs_cpp(IntegerVector start_state,
-                        CharacterVector path,
-                        int k,
+                        IntegerVector path,
+                        SEXP group,
+                        IntegerVector moves,
                         int depth) {
+
+  XPtr<PermGroup> g(group);
+
+  // Both the path being shortened and the alphabet it may be rewritten over
+  // arrive as move indices; names appear only in the result, so the shortener
+  // never has to know what the moves mean.
+  std::vector<int> ops;
+  for (int i = 0; i < moves.size(); i++) {
+    int m = moves[i] - 1;
+    if (m < 0 || m >= g->n_moves()) stop("move index %d out of range", moves[i]);
+    ops.push_back(m);
+  }
+  if (ops.empty()) stop("moves must contain at least one operation");
 
   int n_ops = path.size();
   if (n_ops == 0) {
     return List::create(
-      Named("path") = CharacterVector(0),
+      Named("path") = IntegerVector(0),
       Named("original_length") = 0,
       Named("new_length") = 0,
       Named("savings") = 0
@@ -60,15 +75,15 @@ List short_path_bfs_cpp(IntegerVector start_state,
   path_index_map[state_to_key(current)].push_back(0);
 
   for (int i = 0; i < n_ops; i++) {
-    std::string op = as<std::string>(path[i]);
-    apply_op_inplace(current, op, k);
+    int m = path[i] - 1;
+    if (m < 0 || m >= g->n_moves()) stop("path move index %d out of range", path[i]);
+    g->apply(current, m);
     path_states.push_back(current);
     path_index_map[state_to_key(current)].push_back(i + 1);
   }
 
   // 2. Greedy BFS hopping with depth-limited exploration
-  const std::vector<std::string> ops = {"L", "R", "X"};
-  std::vector<std::string> result_path;
+  std::vector<int> result_path;
   int cursor = 0;
 
   while (cursor < n_ops) {
@@ -77,7 +92,7 @@ List short_path_bfs_cpp(IntegerVector start_state,
     std::string start_key = state_to_key(path_states[cursor]);
 
     // BFS structures
-    std::unordered_map<std::string, std::pair<std::string, std::string>> parent_map;
+    std::unordered_map<std::string, std::pair<std::string, int>> parent_map;
     std::unordered_map<std::string, std::vector<int>> state_map;
     state_map[start_key] = path_states[cursor];
 
@@ -94,9 +109,9 @@ List short_path_bfs_cpp(IntegerVector start_state,
       for (const auto& pkey : frontier_keys) {
         const auto& pstate = state_map[pkey];
 
-        for (int oi = 0; oi < 3; oi++) {
+        for (size_t oi = 0; oi < ops.size(); oi++) {
           std::vector<int> child = pstate;
-          apply_op_inplace(child, ops[oi], k);
+          g->apply(child, ops[oi]);
           std::string ckey = state_to_key(child);
 
           if (ckey == start_key || parent_map.count(ckey)) continue;
@@ -131,19 +146,19 @@ List short_path_bfs_cpp(IntegerVector start_state,
 
     if (best_path_idx == cursor) {
       // No shortcut found — follow original path one step
-      result_path.push_back(as<std::string>(path[cursor]));
+      result_path.push_back(path[cursor] - 1);
       cursor++;
     } else {
       // Reconstruct the BFS path from cursor's state to best_key
-      std::vector<std::string> segment = reconstruct_path(parent_map, start_key, best_key);
+      std::vector<int> segment = reconstruct_path(parent_map, start_key, best_key);
       result_path.insert(result_path.end(), segment.begin(), segment.end());
       cursor = best_path_idx;
     }
   }
 
-  CharacterVector result_cv(result_path.size());
+  IntegerVector result_cv(result_path.size());
   for (size_t i = 0; i < result_path.size(); i++) {
-    result_cv[i] = result_path[i];
+    result_cv[i] = result_path[i] + 1;   // back to R's 1-based indices
   }
 
   int savings = n_ops - (int)result_path.size();

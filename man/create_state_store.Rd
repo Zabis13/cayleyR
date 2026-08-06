@@ -4,21 +4,36 @@
 \alias{create_state_store}
 \title{Create a New State Store}
 \usage{
-create_state_store(perm_length, init_capacity = 10000L)
+create_state_store(perm_length, init_capacity = 10000L, group = NULL)
 }
 \arguments{
 \item{perm_length}{Integer, length of each permutation state}
 
 \item{init_capacity}{Integer, initial capacity (default 10000)}
+
+\item{group}{A \code{\link{perm_group}}, or \code{NULL} (default)}
 }
 \value{
-External pointer to StateStore (XPtr)
+External pointer to StateStore (XPtr), with the group attached as an
+attribute so it stays alive as long as the store does
 }
 \description{
 Creates a C++ StateStore object for compact, incremental storage of
 permutation states with hash-indexed lookup.
 }
+\details{
+A store may be told which \code{\link{perm_group}} its states belong to. It
+needs this only to spell its own \code{operation} column: the codes it keeps
+are indices into the group's alphabet, and nothing but the group knows
+whether index 2 means a shift or a face turn. Without one, the legacy
+TopSpin spelling "1"/"2"/"3" is used.
+}
 \examples{
 store <- create_state_store(6L)
 state_store_size(store)
+
+# a store that speaks cube
+g <- cube_group(3)
+cs <- create_state_store(54L, group = g)
+state_store_perm_length(cs)
 }

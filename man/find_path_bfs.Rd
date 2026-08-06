@@ -7,7 +7,8 @@
 find_path_bfs(
   start_state,
   final_state,
-  k,
+  k = NULL,
+  group = NULL,
   bfs_levels = 500L,
   bfs_n_hubs = 7L,
   bfs_n_random = 3L,
@@ -22,7 +23,11 @@ find_path_bfs(
 
 \item{final_state}{Integer vector, the target permutation state}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when \code{group} is
+given.}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin.}
 
 \item{bfs_levels}{Integer, depth of sparse BFS from each side (default 500)}
 

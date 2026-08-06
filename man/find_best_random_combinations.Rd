@@ -5,17 +5,20 @@
 \title{Find Best Random Operation Sequences}
 \usage{
 find_best_random_combinations(
-  moves,
+  moves = NULL,
   combo_length,
   n_samples,
   n_top,
   start_state,
-  k,
-  sort_by = c("longest", "most_unique")
+  k = NULL,
+  group = NULL,
+  sort_by = c("longest", "most_unique"),
+  max_moves = 10000000L
 )
 }
 \arguments{
-\item{moves}{Character vector of allowed operation symbols (e.g., c("1", "2", "3") or c("L", "R", "X"))}
+\item{moves}{Allowed operations, naming a subset of the group's alphabet
+(default: all of it). For TopSpin, c("1","2","3") or c("L","R","X").}
 
 \item{combo_length}{Integer, length of each operation sequence to test}
 
@@ -25,7 +28,11 @@ find_best_random_combinations(
 
 \item{start_state}{Integer vector, initial permutation state}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when \code{group} is
+given.}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the
+arguments describe TopSpin.}
 
 \item{sort_by}{Character vector of sorting criteria, applied in order.
 Available criteria:
@@ -38,11 +45,15 @@ Available criteria:
 \item{"least_repeated"}{Prefer lower repetition ratio (ascending)}
 }
 Default: \code{c("longest", "most_unique")} (original behavior).}
+
+\item{max_moves}{Integer, cap on how far a word is spun while measuring its
+cycle (default 1e7)}
 }
 \value{
 Data frame with columns:
 \item{combo_number}{Integer sequence number}
-\item{combination}{String representation of the operation sequence}
+\item{combination}{The operation sequence, written in the group's own
+move names, space separated}
 \item{total_moves}{Cycle length for this sequence}
 \item{unique_states_count}{Number of unique states visited in the cycle}
 \item{repetition_ratio}{Ratio total_moves / unique_states_count}

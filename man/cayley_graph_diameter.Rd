@@ -6,8 +6,9 @@
 \usage{
 cayley_graph_diameter(
   start_state,
-  k,
-  moves = c("L", "R", "X"),
+  k = NULL,
+  moves = NULL,
+  group = NULL,
   method = c("all_pairs", "from_start"),
   max_pairs = Inf,
   verbose = FALSE
@@ -16,9 +17,14 @@ cayley_graph_diameter(
 \arguments{
 \item{start_state}{Integer vector, the state to explore from}
 
-\item{k}{Integer, parameter for the reverse-prefix operation}
+\item{k}{Integer, parameter for the reverse-prefix operation. Ignored when
+\code{group} is given.}
 
-\item{moves}{Character vector of allowed operations (default: c("L","R","X"))}
+\item{moves}{Allowed operations, naming a subset of the group's alphabet
+(default: all of it)}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin, as they always have.}
 
 \item{method}{Either "all_pairs" (default, exact) or "from_start" (single
 BFS, exact only for vertex-transitive graphs)}
@@ -61,6 +67,11 @@ vertex-transitive, but it scales to much larger graphs.
 res <- cayley_graph_diameter(1:5, k = 3)
 res$diameter
 head(res$pairs_df)
+
+# God's number for a small cube subgroup: the middle slice, on its own
+g <- cube_group(3, moves = c("M", "M'"))
+cayley_graph_diameter(group_identity(g), group = g,
+                      method = "from_start")$diameter
 }
 \seealso{
 \code{\link{cayley_bfs_full}}

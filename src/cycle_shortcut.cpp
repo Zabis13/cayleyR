@@ -5,6 +5,7 @@
 #include <string>
 #include <algorithm>
 #include "cayley_utils.h"
+#include "perm_group.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -91,7 +92,7 @@ inline void index_put(PathIndex& index, const std::vector<int>& st, int pos) {
 // which is what the search needs to start from.
 std::vector<int> walk_path(const std::vector<int>& start_state,
                            const std::vector<int>& ops,
-                           int k,
+                           const PermGroup& g,
                            PathIndex& index,
                            const std::vector<int>& want,
                            std::vector<std::vector<int> >& wanted) {
@@ -106,7 +107,7 @@ std::vector<int> walk_path(const std::vector<int>& start_state,
   }
 
   for (size_t i = 0; i < ops.size(); i++) {
-    apply_op_code_inplace(cur, ops[i], k);
+    g.apply(cur, ops[i]);
     int pos = (int)i + 1;
     index_put(index, cur, pos);
     for (size_t w = 0; w < want.size(); w++) {
@@ -165,7 +166,7 @@ struct ScoreLess {
 // cycles are kept short by combo_length -- a short word closes quickly.
 // max_cycle_len is a backstop for the occasional word that does not.
 std::vector<std::vector<int> > sample_combos(const std::vector<int>& from_state,
-                                             int k,
+                                             const PermGroup& g,
                                              const std::vector<int>& move_codes,
                                              int combo_length,
                                              int n_samples,
@@ -217,7 +218,7 @@ std::vector<std::vector<int> > sample_combos(const std::vector<int>& from_state,
     bool stop = false;
     while (!stop) {
       for (size_t j = 0; j < combos[ci].size(); j++) {
-        apply_op_code_inplace(cur, combos[ci][j], k);
+        g.apply(cur, combos[ci][j]);
         total++;
         if (cur == from_state) { stop = true; break; }
         distinct.insert(state_hash(cur));
@@ -243,7 +244,7 @@ std::vector<std::vector<int> > sample_combos(const std::vector<int>& from_state,
 Cut best_cut_from(const std::vector<int>& from_state,
                   int from,
                   const PathIndex& index,
-                  int k,
+                  const PermGroup& g,
                   const std::vector<std::vector<int> >& combos,
                   int max_cycle_len,
                   int n_threads,
@@ -274,7 +275,7 @@ Cut best_cut_from(const std::vector<int>& from_state,
 
     while (!stop) {
       for (size_t j = 0; j < word.size(); j++) {
-        apply_op_code_inplace(cur, word[j], k);
+        g.apply(cur, word[j]);
         m++;
         ops.push_back(word[j]);
 
@@ -325,7 +326,7 @@ Cut best_cut_from(const std::vector<int>& from_state,
 // [[Rcpp::export]]
 List cycle_shortcut_cpp(IntegerVector start_state,
                         IntegerVector path,
-                        int k,
+                        SEXP group,
                         IntegerVector points,
                         IntegerVector moves,
                         int combo_length,
@@ -335,16 +336,34 @@ List cycle_shortcut_cpp(IntegerVector start_state,
                         int max_cycle_len,
                         int n_threads,
                         bool verbose) {
+  XPtr<PermGroup> gp(group);
+  const PermGroup& g = *gp;
+
   std::vector<int> start(start_state.begin(), start_state.end());
-  std::vector<int> ops(path.begin(), path.end());
-  std::vector<int> move_codes(moves.begin(), moves.end());
+
+  // Path and alphabet both arrive as 1-based move indices; inside, everything
+  // is 0-based indices into the group's alphabet.
+  std::vector<int> ops;
+  ops.reserve(path.size());
+  for (int i = 0; i < path.size(); i++) {
+    int m = path[i] - 1;
+    if (m < 0 || m >= g.n_moves()) stop("path move index %d out of range", path[i]);
+    ops.push_back(m);
+  }
+  std::vector<int> move_codes;
+  move_codes.reserve(moves.size());
+  for (int i = 0; i < moves.size(); i++) {
+    int m = moves[i] - 1;
+    if (m < 0 || m >= g.n_moves()) stop("move index %d out of range", moves[i]);
+    move_codes.push_back(m);
+  }
   std::vector<int> want(points.begin(), points.end());
   std::vector<int> sort_codes(sort_by.begin(), sort_by.end());
   const int N = (int)ops.size();
 
   PathIndex index;
   std::vector<std::vector<int> > point_states;
-  std::vector<int> final_state = walk_path(start, ops, k, index, want, point_states);
+  std::vector<int> final_state = walk_path(start, ops, g, index, want, point_states);
 
   std::vector<Cut> cuts;
 
@@ -363,11 +382,11 @@ List cycle_shortcut_cpp(IntegerVector start_state,
 
     int cap = std::min(max_cycle_len, (int)ops.size());
     std::vector<std::vector<int> > combos = sample_combos(
-      point_states[pi], k, move_codes, combo_length, n_samples, n_top,
+      point_states[pi], g, move_codes, combo_length, n_samples, n_top,
       sort_codes, cap, n_threads);
 
     bool found = false;
-    Cut best = best_cut_from(point_states[pi], from, index, k, combos, cap,
+    Cut best = best_cut_from(point_states[pi], from, index, g, combos, cap,
                              n_threads, found);
     if (!found) continue;
 
@@ -384,7 +403,7 @@ List cycle_shortcut_cpp(IntegerVector start_state,
 
     std::vector<int> no_want;
     std::vector<std::vector<int> > no_states;
-    final_state = walk_path(start, ops, k, index, no_want, no_states);
+    final_state = walk_path(start, ops, g, index, no_want, no_states);
 
     cuts.push_back(best);
     if (verbose) {
@@ -394,7 +413,8 @@ List cycle_shortcut_cpp(IntegerVector start_state,
     }
   }
 
-  IntegerVector out_path(ops.begin(), ops.end());
+  IntegerVector out_path(ops.size());
+  for (size_t i = 0; i < ops.size(); i++) out_path[i] = ops[i] + 1;
   IntegerVector cut_from(cuts.size()), cut_to(cuts.size());
   IntegerVector cut_len(cuts.size()), cut_gain(cuts.size());
   for (size_t i = 0; i < cuts.size(); i++) {

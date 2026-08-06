@@ -21,14 +21,17 @@
 #' somewhere in the path or it is not. Points swallowed by an earlier cut are
 #' simply skipped.
 #'
-#' @param path Character vector of operations ("1"/"2"/"3")
+#' @param path Character vector of operations, in the group's own spelling
 #' @param start_state Integer vector, the state the path starts from
-#' @param k Integer, length of the reverse-prefix (flipper) operation
+#' @param k Integer, length of the reverse-prefix (flipper) operation. Ignored
+#'   when `group` is given.
 #' @param n_points Integer, how many places along the path to try. Points are
 #'   spread evenly with a random jitter; cost grows linearly with this, path
 #'   coverage does not (default 20)
-#' @param moves Character vector, operations the combos are drawn from
-#'   (default c("1", "2", "3"))
+#' @param moves Operations the combos are drawn from, naming a subset of the
+#'   group's alphabet (default: all of it)
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the arguments
+#'   describe TopSpin.
 #' @param combo_length Integer, length of each sampled combo word (default 20)
 #' @param n_samples Integer, combos sampled per point before ranking (default 200)
 #' @param n_top Integer, top-ranked combos actually spun into cycles per point
@@ -70,9 +73,10 @@
 #' res <- human_algorithm_to(s, k = 4, simplify = FALSE)
 #' cut <- cycle_shortcut(res$path, s, k = 4, n_points = 5)
 #' cut$savings
-cycle_shortcut <- function(path, start_state, k,
+cycle_shortcut <- function(path, start_state, k = NULL,
                            n_points = 20L,
-                           moves = c("1", "2", "3"),
+                           moves = NULL,
+                           group = NULL,
                            combo_length = 20L,
                            n_samples = 200L,
                            n_top = 5L,
@@ -82,9 +86,11 @@ cycle_shortcut <- function(path, start_state, k,
                            verbose = FALSE) {
   path <- as.character(path)
   start_state <- as.integer(start_state)
-  k <- as.integer(k)
   n_points <- as.integer(n_points)
   N <- length(path)
+
+  res_g <- resolve_group(group, length(start_state), k, moves)
+  g <- res_g$group
 
   empty_cuts <- data.frame(from = integer(0), to = integer(0),
                            cycle_len = integer(0), gain = integer(0))
@@ -120,29 +126,22 @@ cycle_shortcut <- function(path, start_state, k,
     n_threads <- max(1L, as.integer(n_threads))
   }
 
-  codes <- c("1" = 1L, "2" = 2L, "3" = 3L, "L" = 1L, "R" = 2L, "X" = 3L)
-  path_codes <- unname(codes[path])
-  if (anyNA(path_codes)) stop("cycle_shortcut: path holds unknown operations")
-  move_codes <- unique(unname(codes[as.character(moves)]))
-  if (anyNA(move_codes)) stop("cycle_shortcut: moves holds unknown operations")
+  path_codes <- group_move_index(g, path)
+  move_codes <- unique(res_g$moves)
 
   res <- cycle_shortcut_cpp(
-    start_state, as.integer(path_codes), k, as.integer(pos),
+    start_state, as.integer(path_codes), g$ptr, as.integer(pos),
     as.integer(move_codes), as.integer(combo_length), as.integer(n_samples),
     as.integer(n_top), as.integer(sort_ids), as.integer(max_cycle_len),
     as.integer(n_threads), isTRUE(verbose)
   )
 
-  new_path <- unname(c("1", "2", "3")[res$path])
+  new_path <- g$moves[res$path]
 
   # A cut rewrites the middle of the path, and a silently broken path is worse
   # than one that was never shortened.
-  reached <- as.integer(
-    apply_operations(start_state, new_path, k, compute_coords = FALSE)$state
-  )
-  expected <- as.integer(
-    apply_operations(start_state, path, k, compute_coords = FALSE)$state
-  )
+  reached <- group_apply(g, start_state, new_path)
+  expected <- group_apply(g, start_state, path)
   if (!identical(reached, expected)) {
     warning("cycle_shortcut: shortened path failed verification, returning original")
     return(unchanged)

@@ -7,7 +7,10 @@
 #'
 #' @param start_state Integer vector, the starting permutation state
 #' @param final_state Integer vector, the target permutation state
-#' @param k Integer, parameter for reverse operations
+#' @param k Integer, parameter for reverse operations. Ignored when `group` is
+#'   given.
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the arguments
+#'   describe TopSpin.
 #' @param bfs_levels Integer, depth of sparse BFS from each side (default 500)
 #' @param bfs_n_hubs Integer, top-degree nodes per BFS level (default 7)
 #' @param bfs_n_random Integer, random nodes per BFS level (default 3)
@@ -25,7 +28,8 @@
 #' @param ... Additional arguments passed to find_path_iterative
 #' @return List with path, found, cycles, bfs_info
 #' @export
-find_path_bfs <- function(start_state, final_state, k,
+find_path_bfs <- function(start_state, final_state, k = NULL,
+                          group = NULL,
                           bfs_levels = 500L,
                           bfs_n_hubs = 7L,
                           bfs_n_random = 3L,
@@ -38,6 +42,13 @@ find_path_bfs <- function(start_state, final_state, k,
   final_state <- as.integer(final_state)
   names(start_state) <- NULL
   names(final_state) <- NULL
+
+  res_g <- resolve_group(group, length(start_state), k, NULL)
+  g <- res_g$group
+  if (length(final_state) != g$n) {
+    stop("final_state has length ", length(final_state), " but group '",
+         g$name, "' works on length ", g$n)
+  }
 
   # find_path_iterative's method is set via iterative_distance_method; a
   # distance_method in ... would clash with the explicit one passed below.
@@ -62,8 +73,10 @@ find_path_bfs <- function(start_state, final_state, k,
     flush.console()
   }
 
-  bfs_start <- sparse_bfs_cpp(start_state, k, bfs_n_hubs, bfs_n_random, bfs_levels)
-  bfs_final <- sparse_bfs_cpp(final_state, k, bfs_n_hubs, bfs_n_random, bfs_levels)
+  bfs_start <- sparse_bfs_cpp(start_state, g$ptr, res_g$moves,
+                              bfs_n_hubs, bfs_n_random, bfs_levels)
+  bfs_final <- sparse_bfs_cpp(final_state, g$ptr, res_g$moves,
+                              bfs_n_hubs, bfs_n_random, bfs_levels)
 
   if (verbose) {
     cat("  BFS start:", nrow(bfs_start), "edges\n")
@@ -167,7 +180,7 @@ find_path_bfs <- function(start_state, final_state, k,
     mid_result <- find_path_iterative(
       start_state = start_state,
       final_state = final_state,
-      k = k,
+      group = g,
       distance_method = iterative_distance_method,
       verbose = verbose,
       ...
@@ -195,11 +208,11 @@ find_path_bfs <- function(start_state, final_state, k,
       cat("  Hubs match! Direct BFS connection.\n")
       flush.console()
     }
-    path_fwd <- .bfs_ops_to_digits(reconstruct_bfs_path(bfs_start, hub_s_key))
-    path_bwd <- invert_path(.bfs_ops_to_digits(reconstruct_bfs_path(bfs_final, hub_f_key)))
+    path_fwd <- reconstruct_bfs_path(bfs_start, hub_s_key)
+    path_bwd <- invert_path(reconstruct_bfs_path(bfs_final, hub_f_key), group = g)
     full_path <- c(path_fwd, path_bwd)
 
-    validation <- validate_and_simplify_path(full_path, start_state, final_state, k)
+    validation <- validate_and_simplify_path(full_path, start_state, final_state, group = g)
     if (validation$valid) {
       # Bridge chain: start -> hub (same point) -> final
       all_bridges_start <- list(
@@ -231,7 +244,7 @@ find_path_bfs <- function(start_state, final_state, k,
   mid_result <- find_path_iterative(
     start_state = as.integer(hub_s),
     final_state = as.integer(hub_f),
-    k = k,
+    group = g,
     distance_method = iterative_distance_method,
     verbose = verbose,
     ...
@@ -260,7 +273,7 @@ find_path_bfs <- function(start_state, final_state, k,
   if (hub_s_key == start_key_root) {
     path_start_to_hub <- character(0)
   } else {
-    path_start_to_hub <- .bfs_ops_to_digits(reconstruct_bfs_path(bfs_start, hub_s_key))
+    path_start_to_hub <- reconstruct_bfs_path(bfs_start, hub_s_key)
   }
 
   # BFS path: final -> hub_f (inverted = hub_f -> final)
@@ -268,12 +281,12 @@ find_path_bfs <- function(start_state, final_state, k,
   if (hub_f_key == final_key_root) {
     path_hub_to_final <- character(0)
   } else {
-    path_hub_to_final <- invert_path(.bfs_ops_to_digits(reconstruct_bfs_path(bfs_final, hub_f_key)))
+    path_hub_to_final <- invert_path(reconstruct_bfs_path(bfs_final, hub_f_key), group = g)
   }
 
   full_path <- c(path_start_to_hub, mid_result$path, path_hub_to_final)
 
-  validation <- validate_and_simplify_path(full_path, start_state, final_state, k)
+  validation <- validate_and_simplify_path(full_path, start_state, final_state, group = g)
   # Build full bridge chains (BFS start/final + hub + iterative bridges)
   all_bridges_start <- .build_full_bridges(start_state, hub_s, mid_result$bridge_states_start, "BFS hub")
   all_bridges_final <- .build_full_bridges(final_state, hub_f, mid_result$bridge_states_final, "BFS hub")
@@ -321,12 +334,6 @@ find_path_bfs <- function(start_state, final_state, k,
       bfs_info = list(type = "VERIFICATION_FAILED")
     ))
   }
-}
-
-# Convert BFS ops (L/R/X) to digit format (1/2/3)
-.bfs_ops_to_digits <- function(ops) {
-  mapping <- c("L" = "1", "R" = "2", "X" = "3")
-  unname(mapping[ops])
 }
 
 # Build full bridge chain: BFS origin + hub + iterative bridges (skipping first which is hub)

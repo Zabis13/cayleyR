@@ -4,7 +4,13 @@
 \alias{validate_and_simplify_path}
 \title{Validate and Simplify a Path}
 \usage{
-validate_and_simplify_path(path_candidate, start_state, final_state, k)
+validate_and_simplify_path(
+  path_candidate,
+  start_state,
+  final_state,
+  k = NULL,
+  group = NULL
+)
 }
 \arguments{
 \item{path_candidate}{Character vector of operations}
@@ -13,7 +19,11 @@ validate_and_simplify_path(path_candidate, start_state, final_state, k)
 
 \item{final_state}{Integer vector, target state}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when \code{group} is
+given.}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the path is
+read as TopSpin's.}
 }
 \value{
 List with components:
@@ -25,7 +35,19 @@ Verifies that a candidate path correctly transforms start_state into
 final_state, then attempts to simplify it. Returns the simplified path
 if it remains valid, otherwise the original.
 }
+\details{
+Simplification is TopSpin's: \code{\link{short_position}} reduces runs of
+shifts modulo the ring and cancels reverses, which are facts about L, R and
+X rather than about permutations in general. For any other group the path is
+verified but returned as it came in --- checking is universal, this
+particular rewriting is not. \code{\link{cycle_shortcut}} and
+\code{\link{short_path_bfs}} shorten paths for every group.
+}
 \examples{
 res <- validate_and_simplify_path(c("1", "3"), 1:5, c(5, 2, 3, 4, 1), k = 2)
 res$valid
+
+g <- cube_group(3)
+s <- group_apply(g, group_identity(g), "R U")
+validate_and_simplify_path(c("R", "U"), group_identity(g), s, group = g)$valid
 }

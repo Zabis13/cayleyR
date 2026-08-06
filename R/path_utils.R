@@ -1,16 +1,26 @@
 #' Invert a Path of Operations
 #'
-#' Reverses and inverts a sequence of operations. "1" (shift left) becomes
-#' "2" (shift right) and vice versa. "3" (reverse) stays the same.
+#' Reverses a sequence of operations and replaces each by its inverse, giving
+#' the path that undoes the original. For TopSpin that means "1" (shift left)
+#' becomes "2" (shift right) and vice versa, while "3" (reverse) is its own
+#' inverse; for any other \code{\link{perm_group}} the group says which move
+#' undoes which.
 #'
 #' @param path Character vector of operations
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the path is
+#'   read as TopSpin's, as it always has been.
 #' @return Character vector of inverted operations in reverse order
 #' @export
+#' @seealso \code{\link{group_inverse_seq}}
 #' @examples
 #' invert_path(c("1", "3", "2"))
 #' invert_path(c("1", "1", "3"))
-invert_path <- function(path) {
+#'
+#' invert_path(c("R", "U", "U", "F'"), group = cube_group(3))
+invert_path <- function(path, group = NULL) {
   if (length(path) == 0) return(character(0))
+
+  if (!is.null(group)) return(group_inverse_seq(group, path, as_names = TRUE))
 
   inverted <- sapply(rev(path), function(op) {
     if (op == "1") return("2")
@@ -177,10 +187,20 @@ short_position <- function(allowed_positions, n) {
 #' final_state, then attempts to simplify it. Returns the simplified path
 #' if it remains valid, otherwise the original.
 #'
+#' Simplification is TopSpin's: \code{\link{short_position}} reduces runs of
+#' shifts modulo the ring and cancels reverses, which are facts about L, R and
+#' X rather than about permutations in general. For any other group the path is
+#' verified but returned as it came in --- checking is universal, this
+#' particular rewriting is not. \code{\link{cycle_shortcut}} and
+#' \code{\link{short_path_bfs}} shorten paths for every group.
+#'
 #' @param path_candidate Character vector of operations
 #' @param start_state Integer vector, start state
 #' @param final_state Integer vector, target state
-#' @param k Integer, parameter for reverse operations
+#' @param k Integer, parameter for reverse operations. Ignored when `group` is
+#'   given.
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the path is
+#'   read as TopSpin's.
 #' @return List with components:
 #'   \item{valid}{Logical, whether the path is valid}
 #'   \item{path}{Simplified or original path, or NULL if invalid}
@@ -188,7 +208,12 @@ short_position <- function(allowed_positions, n) {
 #' @examples
 #' res <- validate_and_simplify_path(c("1", "3"), 1:5, c(5, 2, 3, 4, 1), k = 2)
 #' res$valid
-validate_and_simplify_path <- function(path_candidate, start_state, final_state, k) {
+#'
+#' g <- cube_group(3)
+#' s <- group_apply(g, group_identity(g), "R U")
+#' validate_and_simplify_path(c("R", "U"), group_identity(g), s, group = g)$valid
+validate_and_simplify_path <- function(path_candidate, start_state, final_state,
+                                       k = NULL, group = NULL) {
   if (is.null(path_candidate)) {
     return(list(valid = FALSE, path = NULL))
   }
@@ -197,28 +222,32 @@ validate_and_simplify_path <- function(path_candidate, start_state, final_state,
     return(list(valid = TRUE, path = path_candidate))
   }
 
+  start_state <- as.integer(start_state)
   n <- length(start_state)
+  res <- resolve_group(group, n, k, NULL)
+  g <- res$group
 
-  test_before <- tryCatch({
-    result <- apply_operations(start_state, path_candidate, k, compute_coords = FALSE)
-    test_state <- result$state
-    identical(as.integer(test_state), as.integer(final_state))
-  }, error = function(e) FALSE)
+  reached <- function(p) {
+    tryCatch(identical(group_apply(g, start_state, p),
+                       as.integer(final_state)),
+             error = function(e) FALSE)
+  }
 
-  if (!test_before) {
+  if (!reached(path_candidate)) {
     return(list(valid = FALSE, path = NULL))
+  }
+
+  # short_position() knows TopSpin's algebra specifically; leave other groups'
+  # paths alone rather than rewrite them by rules that do not hold there.
+  if (!is.null(group) && !identical(sort(g$moves), sort(c("1", "2", "3"))) &&
+      !identical(sort(g$moves), sort(c("L", "R", "X")))) {
+    return(list(valid = TRUE, path = path_candidate))
   }
 
   path_simplified <- short_position(path_candidate, n)
   if (is.null(path_simplified)) path_simplified <- character(0)
 
-  test_after <- tryCatch({
-    result <- apply_operations(start_state, path_simplified, k, compute_coords = FALSE)
-    test_state <- result$state
-    identical(as.integer(test_state), as.integer(final_state))
-  }, error = function(e) FALSE)
-
-  final_path <- if (test_after) path_simplified else path_candidate
+  final_path <- if (reached(path_simplified)) path_simplified else path_candidate
 
   return(list(valid = TRUE, path = final_path))
 }

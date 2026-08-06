@@ -7,8 +7,9 @@
 find_path_iterative(
   start_state,
   final_state,
-  k,
-  moves = c("1", "2", "3"),
+  k = NULL,
+  moves = NULL,
+  group = NULL,
   combo_length = 20,
   n_samples = 200,
   n_top = 10,
@@ -29,9 +30,16 @@ find_path_iterative(
 
 \item{final_state}{Integer vector, the target permutation state}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when \code{group} is
+given.}
 
-\item{moves}{Character vector, allowed operations (default c("1", "2", "3"))}
+\item{moves}{Allowed operations, naming a subset of the group's alphabet
+(default: all of it)}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the
+arguments describe TopSpin. Only \code{distance_method = "manhattan"} is
+defined for other groups: "human" and "breakpoints" score closeness on a
+ring, which a cube has no counterpart for.}
 
 \item{combo_length}{Integer, length of random operation sequences (default 20)}
 

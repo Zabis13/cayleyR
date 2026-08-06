@@ -5,21 +5,28 @@
 \title{Generate Reachable Random State}
 \usage{
 generate_state(
-  n,
-  k = n,
+  n = NULL,
+  k = NULL,
   n_moves = 25L,
-  moves = c("1", "2", "3"),
+  moves = NULL,
+  group = NULL,
   max_attempts = 100L
 )
 }
 \arguments{
-\item{n}{Integer, the size of the permutation}
+\item{n}{Integer, the size of the permutation. Optional when \code{group} is
+given, since the group fixes it; required otherwise.}
 
-\item{k}{Integer, parameter for reverse_prefix operation}
+\item{k}{Integer, parameter for reverse_prefix operation (TopSpin only)}
 
 \item{n_moves}{Integer, number of random operations to apply (default 25)}
 
-\item{moves}{Character vector, allowed operations (default c("1", "2", "3"))}
+\item{moves}{Moves to draw from. With a \code{group}, a subset of its
+alphabet (default all of it); without one, TopSpin's operations
+(default \code{c("1", "2", "3")}).}
+
+\item{group}{A \code{\link{perm_group}} to walk in. When absent the
+arguments describe TopSpin.}
 
 \item{max_attempts}{Integer, maximum attempts to generate a non-identity state (default 100)}
 }
@@ -27,12 +34,32 @@ generate_state(
 Integer vector representing a reachable permutation state
 }
 \description{
-Generates a random state reachable from 1:n by applying random
-operations (L, R, X). Guarantees the result is in the same
-connected component as the starting state.
+Generates a random state by walking away from the identity with random
+moves. The walk stays inside the group, so the result is always reachable
+from where it started --- which a random permutation of \code{1:n} would not
+be. On the cube that distinction is the whole point: of the
+\eqn{54!} arrangements of 54 stickers only about \eqn{4.3 \times 10^{19}}
+are positions a cube can actually reach.
+}
+\details{
+Given a \code{group}, moves are drawn from that group's alphabet. Without
+one the arguments describe TopSpin, as they always have, and \code{moves}
+names its operations \code{"1"}/\code{"2"}/\code{"3"}.
 }
 \examples{
 set.seed(42)
 generate_state(10, k = 4)
 generate_state(10, k = 4, n_moves = 100)
+
+# in an arbitrary group: n comes from the group
+g <- cube_group(3)
+s <- generate_state(group = g, n_moves = 20)
+length(s)
+
+# the centres of a real cube never move, and this state is a real one
+all(s[c(5, 14, 23, 32, 41, 50)] == c(5, 14, 23, 32, 41, 50))
+}
+\seealso{
+\code{\link{cube_group}}, for the cube's own moves and
+also reports the moves it used
 }

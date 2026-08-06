@@ -7,26 +7,46 @@
 #' BFS route. States are indexed in a hash map supporting duplicate entries
 #' to catch the farthest possible jumps in paths with repeated states.
 #'
-#' @param path Character vector of operations ("1"/"2"/"3" or "L"/"R"/"X")
+#' Works over any \code{\link{perm_group}}: the shortener only needs to apply
+#' moves and compare states, so a cube solution shortens the same way a TopSpin
+#' path does. The result is spelled in the same move names as the input.
+#'
+#' @param path Move sequence to shorten, in the group's own spelling. For
+#'   TopSpin that is "1"/"2"/"3" or "L"/"R"/"X" as before; for a cube, names
+#'   such as "R" or "M'".
 #' @param start_state Integer vector, the starting permutation state
-#' @param k Integer, parameter for reverse_prefix operation
+#' @param k Integer, parameter for reverse_prefix operation. Ignored when
+#'   `group` is given.
 #' @param depth Integer, BFS exploration depth (default 5)
+#' @param moves Allowed operations for the rewrite, naming a subset of the
+#'   group's alphabet (default: all of it)
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the arguments
+#'   describe TopSpin.
 #' @return List with path (shortened), original_length, new_length, savings
 #' @export
-short_path_bfs <- function(path, start_state, k, depth = 5L) {
-  mapping <- c("1" = "L", "2" = "R", "3" = "X")
-  path_normalized <- ifelse(path %in% names(mapping), mapping[path], path)
-  names(path_normalized) <- NULL
+#' @seealso \code{\link{perm_group}}
+#' @examples
+#' # a path with an obvious detour: L then R cancel
+#' short_path_bfs(c("1", "2", "1", "3"), 1:8, k = 4)$path
+#'
+#' # the same on a cube: R R' is a no-op
+#' g <- cube_group(3)
+#' short_path_bfs(c("R", "R'", "U"), group_identity(g), group = g)$path
+short_path_bfs <- function(path, start_state, k = NULL, depth = 5L,
+                           moves = NULL, group = NULL) {
+  start_state <- as.integer(start_state)
+  res <- resolve_group(group, length(start_state), k, moves)
+  g <- res$group
 
   result <- short_path_bfs_cpp(
-    as.integer(start_state),
-    as.character(path_normalized),
-    as.integer(k),
+    start_state,
+    group_move_index(g, path),
+    g$ptr,
+    res$moves,
     as.integer(depth)
   )
 
-  back_mapping <- c("L" = "1", "R" = "2", "X" = "3")
-  result$path <- unname(back_mapping[result$path])
-
+  # report in the group's own spelling, matching how the path came in
+  result$path <- g$moves[result$path]
   result
 }

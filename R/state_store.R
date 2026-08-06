@@ -3,16 +3,51 @@
 #' Creates a C++ StateStore object for compact, incremental storage of
 #' permutation states with hash-indexed lookup.
 #'
+#' A store may be told which \code{\link{perm_group}} its states belong to. It
+#' needs this only to spell its own \code{operation} column: the codes it keeps
+#' are indices into the group's alphabet, and nothing but the group knows
+#' whether index 2 means a shift or a face turn. Without one, the legacy
+#' TopSpin spelling "1"/"2"/"3" is used.
+#'
 #' @param perm_length Integer, length of each permutation state
 #' @param init_capacity Integer, initial capacity (default 10000)
-#' @return External pointer to StateStore (XPtr)
+#' @param group A \code{\link{perm_group}}, or `NULL` (default)
+#' @return External pointer to StateStore (XPtr), with the group attached as an
+#'   attribute so it stays alive as long as the store does
 #' @export
 #' @examples
 #' store <- create_state_store(6L)
 #' state_store_size(store)
-create_state_store <- function(perm_length, init_capacity = 10000L) {
-  state_store_create(as.integer(perm_length), as.integer(init_capacity))
+#'
+#' # a store that speaks cube
+#' g <- cube_group(3)
+#' cs <- create_state_store(54L, group = g)
+#' state_store_perm_length(cs)
+create_state_store <- function(perm_length, init_capacity = 10000L,
+                               group = NULL) {
+  if (!is.null(group)) {
+    stopifnot(is_perm_group(group))
+    if (group$n != as.integer(perm_length)) {
+      stop("store length ", perm_length, " does not match group '", group$name,
+           "' (length ", group$n, ")")
+    }
+  }
+  xp <- state_store_create(as.integer(perm_length), as.integer(init_capacity),
+                          if (is.null(group)) NULL else group$ptr)
+  # the C++ side borrows the group pointer; holding the R object here is what
+  # keeps it from being collected out from under the store
+  attr(xp, "group") <- group
+  xp
 }
+
+#' Group Attached to a State Store
+#'
+#' @param store External pointer to StateStore
+#' @return The \code{\link{perm_group}} the store was created with, or `NULL`
+#' @export
+#' @examples
+#' store_group(create_state_store(54L, group = cube_group(3)))
+store_group <- function(store) attr(store, "group")
 
 #' Query a State Store
 #'
@@ -72,15 +107,21 @@ store_add_from_df <- function(store, df, cycle_val) {
 
   n_rows <- nrow(df)
 
-  # Operation: convert string to int code
+  # Operation: convert names to alphabet indices. With a group attached the
+  # names are its own; without one, the legacy TopSpin spelling.
   if ("operation" %in% names(df)) {
     op_int <- integer(n_rows)
     ops <- as.character(df$operation)
-    op_int[ops == "1" | ops == "L"] <- 1L
-    op_int[ops == "2" | ops == "R"] <- 2L
-    op_int[ops == "3" | ops == "X"] <- 3L
-    # NA or empty → 0
-    op_int[is.na(ops) | ops == ""] <- 0L
+    known <- !is.na(ops) & nzchar(ops)
+    g <- store_group(store)
+    if (is.null(g)) {
+      op_int[ops == "1" | ops == "L"] <- 1L
+      op_int[ops == "2" | ops == "R"] <- 2L
+      op_int[ops == "3" | ops == "X"] <- 3L
+    } else if (any(known)) {
+      op_int[known] <- group_move_index(g, ops[known])
+    }
+    op_int[!known] <- 0L
   } else {
     op_int <- integer(n_rows) # all 0
   }
@@ -300,17 +341,38 @@ store_reconstruct_path <- function(store, bridge_states, target_state,
 #' and writes states + coordinates directly into the StateStore,
 #' bypassing data.frame creation entirely.
 #'
+#' Each combination is spun until the state returns to where it started, so a
+#' single short word yields its whole cycle. Words are written in the group's
+#' own spelling and may be unseparated (\code{"1231"}, \code{"RM'R'"}) or
+#' spaced.
+#'
 #' @param store External pointer to StateStore
 #' @param top_combos Data frame with \code{combination} column
 #' @param start_state Integer vector, the initial permutation state
-#' @param k Integer, parameter for reverse operations
+#' @param k Integer, parameter for reverse operations. Ignored when the store
+#'   carries a group, or when `group` is given.
 #' @param cycle_val Integer, cycle number to assign
+#' @param group A \code{\link{perm_group}}. Defaults to the store's own group,
+#'   and to TopSpin if it has none.
+#' @param max_reps Integer, cap on repetitions of a word before its cycle is
+#'   abandoned as non-closing (default 100000)
 #' @return Number of states added (invisible)
 #' @export
-store_analyze_combos <- function(store, top_combos, start_state, k, cycle_val) {
-  combinations <- as.character(top_combos$combination)
+#' @seealso \code{\link{perm_group}}, \code{\link{group_parse_word}}
+store_analyze_combos <- function(store, top_combos, start_state, k = NULL,
+                                 cycle_val, group = NULL,
+                                 max_reps = 100000L) {
+  start_state <- as.integer(start_state)
+  if (is.null(group)) group <- store_group(store)
+  res <- resolve_group(group, length(start_state), k, NULL)
+  g <- res$group
+
+  words <- lapply(as.character(top_combos$combination), group_parse_word,
+                  group = g)
+
   invisible(analyze_combos_to_store_cpp(
-    store, combinations, as.integer(start_state), as.integer(k), as.integer(cycle_val)
+    store, words, start_state, g$ptr, as.integer(cycle_val),
+    as.integer(max_reps)
   ))
 }
 
@@ -337,7 +399,7 @@ store_analyze_combos_gpu <- function(store, top_combos, start_state, k, cycle_va
   n_combos <- length(combinations)
 
   # Parse combo strings into lists of operation characters
-  ops_list <- strsplit(combinations, "")
+  ops_list <- lapply(combinations, .split_topspin_combo)
   combo_lengths <- vapply(ops_list, length, integer(1))
 
   # --- Row 0: start_state for each combo, step=1, op=first op ---

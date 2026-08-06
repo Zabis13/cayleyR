@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include "cayley_utils.h"
+#include "perm_group.h"
 #include "celestial_coords.h"
 
 #ifdef _OPENMP
@@ -165,17 +166,23 @@ List reverse_prefix(IntegerVector state, int k, Nullable<List> coords = R_NilVal
 // Cycle detection: returns (total_moves, unique_states_count)
 static std::pair<int, int> cycle_detect(
     const std::vector<int>& start,
-    const std::vector<std::string>& ops,
-    int k)
+    const std::vector<int>& word,
+    const PermGroup& g,
+    int max_moves)
 {
   std::vector<int> current = start;
   std::unordered_set<std::string> visited;
   visited.insert(state_to_key(start));
   int total_moves = 0;
 
-  while (true) {
-    for (size_t i = 0; i < ops.size(); i++) {
-      apply_op_inplace(current, ops[i], k);
+  if (word.empty()) return std::make_pair(0, 1);
+
+  // Every word closes eventually -- it is an element of a finite group -- but
+  // "eventually" can be a very large number, so the walk is capped rather than
+  // left to run unbounded.
+  while (total_moves < max_moves) {
+    for (size_t i = 0; i < word.size(); i++) {
+      g.apply(current, word[i]);
       total_moves++;
 
       std::string key = state_to_key(current);
@@ -186,22 +193,25 @@ static std::pair<int, int> cycle_detect(
       }
     }
   }
-  // Should not reach here for valid Cayley graph inputs
   return std::make_pair(total_moves, (int)visited.size());
 }
 
 // [[Rcpp::export]]
 List get_reachable_states_light_cpp(IntegerVector start_state,
-                                     CharacterVector allowed_positions,
-                                     int k) {
-  // Convert to std types
+                                     IntegerVector allowed_positions,
+                                     SEXP group,
+                                     int max_moves = 10000000) {
+  XPtr<PermGroup> g(group);
   std::vector<int> start(start_state.begin(), start_state.end());
-  std::vector<std::string> ops(allowed_positions.size());
+  std::vector<int> word;
+  word.reserve(allowed_positions.size());
   for (int i = 0; i < allowed_positions.size(); i++) {
-    ops[i] = as<std::string>(allowed_positions[i]);
+    int m = allowed_positions[i] - 1;
+    if (m < 0 || m >= g->n_moves()) stop("move index %d out of range", allowed_positions[i]);
+    word.push_back(m);
   }
 
-  auto result = cycle_detect(start, ops, k);
+  auto result = cycle_detect(start, word, *g, max_moves);
 
   return List::create(
     Named("total_moves") = result.first,
@@ -212,34 +222,42 @@ List get_reachable_states_light_cpp(IntegerVector start_state,
 // [[Rcpp::export]]
 List find_best_random_combinations_cpp(
     IntegerVector start_state,
-    int k,
-    CharacterVector moves,
+    SEXP group,
+    IntegerVector moves,
     int combo_length,
-    int n_samples)
+    int n_samples,
+    int max_moves = 10000000)
 {
-  // Convert inputs to std types
+  XPtr<PermGroup> g(group);
   std::vector<int> start(start_state.begin(), start_state.end());
-  std::vector<std::string> move_vec(moves.size());
+
+  // The alphabet to draw from, as indices into the group.
+  std::vector<int> move_vec;
+  move_vec.reserve(moves.size());
   for (int i = 0; i < moves.size(); i++) {
-    move_vec[i] = as<std::string>(moves[i]);
+    int m = moves[i] - 1;
+    if (m < 0 || m >= g->n_moves()) stop("move index %d out of range", moves[i]);
+    move_vec.push_back(m);
   }
   int n_moves = (int)move_vec.size();
+  if (n_moves == 0) stop("moves must contain at least one operation");
 
   // Pre-generate unique combos on main thread using R's RNG
   std::unordered_set<std::string> seen_keys;
-  std::vector<std::vector<std::string>> combos;
+  std::vector<std::vector<int> > combos;
   combos.reserve(n_samples);
 
   int max_iter = n_samples * 10;
   while ((int)combos.size() < n_samples && max_iter > 0) {
-    std::vector<std::string> combo(combo_length);
+    std::vector<int> combo(combo_length);
     std::string key;
-    key.reserve(combo_length * 2);
+    key.reserve(combo_length * 4);
     for (int j = 0; j < combo_length; j++) {
       int idx = (int)(R::runif(0.0, 1.0) * n_moves);
       if (idx >= n_moves) idx = n_moves - 1;
       combo[j] = move_vec[idx];
-      key += combo[j];
+      key += std::to_string(combo[j]);
+      key += ',';
     }
     if (seen_keys.find(key) == seen_keys.end()) {
       seen_keys.insert(key);
@@ -252,19 +270,22 @@ List find_best_random_combinations_cpp(
   std::vector<int> res_total(n_combos, 0);
   std::vector<int> res_unique(n_combos, 0);
 
-  // Build combo key strings (main thread, before parallel section)
+  // Words are reported in the group's own spelling, space separated. Joining
+  // them unseparated would only be readable back for TopSpin, whose moves are
+  // one character each; a cube's "R'" and "R" would run together.
   CharacterVector combo_keys(n_combos);
   for (int i = 0; i < n_combos; i++) {
     std::string key;
     for (int j = 0; j < (int)combos[i].size(); j++) {
-      key += combos[i][j];
+      if (j > 0) key += ' ';
+      key += g->move_name(combos[i][j]);
     }
     combo_keys[i] = key;
   }
 
   #pragma omp parallel for schedule(dynamic)
   for (int i = 0; i < n_combos; i++) {
-    auto result = cycle_detect(start, combos[i], k);
+    auto result = cycle_detect(start, combos[i], *g, max_moves);
     res_total[i] = result.first;
     res_unique[i] = result.second;
   }

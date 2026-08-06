@@ -82,30 +82,32 @@ BEGIN_RCPP
 END_RCPP
 }
 // get_reachable_states_light_cpp
-List get_reachable_states_light_cpp(IntegerVector start_state, CharacterVector allowed_positions, int k);
-RcppExport SEXP _cayleyR_get_reachable_states_light_cpp(SEXP start_stateSEXP, SEXP allowed_positionsSEXP, SEXP kSEXP) {
+List get_reachable_states_light_cpp(IntegerVector start_state, IntegerVector allowed_positions, SEXP group, int max_moves);
+RcppExport SEXP _cayleyR_get_reachable_states_light_cpp(SEXP start_stateSEXP, SEXP allowed_positionsSEXP, SEXP groupSEXP, SEXP max_movesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type allowed_positions(allowed_positionsSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    rcpp_result_gen = Rcpp::wrap(get_reachable_states_light_cpp(start_state, allowed_positions, k));
+    Rcpp::traits::input_parameter< IntegerVector >::type allowed_positions(allowed_positionsSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< int >::type max_moves(max_movesSEXP);
+    rcpp_result_gen = Rcpp::wrap(get_reachable_states_light_cpp(start_state, allowed_positions, group, max_moves));
     return rcpp_result_gen;
 END_RCPP
 }
 // find_best_random_combinations_cpp
-List find_best_random_combinations_cpp(IntegerVector start_state, int k, CharacterVector moves, int combo_length, int n_samples);
-RcppExport SEXP _cayleyR_find_best_random_combinations_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP movesSEXP, SEXP combo_lengthSEXP, SEXP n_samplesSEXP) {
+List find_best_random_combinations_cpp(IntegerVector start_state, SEXP group, IntegerVector moves, int combo_length, int n_samples, int max_moves);
+RcppExport SEXP _cayleyR_find_best_random_combinations_cpp(SEXP start_stateSEXP, SEXP groupSEXP, SEXP movesSEXP, SEXP combo_lengthSEXP, SEXP n_samplesSEXP, SEXP max_movesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type moves(movesSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
     Rcpp::traits::input_parameter< int >::type combo_length(combo_lengthSEXP);
     Rcpp::traits::input_parameter< int >::type n_samples(n_samplesSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_best_random_combinations_cpp(start_state, k, moves, combo_length, n_samples));
+    Rcpp::traits::input_parameter< int >::type max_moves(max_movesSEXP);
+    rcpp_result_gen = Rcpp::wrap(find_best_random_combinations_cpp(start_state, group, moves, combo_length, n_samples, max_moves));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -134,15 +136,179 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_apply_word_cpp
+IntegerVector cube_apply_word_cpp(IntegerVector state, std::string word);
+RcppExport SEXP _cayleyR_cube_apply_word_cpp(SEXP stateSEXP, SEXP wordSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< std::string >::type word(wordSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_apply_word_cpp(state, word));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_word_order_cpp
+int cube_word_order_cpp(std::string word, int max_order);
+RcppExport SEXP _cayleyR_cube_word_order_cpp(SEXP wordSEXP, SEXP max_orderSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type word(wordSEXP);
+    Rcpp::traits::input_parameter< int >::type max_order(max_orderSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_word_order_cpp(word, max_order));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_read_state_cpp
+List cube_read_state_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_read_state_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_read_state_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_predicates_cpp
+LogicalVector cube_predicates_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_predicates_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_predicates_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_alg_table_cpp
+DataFrame cube_alg_table_cpp(std::string which);
+RcppExport SEXP _cayleyR_cube_alg_table_cpp(SEXP whichSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type which(whichSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_alg_table_cpp(which));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_expand_alg_cpp
+CharacterVector cube_expand_alg_cpp(std::string notation);
+RcppExport SEXP _cayleyR_cube_expand_alg_cpp(SEXP notationSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type notation(notationSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_expand_alg_cpp(notation));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_centre_positions_cpp
+IntegerVector cube_centre_positions_cpp();
+RcppExport SEXP _cayleyR_cube_centre_positions_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cube_centre_positions_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_moves_cpp
+List cube_moves_cpp(int n);
+RcppExport SEXP _cayleyR_cube_moves_cpp(SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_moves_cpp(n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_move_names_cpp
+CharacterVector cube_move_names_cpp(int n);
+RcppExport SEXP _cayleyR_cube_move_names_cpp(SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_move_names_cpp(n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_layer_move_cpp
+IntegerVector cube_layer_move_cpp(int n, int axis, int layer, int turns);
+RcppExport SEXP _cayleyR_cube_layer_move_cpp(SEXP nSEXP, SEXP axisSEXP, SEXP layerSEXP, SEXP turnsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type axis(axisSEXP);
+    Rcpp::traits::input_parameter< int >::type layer(layerSEXP);
+    Rcpp::traits::input_parameter< int >::type turns(turnsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_layer_move_cpp(n, axis, layer, turns));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_identity_cpp
+IntegerVector cube_identity_cpp(int n);
+RcppExport SEXP _cayleyR_cube_identity_cpp(SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_identity_cpp(n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_is_colour_solved_cpp
+bool cube_is_colour_solved_cpp(IntegerVector state, int n);
+RcppExport SEXP _cayleyR_cube_is_colour_solved_cpp(SEXP stateSEXP, SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_is_colour_solved_cpp(state, n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_solve_cfop_cpp
+List cube_solve_cfop_cpp(IntegerVector state, int cross_depth, int slot_depth);
+RcppExport SEXP _cayleyR_cube_solve_cfop_cpp(SEXP stateSEXP, SEXP cross_depthSEXP, SEXP slot_depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type cross_depth(cross_depthSEXP);
+    Rcpp::traits::input_parameter< int >::type slot_depth(slot_depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_solve_cfop_cpp(state, cross_depth, slot_depth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_solve_lbl_cpp
+List cube_solve_lbl_cpp(IntegerVector state, int cross_depth, int corner_depth, int edge_depth);
+RcppExport SEXP _cayleyR_cube_solve_lbl_cpp(SEXP stateSEXP, SEXP cross_depthSEXP, SEXP corner_depthSEXP, SEXP edge_depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type cross_depth(cross_depthSEXP);
+    Rcpp::traits::input_parameter< int >::type corner_depth(corner_depthSEXP);
+    Rcpp::traits::input_parameter< int >::type edge_depth(edge_depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_solve_lbl_cpp(state, cross_depth, corner_depth, edge_depth));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cycle_shortcut_cpp
-List cycle_shortcut_cpp(IntegerVector start_state, IntegerVector path, int k, IntegerVector points, IntegerVector moves, int combo_length, int n_samples, int n_top, IntegerVector sort_by, int max_cycle_len, int n_threads, bool verbose);
-RcppExport SEXP _cayleyR_cycle_shortcut_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP kSEXP, SEXP pointsSEXP, SEXP movesSEXP, SEXP combo_lengthSEXP, SEXP n_samplesSEXP, SEXP n_topSEXP, SEXP sort_bySEXP, SEXP max_cycle_lenSEXP, SEXP n_threadsSEXP, SEXP verboseSEXP) {
+List cycle_shortcut_cpp(IntegerVector start_state, IntegerVector path, SEXP group, IntegerVector points, IntegerVector moves, int combo_length, int n_samples, int n_top, IntegerVector sort_by, int max_cycle_len, int n_threads, bool verbose);
+RcppExport SEXP _cayleyR_cycle_shortcut_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP groupSEXP, SEXP pointsSEXP, SEXP movesSEXP, SEXP combo_lengthSEXP, SEXP n_samplesSEXP, SEXP n_topSEXP, SEXP sort_bySEXP, SEXP max_cycle_lenSEXP, SEXP n_threadsSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type path(pathSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type points(pointsSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
     Rcpp::traits::input_parameter< int >::type combo_length(combo_lengthSEXP);
@@ -152,36 +318,36 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type max_cycle_len(max_cycle_lenSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(cycle_shortcut_cpp(start_state, path, k, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose));
+    rcpp_result_gen = Rcpp::wrap(cycle_shortcut_cpp(start_state, path, group, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
 // cayley_bfs_full_cpp
-DataFrame cayley_bfs_full_cpp(IntegerVector start_state, int k, CharacterVector moves);
-RcppExport SEXP _cayleyR_cayley_bfs_full_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP movesSEXP) {
+DataFrame cayley_bfs_full_cpp(IntegerVector start_state, SEXP group, IntegerVector moves);
+RcppExport SEXP _cayleyR_cayley_bfs_full_cpp(SEXP start_stateSEXP, SEXP groupSEXP, SEXP movesSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type moves(movesSEXP);
-    rcpp_result_gen = Rcpp::wrap(cayley_bfs_full_cpp(start_state, k, moves));
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cayley_bfs_full_cpp(start_state, group, moves));
     return rcpp_result_gen;
 END_RCPP
 }
 // cayley_graph_diameter_cpp
-List cayley_graph_diameter_cpp(IntegerVector start_state, int k, CharacterVector moves, int method, double max_pairs, bool verbose);
-RcppExport SEXP _cayleyR_cayley_graph_diameter_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP movesSEXP, SEXP methodSEXP, SEXP max_pairsSEXP, SEXP verboseSEXP) {
+List cayley_graph_diameter_cpp(IntegerVector start_state, SEXP group, IntegerVector moves, int method, double max_pairs, bool verbose);
+RcppExport SEXP _cayleyR_cayley_graph_diameter_cpp(SEXP start_stateSEXP, SEXP groupSEXP, SEXP movesSEXP, SEXP methodSEXP, SEXP max_pairsSEXP, SEXP verboseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type moves(movesSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
     Rcpp::traits::input_parameter< int >::type method(methodSEXP);
     Rcpp::traits::input_parameter< double >::type max_pairs(max_pairsSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
-    rcpp_result_gen = Rcpp::wrap(cayley_graph_diameter_cpp(start_state, k, moves, method, max_pairs, verbose));
+    rcpp_result_gen = Rcpp::wrap(cayley_graph_diameter_cpp(start_state, group, moves, method, max_pairs, verbose));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -234,44 +400,132 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// perm_group_create_table_cpp
+SEXP perm_group_create_table_cpp(int state_length, CharacterVector move_names, List move_perms);
+RcppExport SEXP _cayleyR_perm_group_create_table_cpp(SEXP state_lengthSEXP, SEXP move_namesSEXP, SEXP move_permsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type state_length(state_lengthSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type move_names(move_namesSEXP);
+    Rcpp::traits::input_parameter< List >::type move_perms(move_permsSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_create_table_cpp(state_length, move_names, move_perms));
+    return rcpp_result_gen;
+END_RCPP
+}
+// perm_group_create_topspin_cpp
+SEXP perm_group_create_topspin_cpp(int state_length, int k, CharacterVector move_names);
+RcppExport SEXP _cayleyR_perm_group_create_topspin_cpp(SEXP state_lengthSEXP, SEXP kSEXP, SEXP move_namesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type state_length(state_lengthSEXP);
+    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< CharacterVector >::type move_names(move_namesSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_create_topspin_cpp(state_length, k, move_names));
+    return rcpp_result_gen;
+END_RCPP
+}
+// perm_group_info_cpp
+List perm_group_info_cpp(SEXP group);
+RcppExport SEXP _cayleyR_perm_group_info_cpp(SEXP groupSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_info_cpp(group));
+    return rcpp_result_gen;
+END_RCPP
+}
+// perm_group_apply_cpp
+IntegerVector perm_group_apply_cpp(SEXP group, IntegerVector state, IntegerVector word);
+RcppExport SEXP _cayleyR_perm_group_apply_cpp(SEXP groupSEXP, SEXP stateSEXP, SEXP wordSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type word(wordSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_apply_cpp(group, state, word));
+    return rcpp_result_gen;
+END_RCPP
+}
+// perm_group_compose_cpp
+IntegerVector perm_group_compose_cpp(SEXP group, IntegerVector word);
+RcppExport SEXP _cayleyR_perm_group_compose_cpp(SEXP groupSEXP, SEXP wordSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type word(wordSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_compose_cpp(group, word));
+    return rcpp_result_gen;
+END_RCPP
+}
+// perm_group_inverse_seq_cpp
+IntegerVector perm_group_inverse_seq_cpp(SEXP group, IntegerVector word);
+RcppExport SEXP _cayleyR_perm_group_inverse_seq_cpp(SEXP groupSEXP, SEXP wordSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type word(wordSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_inverse_seq_cpp(group, word));
+    return rcpp_result_gen;
+END_RCPP
+}
+// perm_group_identity_cpp
+IntegerVector perm_group_identity_cpp(SEXP group);
+RcppExport SEXP _cayleyR_perm_group_identity_cpp(SEXP groupSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    rcpp_result_gen = Rcpp::wrap(perm_group_identity_cpp(group));
+    return rcpp_result_gen;
+END_RCPP
+}
 // short_path_bfs_cpp
-List short_path_bfs_cpp(IntegerVector start_state, CharacterVector path, int k, int depth);
-RcppExport SEXP _cayleyR_short_path_bfs_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP kSEXP, SEXP depthSEXP) {
+List short_path_bfs_cpp(IntegerVector start_state, IntegerVector path, SEXP group, IntegerVector moves, int depth);
+RcppExport SEXP _cayleyR_short_path_bfs_cpp(SEXP start_stateSEXP, SEXP pathSEXP, SEXP groupSEXP, SEXP movesSEXP, SEXP depthSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type path(pathSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type path(pathSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
     Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
-    rcpp_result_gen = Rcpp::wrap(short_path_bfs_cpp(start_state, path, k, depth));
+    rcpp_result_gen = Rcpp::wrap(short_path_bfs_cpp(start_state, path, group, moves, depth));
     return rcpp_result_gen;
 END_RCPP
 }
 // sparse_bfs_cpp
-DataFrame sparse_bfs_cpp(IntegerVector start_state, int k, int n_hubs, int n_random, int max_levels);
-RcppExport SEXP _cayleyR_sparse_bfs_cpp(SEXP start_stateSEXP, SEXP kSEXP, SEXP n_hubsSEXP, SEXP n_randomSEXP, SEXP max_levelsSEXP) {
+DataFrame sparse_bfs_cpp(IntegerVector start_state, SEXP group, IntegerVector moves, int n_hubs, int n_random, int max_levels);
+RcppExport SEXP _cayleyR_sparse_bfs_cpp(SEXP start_stateSEXP, SEXP groupSEXP, SEXP movesSEXP, SEXP n_hubsSEXP, SEXP n_randomSEXP, SEXP max_levelsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type moves(movesSEXP);
     Rcpp::traits::input_parameter< int >::type n_hubs(n_hubsSEXP);
     Rcpp::traits::input_parameter< int >::type n_random(n_randomSEXP);
     Rcpp::traits::input_parameter< int >::type max_levels(max_levelsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sparse_bfs_cpp(start_state, k, n_hubs, n_random, max_levels));
+    rcpp_result_gen = Rcpp::wrap(sparse_bfs_cpp(start_state, group, moves, n_hubs, n_random, max_levels));
     return rcpp_result_gen;
 END_RCPP
 }
 // state_store_create
-SEXP state_store_create(int perm_length, int init_capacity);
-RcppExport SEXP _cayleyR_state_store_create(SEXP perm_lengthSEXP, SEXP init_capacitySEXP) {
+SEXP state_store_create(int perm_length, int init_capacity, SEXP group);
+RcppExport SEXP _cayleyR_state_store_create(SEXP perm_lengthSEXP, SEXP init_capacitySEXP, SEXP groupSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type perm_length(perm_lengthSEXP);
     Rcpp::traits::input_parameter< int >::type init_capacity(init_capacitySEXP);
-    rcpp_result_gen = Rcpp::wrap(state_store_create(perm_length, init_capacity));
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    rcpp_result_gen = Rcpp::wrap(state_store_create(perm_length, init_capacity, group));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -567,17 +821,18 @@ BEGIN_RCPP
 END_RCPP
 }
 // analyze_combos_to_store_cpp
-int analyze_combos_to_store_cpp(SEXP xp, CharacterVector combinations, IntegerVector start_state, int k, int cycle_val);
-RcppExport SEXP _cayleyR_analyze_combos_to_store_cpp(SEXP xpSEXP, SEXP combinationsSEXP, SEXP start_stateSEXP, SEXP kSEXP, SEXP cycle_valSEXP) {
+int analyze_combos_to_store_cpp(SEXP xp, List combinations, IntegerVector start_state, SEXP group, int cycle_val, int max_reps);
+RcppExport SEXP _cayleyR_analyze_combos_to_store_cpp(SEXP xpSEXP, SEXP combinationsSEXP, SEXP start_stateSEXP, SEXP groupSEXP, SEXP cycle_valSEXP, SEXP max_repsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type xp(xpSEXP);
-    Rcpp::traits::input_parameter< CharacterVector >::type combinations(combinationsSEXP);
+    Rcpp::traits::input_parameter< List >::type combinations(combinationsSEXP);
     Rcpp::traits::input_parameter< IntegerVector >::type start_state(start_stateSEXP);
-    Rcpp::traits::input_parameter< int >::type k(kSEXP);
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
     Rcpp::traits::input_parameter< int >::type cycle_val(cycle_valSEXP);
-    rcpp_result_gen = Rcpp::wrap(analyze_combos_to_store_cpp(xp, combinations, start_state, k, cycle_val));
+    Rcpp::traits::input_parameter< int >::type max_reps(max_repsSEXP);
+    rcpp_result_gen = Rcpp::wrap(analyze_combos_to_store_cpp(xp, combinations, start_state, group, cycle_val, max_reps));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -589,10 +844,24 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_shift_left", (DL_FUNC) &_cayleyR_shift_left, 2},
     {"_cayleyR_shift_right", (DL_FUNC) &_cayleyR_shift_right, 2},
     {"_cayleyR_reverse_prefix", (DL_FUNC) &_cayleyR_reverse_prefix, 3},
-    {"_cayleyR_get_reachable_states_light_cpp", (DL_FUNC) &_cayleyR_get_reachable_states_light_cpp, 3},
-    {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 5},
+    {"_cayleyR_get_reachable_states_light_cpp", (DL_FUNC) &_cayleyR_get_reachable_states_light_cpp, 4},
+    {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 6},
     {"_cayleyR_openmp_threads", (DL_FUNC) &_cayleyR_openmp_threads, 0},
     {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 5},
+    {"_cayleyR_cube_apply_word_cpp", (DL_FUNC) &_cayleyR_cube_apply_word_cpp, 2},
+    {"_cayleyR_cube_word_order_cpp", (DL_FUNC) &_cayleyR_cube_word_order_cpp, 2},
+    {"_cayleyR_cube_read_state_cpp", (DL_FUNC) &_cayleyR_cube_read_state_cpp, 1},
+    {"_cayleyR_cube_predicates_cpp", (DL_FUNC) &_cayleyR_cube_predicates_cpp, 1},
+    {"_cayleyR_cube_alg_table_cpp", (DL_FUNC) &_cayleyR_cube_alg_table_cpp, 1},
+    {"_cayleyR_cube_expand_alg_cpp", (DL_FUNC) &_cayleyR_cube_expand_alg_cpp, 1},
+    {"_cayleyR_cube_centre_positions_cpp", (DL_FUNC) &_cayleyR_cube_centre_positions_cpp, 0},
+    {"_cayleyR_cube_moves_cpp", (DL_FUNC) &_cayleyR_cube_moves_cpp, 1},
+    {"_cayleyR_cube_move_names_cpp", (DL_FUNC) &_cayleyR_cube_move_names_cpp, 1},
+    {"_cayleyR_cube_layer_move_cpp", (DL_FUNC) &_cayleyR_cube_layer_move_cpp, 4},
+    {"_cayleyR_cube_identity_cpp", (DL_FUNC) &_cayleyR_cube_identity_cpp, 1},
+    {"_cayleyR_cube_is_colour_solved_cpp", (DL_FUNC) &_cayleyR_cube_is_colour_solved_cpp, 2},
+    {"_cayleyR_cube_solve_cfop_cpp", (DL_FUNC) &_cayleyR_cube_solve_cfop_cpp, 3},
+    {"_cayleyR_cube_solve_lbl_cpp", (DL_FUNC) &_cayleyR_cube_solve_lbl_cpp, 4},
     {"_cayleyR_cycle_shortcut_cpp", (DL_FUNC) &_cayleyR_cycle_shortcut_cpp, 12},
     {"_cayleyR_cayley_bfs_full_cpp", (DL_FUNC) &_cayleyR_cayley_bfs_full_cpp, 3},
     {"_cayleyR_cayley_graph_diameter_cpp", (DL_FUNC) &_cayleyR_cayley_graph_diameter_cpp, 6},
@@ -600,9 +869,16 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_run_length_cpp", (DL_FUNC) &_cayleyR_run_length_cpp, 1},
     {"_cayleyR_human_phase1_rank_cpp", (DL_FUNC) &_cayleyR_human_phase1_rank_cpp, 2},
     {"_cayleyR_human_algorithm_cpp", (DL_FUNC) &_cayleyR_human_algorithm_cpp, 4},
-    {"_cayleyR_short_path_bfs_cpp", (DL_FUNC) &_cayleyR_short_path_bfs_cpp, 4},
-    {"_cayleyR_sparse_bfs_cpp", (DL_FUNC) &_cayleyR_sparse_bfs_cpp, 5},
-    {"_cayleyR_state_store_create", (DL_FUNC) &_cayleyR_state_store_create, 2},
+    {"_cayleyR_perm_group_create_table_cpp", (DL_FUNC) &_cayleyR_perm_group_create_table_cpp, 3},
+    {"_cayleyR_perm_group_create_topspin_cpp", (DL_FUNC) &_cayleyR_perm_group_create_topspin_cpp, 3},
+    {"_cayleyR_perm_group_info_cpp", (DL_FUNC) &_cayleyR_perm_group_info_cpp, 1},
+    {"_cayleyR_perm_group_apply_cpp", (DL_FUNC) &_cayleyR_perm_group_apply_cpp, 3},
+    {"_cayleyR_perm_group_compose_cpp", (DL_FUNC) &_cayleyR_perm_group_compose_cpp, 2},
+    {"_cayleyR_perm_group_inverse_seq_cpp", (DL_FUNC) &_cayleyR_perm_group_inverse_seq_cpp, 2},
+    {"_cayleyR_perm_group_identity_cpp", (DL_FUNC) &_cayleyR_perm_group_identity_cpp, 1},
+    {"_cayleyR_short_path_bfs_cpp", (DL_FUNC) &_cayleyR_short_path_bfs_cpp, 5},
+    {"_cayleyR_sparse_bfs_cpp", (DL_FUNC) &_cayleyR_sparse_bfs_cpp, 6},
+    {"_cayleyR_state_store_create", (DL_FUNC) &_cayleyR_state_store_create, 3},
     {"_cayleyR_state_store_size", (DL_FUNC) &_cayleyR_state_store_size, 1},
     {"_cayleyR_state_store_unique_count", (DL_FUNC) &_cayleyR_state_store_unique_count, 1},
     {"_cayleyR_state_store_perm_length", (DL_FUNC) &_cayleyR_state_store_perm_length, 1},
@@ -626,7 +902,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_state_store_to_dataframe", (DL_FUNC) &_cayleyR_state_store_to_dataframe, 1},
     {"_cayleyR_state_store_collect_ops", (DL_FUNC) &_cayleyR_state_store_collect_ops, 4},
     {"_cayleyR_state_store_reconstruct_path", (DL_FUNC) &_cayleyR_state_store_reconstruct_path, 5},
-    {"_cayleyR_analyze_combos_to_store_cpp", (DL_FUNC) &_cayleyR_analyze_combos_to_store_cpp, 5},
+    {"_cayleyR_analyze_combos_to_store_cpp", (DL_FUNC) &_cayleyR_analyze_combos_to_store_cpp, 6},
     {NULL, NULL, 0}
 };
 

@@ -66,3 +66,4 @@
 
 # Internal helper: check if data.table is available
 has_data_table <- function() requireNamespace("data.table", quietly = TRUE)
+

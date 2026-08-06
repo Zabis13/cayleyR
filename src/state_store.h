@@ -7,16 +7,23 @@
 #include <unordered_set>
 #include <cmath>
 #include <algorithm>
+#include <memory>
 #include "cayley_utils.h"
+#include "perm_group.h"
 
-// Operation codes (compact int representation)
+// Operation codes stored per row: 0 means none, and 1..n_moves is a 1-based
+// index into the alphabet of the store's group. For TopSpin that alphabet is
+// L, R, X in that order, so the stored values are the same 1/2/3 they have
+// always been and the constants below still name them; for a cube the same
+// slot holds a face turn instead.
 enum OpCode : int {
   OP_NA = 0,
-  OP_L  = 1,  // shift left  ("1" / "L")
-  OP_R  = 2,  // shift right ("2" / "R")
-  OP_X  = 3   // reverse     ("3" / "X")
+  OP_L  = 1,  // TopSpin: shift left  ("1" / "L")
+  OP_R  = 2,  // TopSpin: shift right ("2" / "R")
+  OP_X  = 3   // TopSpin: reverse     ("3" / "X")
 };
 
+// Fallback spelling for a store built without a group: the legacy L/R/X names.
 inline OpCode op_from_string(const std::string& s) {
   if (s == "L" || s == "1") return OP_L;
   if (s == "R" || s == "2") return OP_R;
@@ -38,6 +45,20 @@ public:
   int L;         // permutation length (number of elements per state)
   int count;     // current number of states
   int capacity;  // allocated slots
+
+  // The puzzle these states belong to. Held so the store can spell its own
+  // `operation` column: the values are indices into this alphabet, and only
+  // the group knows whether index 2 means "shift right" or "U prime". Null
+  // for a store built before a group was attached, in which case the legacy
+  // L/R/X spelling is used.
+  std::shared_ptr<PermGroup> group;
+
+  // Spell a stored op code, whatever puzzle it came from.
+  std::string op_name(OpCode op) const {
+    if (op == OP_NA) return "";
+    if (group && (int)op <= group->n_moves()) return group->move_name(op - 1);
+    return op_to_string(op);
+  }
 
   // Flat state storage: states[i*L .. i*L+L-1] = state i
   std::vector<int> states;

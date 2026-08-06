@@ -6,25 +6,47 @@
 #include <algorithm>
 #include "cayley_utils.h"
 #include "celestial_coords.h"
+#include "perm_group.h"
 
 using namespace Rcpp;
 
-// Decode the R-side operation names ("L"/"1", "R"/"2", "X"/"3") into the
-// integer codes apply_op_code_inplace() expects. Unknown names are rejected
-// rather than silently ignored: a typo in `moves` would otherwise change the
-// graph being measured without any signal.
-static std::vector<int> encode_moves(const CharacterVector& moves) {
-  std::vector<int> codes;
-  codes.reserve(moves.size());
+// Move indices arrive 1-based from R and index the group's alphabet; a search
+// may use any subset of it. Nothing here knows what a move does -- the group
+// answers that -- so the same sweep measures a TopSpin ring and a cube.
+static std::vector<int> check_moves(const IntegerVector& moves,
+                                    const PermGroup& g) {
+  std::vector<int> idx;
+  idx.reserve(moves.size());
   for (int i = 0; i < moves.size(); i++) {
-    std::string op = as<std::string>(moves[i]);
-    if (op == "L" || op == "1") codes.push_back(1);
-    else if (op == "R" || op == "2") codes.push_back(2);
-    else if (op == "X" || op == "3") codes.push_back(3);
-    else stop("Unknown operation '%s' in moves (expected L/R/X or 1/2/3)", op);
+    int m = moves[i] - 1;
+    if (m < 0 || m >= g.n_moves()) stop("move index %d out of range", moves[i]);
+    idx.push_back(m);
   }
-  if (codes.empty()) stop("moves must contain at least one operation");
-  return codes;
+  if (idx.empty()) stop("moves must contain at least one operation");
+  return idx;
+}
+
+// The nL/nR/nX counters below are TopSpin's three operations. For any other
+// alphabet they have no meaning, so they are reported as zero and the
+// celestial coordinates derived from them are left flat.
+static bool is_lrx(const PermGroup& g) {
+  if (g.n_moves() > 3) return false;
+  for (int m = 0; m < g.n_moves(); m++) {
+    const std::string& s = g.move_name(m);
+    if (s != "L" && s != "1" && s != "R" && s != "2" && s != "X" && s != "3") {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Which of L/R/X a move is (1/2/3), or 0 when the group is not TopSpin.
+static int lrx_code(const PermGroup& g, int m) {
+  const std::string& s = g.move_name(m);
+  if (s == "L" || s == "1") return 1;
+  if (s == "R" || s == "2") return 2;
+  if (s == "X" || s == "3") return 3;
+  return 0;
 }
 
 // One full BFS over the component reachable from `start`.
@@ -45,10 +67,11 @@ struct BfsResult {
 };
 
 static void bfs_from(const std::vector<int>& start,
-                     int k,
-                     const std::vector<int>& op_codes,
+                     const PermGroup& g,
+                     const std::vector<int>& move_idx,
                      BfsResult& out) {
   std::unordered_map<std::string, int> index;
+  bool lrx = is_lrx(g);
 
   std::string start_key = state_to_key(start);
   index[start_key] = 0;
@@ -67,10 +90,10 @@ static void bfs_from(const std::vector<int>& start,
     int cur = q.front();
     q.pop();
 
-    for (size_t m = 0; m < op_codes.size(); m++) {
-      int op = op_codes[m];
+    for (size_t mi = 0; mi < move_idx.size(); mi++) {
+      int m = move_idx[mi];
       child = out.states[cur];
-      apply_op_code_inplace(child, op, k);
+      g.apply(child, m);
 
       std::string key = state_to_key(child);
       if (index.find(key) != index.end()) continue;
@@ -80,6 +103,7 @@ static void bfs_from(const std::vector<int>& start,
       out.keys.push_back(key);
       out.states.push_back(child);
       out.dist.push_back(out.dist[cur] + 1);
+      int op = lrx ? lrx_code(g, m) : 0;
       out.nL.push_back(out.nL[cur] + (op == 1 ? 1 : 0));
       out.nR.push_back(out.nR[cur] + (op == 2 ? 1 : 0));
       out.nX.push_back(out.nX[cur] + (op == 3 ? 1 : 0));
@@ -92,8 +116,8 @@ static void bfs_from(const std::vector<int>& start,
 // the all_pairs sweep, where every source explores the same component and the
 // key -> id mapping can therefore be shared instead of rebuilt n! times.
 static void bfs_dist_only(int source,
-                          int k,
-                          const std::vector<int>& op_codes,
+                          const PermGroup& g,
+                          const std::vector<int>& move_idx,
                           const std::vector<std::vector<int> >& states,
                           const std::unordered_map<std::string, int>& index,
                           std::vector<int>& dist) {
@@ -108,9 +132,9 @@ static void bfs_dist_only(int source,
     int cur = q.front();
     q.pop();
 
-    for (size_t m = 0; m < op_codes.size(); m++) {
+    for (size_t mi = 0; mi < move_idx.size(); mi++) {
       child = states[cur];
-      apply_op_code_inplace(child, op_codes[m], k);
+      g.apply(child, move_idx[mi]);
 
       std::unordered_map<std::string, int>::const_iterator it =
         index.find(state_to_key(child));
@@ -151,15 +175,16 @@ static DataFrame bfs_to_dataframe(const BfsResult& r) {
 
 // [[Rcpp::export]]
 DataFrame cayley_bfs_full_cpp(IntegerVector start_state,
-                              int k,
-                              CharacterVector moves) {
+                              SEXP group,
+                              IntegerVector moves) {
   std::vector<int> start(start_state.begin(), start_state.end());
   if (start.empty()) stop("start_state must not be empty");
 
-  std::vector<int> op_codes = encode_moves(moves);
+  XPtr<PermGroup> g(group);
+  std::vector<int> move_idx = check_moves(moves, *g);
 
   BfsResult r;
-  bfs_from(start, k, op_codes, r);
+  bfs_from(start, *g, move_idx, r);
   return bfs_to_dataframe(r);
 }
 
@@ -176,18 +201,19 @@ DataFrame cayley_bfs_full_cpp(IntegerVector start_state,
 //
 // [[Rcpp::export]]
 List cayley_graph_diameter_cpp(IntegerVector start_state,
-                               int k,
-                               CharacterVector moves,
+                               SEXP group,
+                               IntegerVector moves,
                                int method,
                                double max_pairs,
                                bool verbose) {
   std::vector<int> start(start_state.begin(), start_state.end());
   if (start.empty()) stop("start_state must not be empty");
 
-  std::vector<int> op_codes = encode_moves(moves);
+  XPtr<PermGroup> g(group);
+  std::vector<int> move_idx = check_moves(moves, *g);
 
   BfsResult r;
-  bfs_from(start, k, op_codes, r);
+  bfs_from(start, *g, move_idx, r);
   int nv = (int)r.keys.size();
 
   if (verbose) Rcout << "Vertices reachable: " << nv << "\n";
@@ -227,7 +253,7 @@ List cayley_graph_diameter_cpp(IntegerVector start_state,
         Rcout << "  pass 1: " << s << "/" << nv << "\n";
       }
       Rcpp::checkUserInterrupt();
-      bfs_dist_only(s, k, op_codes, r.states, index, dist);
+      bfs_dist_only(s, *g, move_idx, r.states, index, dist);
       int e = 0;
       for (int i = 0; i < nv; i++) if (dist[i] > e) e = dist[i];
       ecc[s] = e;
@@ -238,7 +264,7 @@ List cayley_graph_diameter_cpp(IntegerVector start_state,
       if (ecc[s] != diameter) continue;   // only eccentric vertices can be ends
       if (verbose && nv > 200) Rcout << "  pass 2: source " << s << "\n";
       Rcpp::checkUserInterrupt();
-      bfs_dist_only(s, k, op_codes, r.states, index, dist);
+      bfs_dist_only(s, *g, move_idx, r.states, index, dist);
       for (int i = 0; i < nv; i++) {
         if (dist[i] != diameter) continue;
         if (i < s) continue;              // unordered pairs, recorded once

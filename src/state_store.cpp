@@ -10,9 +10,22 @@ using namespace Rcpp;
 
 typedef XPtr<StateStore> StateStorePtr;
 
+// The group a store belongs to, borrowed from the R-side XPtr. The deleter is
+// a no-op: the group is owned by that XPtr, and R keeps it alive because the
+// store wrapper holds a reference to the group object. Copying the group here
+// instead would mean two answers to "what does move 2 do" once a caller starts
+// asking the group directly.
+static std::shared_ptr<PermGroup> borrow_group(SEXP group) {
+  if (Rf_isNull(group)) return std::shared_ptr<PermGroup>();
+  XPtr<PermGroup> g(group);
+  return std::shared_ptr<PermGroup>(g.get(), [](PermGroup*) {});
+}
+
 // [[Rcpp::export]]
-SEXP state_store_create(int perm_length, int init_capacity = 10000) {
+SEXP state_store_create(int perm_length, int init_capacity = 10000,
+                        SEXP group = R_NilValue) {
   StateStore* store = new StateStore(perm_length, init_capacity);
+  store->group = borrow_group(group);
   StateStorePtr xp(store, true); // Release via destructor
   return xp;
 }
@@ -105,7 +118,7 @@ List state_store_get_meta(SEXP xp, int idx) {
     Named("step") = store->step[idx],
     Named("combo_number") = store->combo_number[idx],
     Named("cycle") = store->cycle[idx],
-    Named("operation") = op_to_string(store->operation[idx]),
+    Named("operation") = store->op_name(store->operation[idx]),
     Named("nL") = store->nL_vec[idx],
     Named("nR") = store->nR_vec[idx],
     Named("nX") = store->nX_vec[idx],
@@ -386,7 +399,7 @@ DataFrame state_store_to_dataframe(SEXP xp) {
   // Operation as character
   CharacterVector op_chr(n);
   for (int i = 0; i < n; i++) {
-    std::string s = op_to_string(store->operation[i]);
+    std::string s = store->op_name(store->operation[i]);
     if (s.empty()) {
       op_chr[i] = NA_STRING;
     } else {
@@ -454,7 +467,7 @@ static void collect_combo_ops(const StateStore* store, int cyc, int combo, int e
 
   for (auto& p : combo_rows) {
     if (p.first >= end_step) break;
-    std::string op = op_to_string(store->operation[p.second]);
+    std::string op = store->op_name(store->operation[p.second]);
     if (!op.empty()) {
       out.push_back(op);
     }
@@ -599,45 +612,50 @@ struct ComboResult {
   std::vector<OpCode> all_ops;
 };
 
-// Analyze a single combo into a local buffer (thread-safe, no shared state)
+// Analyze a single combo into a local buffer (thread-safe, no shared state).
+//
+// A combo is a word given as move indices into the group's alphabet, spun
+// round until the state returns to where it started. Words used to arrive as
+// strings parsed one character per op, which only ever worked because TopSpin
+// spells its three moves with single characters; indices carry a cube's "R'"
+// and "U2" just as well.
+//
+// The nL/nR/nX counters and the celestial coordinates built from them are
+// TopSpin's. For any other alphabet `lrx_codes` is empty and they stay flat,
+// which is what leaves those columns meaningless rather than wrong for a cube.
 static ComboResult analyze_single_combo(
-    const std::string& combo_str,
+    const std::vector<int>& word,
     const std::vector<int>& start_state,
-    int k)
+    const PermGroup& g,
+    const std::vector<int>& lrx_codes,
+    int max_reps)
 {
   ComboResult result;
   std::vector<int> current = start_state;
   CelestialCoords coords = create_empty_coords();
 
-  // Parse combo string into ops
-  std::vector<std::string> ops;
-  ops.reserve(combo_str.size());
-  for (char c : combo_str) {
-    ops.push_back(std::string(1, c));
-  }
-
   result.all_states.push_back(start_state);
   result.all_coords.push_back(create_empty_coords());
+
+  if (word.empty()) return result;
 
   int step = 0;
   bool done = false;
 
-  while (!done) {
-    for (size_t oi = 0; oi < ops.size(); oi++) {
-      const std::string& op = ops[oi];
-      OpCode op_code = op_from_string(op);
+  for (int rep = 0; rep < max_reps && !done; rep++) {
+    for (size_t oi = 0; oi < word.size(); oi++) {
+      int m = word[oi];
 
-      apply_op_inplace(current, op, k);
+      g.apply(current, m);
 
-      int dL = (op_code == OP_L) ? 1 : 0;
-      int dR = (op_code == OP_R) ? 1 : 0;
-      int dX = (op_code == OP_X) ? 1 : 0;
-      coords = update_coords(coords, dL, dR, dX);
+      int code = lrx_codes.empty() ? 0 : lrx_codes[m];
+      coords = update_coords(coords, code == 1 ? 1 : 0,
+                             code == 2 ? 1 : 0, code == 3 ? 1 : 0);
 
       step++;
       result.all_states.push_back(current);
       result.all_coords.push_back(coords);
-      result.all_ops.push_back(op_code);
+      result.all_ops.push_back(static_cast<OpCode>(m + 1));
 
       if (current == start_state && step > 0) {
         done = true;
@@ -671,30 +689,55 @@ static void merge_combo_to_store(
   }
 }
 
+// Combos arrive as a list of integer words, one per combo, each entry a
+// 1-based index into the group's alphabet. `max_reps` caps how many times a
+// word may be spun before the cycle is abandoned as non-closing.
+//
 // [[Rcpp::export]]
 int analyze_combos_to_store_cpp(SEXP xp,
-                                 CharacterVector combinations,
+                                 List combinations,
                                  IntegerVector start_state,
-                                 int k,
-                                 int cycle_val) {
+                                 SEXP group,
+                                 int cycle_val,
+                                 int max_reps = 100000) {
   StateStorePtr store(xp);
+  XPtr<PermGroup> g(group);
 
   std::vector<int> start(start_state.begin(), start_state.end());
   int n_combos = combinations.size();
   int initial_count = store->count;
 
-  // Pre-extract combo strings (R strings not safe in OpenMP)
-  std::vector<std::string> combo_strs(n_combos);
+  // Pre-extract words as plain vectors: R objects are not safe to touch from
+  // an OpenMP region.
+  std::vector<std::vector<int> > words(n_combos);
   for (int i = 0; i < n_combos; i++) {
-    combo_strs[i] = as<std::string>(combinations[i]);
+    IntegerVector w = combinations[i];
+    words[i].reserve(w.size());
+    for (int j = 0; j < w.size(); j++) {
+      int m = w[j] - 1;
+      if (m < 0 || m >= g->n_moves()) stop("move index %d out of range", w[j]);
+      words[i].push_back(m);
+    }
   }
+
+  // Which alphabet slot is which of L/R/X, empty unless this is TopSpin.
+  std::vector<int> lrx_codes;
+  bool lrx = g->n_moves() <= 3;
+  for (int m = 0; m < g->n_moves() && lrx; m++) {
+    const std::string& s = g->move_name(m);
+    if (s == "L" || s == "1") lrx_codes.push_back(1);
+    else if (s == "R" || s == "2") lrx_codes.push_back(2);
+    else if (s == "X" || s == "3") lrx_codes.push_back(3);
+    else lrx = false;
+  }
+  if (!lrx) lrx_codes.clear();
 
   // Phase 1: parallel computation into local buffers
   std::vector<ComboResult> results(n_combos);
 
   #pragma omp parallel for schedule(dynamic)
   for (int i = 0; i < n_combos; i++) {
-    results[i] = analyze_single_combo(combo_strs[i], start, k);
+    results[i] = analyze_single_combo(words[i], start, *g, lrx_codes, max_reps);
   }
 
   // Phase 2: sequential merge into store

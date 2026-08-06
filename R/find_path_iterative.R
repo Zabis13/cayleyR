@@ -11,8 +11,14 @@
 #'
 #' @param start_state Integer vector, the starting permutation state
 #' @param final_state Integer vector, the target permutation state
-#' @param k Integer, parameter for reverse operations
-#' @param moves Character vector, allowed operations (default c("1", "2", "3"))
+#' @param k Integer, parameter for reverse operations. Ignored when `group` is
+#'   given.
+#' @param moves Allowed operations, naming a subset of the group's alphabet
+#'   (default: all of it)
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the
+#'   arguments describe TopSpin. Only \code{distance_method = "manhattan"} is
+#'   defined for other groups: "human" and "breakpoints" score closeness on a
+#'   ring, which a cube has no counterpart for.
 #' @param combo_length Integer, length of random operation sequences (default 20)
 #' @param n_samples Integer, number of random sequences to test per iteration (default 200)
 #' @param n_top Integer, number of top sequences to analyze fully (default 10)
@@ -54,8 +60,9 @@
 #' # result <- find_path_iterative(start, final, k = 3, max_iterations = 5)
 find_path_iterative <- function(start_state,
                                  final_state,
-                                 k,
-                                 moves = c("1", "2", "3"),
+                                 k = NULL,
+                                 moves = NULL,
+                                 group = NULL,
                                  combo_length = 20,
                                  n_samples = 200,
                                  n_top = 10,
@@ -77,6 +84,21 @@ find_path_iterative <- function(start_state,
   final_state <- as.integer(final_state)
   names(final_state) <- NULL
 
+  res_g <- resolve_group(group, n, k, moves)
+  g <- res_g$group
+  moves <- g$moves[res_g$moves]
+
+  # The ring heuristics measure a TopSpin state; on any other group they return
+  # numbers that mean nothing about the pair being compared, so refuse rather
+  # than search by them.
+  is_topspin <- identical(sort(g$moves), sort(c("1", "2", "3"))) ||
+    identical(sort(g$moves), sort(c("L", "R", "X")))
+  if (!is_topspin && distance_method != "manhattan") {
+    stop("find_path_iterative: distance_method = \"", distance_method,
+         "\" is defined for TopSpin only; use \"manhattan\" with group '",
+         g$name, "'")
+  }
+
   if (identical(start_state, final_state)) {
     if (verbose) cat("Start and final states are identical, no path needed.\n")
     return(list(
@@ -90,8 +112,8 @@ find_path_iterative <- function(start_state,
   }
 
   # Create C++ StateStores (replaces states_list_start/final + rbind + hash)
-  store_start <- create_state_store(n)
-  store_final <- create_state_store(n)
+  store_start <- create_state_store(n, group = g)
+  store_final <- create_state_store(n, group = g)
 
   current_start <- start_state
   current_final <- final_state
@@ -135,7 +157,7 @@ find_path_iterative <- function(start_state,
       if (!reuse_combos || is.null(cached_combos)) {
         top_combos <- find_best_random_combinations(
           moves = moves, combo_length = combo_length, n_samples = n_samples,
-          n_top = n_top, start_state = current_state, k = k,
+          n_top = n_top, start_state = current_state, group = g,
           sort_by = sort_by
         )
         if (reuse_combos) cached_combos <- top_combos
@@ -144,7 +166,8 @@ find_path_iterative <- function(start_state,
       }
 
       count_before <- state_store_size(store)
-      store_analyze_combos(store, top_combos, current_state, k, cycle_num)
+      store_analyze_combos(store, top_combos, current_state,
+                           cycle_val = cycle_num, group = g)
       count_after <- state_store_size(store)
       n_added <- count_after - count_before
 
@@ -247,7 +270,8 @@ find_path_iterative <- function(start_state,
 
         for (idx in seq_along(candidate_paths)) {
           candidate <- candidate_paths[[idx]]
-          validation <- validate_and_simplify_path(candidate$path, start_state, final_state, k)
+          validation <- validate_and_simplify_path(candidate$path, start_state,
+                                                  final_state, group = g)
 
           if (validation$valid) {
             valid_count <- valid_count + 1
@@ -289,7 +313,7 @@ find_path_iterative <- function(start_state,
             store_start, store_final,
             cycle_num, current_start, current_final,
             bridge_states_start, bridge_states_final,
-            opd, verbose, k,
+            opd, verbose, k, g,
             distance_method = distance_method,
             final_cycle = if (one_sided) 1L else cycle_num
           )
@@ -311,7 +335,7 @@ find_path_iterative <- function(start_state,
         store_start, store_final,
         cycle_num, current_start, current_final,
         bridge_states_start, bridge_states_final,
-        opd, verbose, k,
+        opd, verbose, k, g,
         distance_method = distance_method,
         final_cycle = if (one_sided) 1L else cycle_num
       )
@@ -342,9 +366,8 @@ find_path_iterative <- function(start_state,
       cat("Path found in", cycle_num, "cycles\n")
       cat("Path length:", length(final_path), "operations\n")
 
-      result_test <- apply_operations(start_state, final_path, k)
-      test_state <- result_test$state
-      if (identical(as.integer(test_state), final_state)) {
+      test_state <- group_apply(g, start_state, final_path)
+      if (identical(test_state, final_state)) {
         cat("Verification passed\n")
       } else {
         cat("VERIFICATION FAILED\n")
@@ -471,11 +494,16 @@ find_path_iterative <- function(start_state,
 .select_new_bridges_store <- function(store_start, store_final,
                                        cycle_num, current_start, current_final,
                                        bridge_states_start, bridge_states_final,
-                                       opd, verbose, k,
+                                       opd, verbose, k, group,
                                        distance_method = "manhattan",
                                        final_cycle = cycle_num) {
 
   n <- state_store_perm_length(store_start)
+
+  # k reaches only the ring heuristics ("human", "breakpoints"), which the
+  # caller has already refused to run on anything but TopSpin. A group given
+  # explicitly may leave k unset, and manhattan never looks at it.
+  if (is.null(k)) k <- if (!is.null(group$k)) group$k else n
 
   # Filter middle states for current cycle. Under one_sided the final store is
   # frozen at cycle 1, so it is filtered by the cycle it actually holds.

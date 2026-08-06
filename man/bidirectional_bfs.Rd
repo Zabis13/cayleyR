@@ -4,7 +4,15 @@
 \alias{bidirectional_bfs}
 \title{Bidirectional BFS Shortest Path}
 \usage{
-bidirectional_bfs(n, state1, state2, max_level, moves, k)
+bidirectional_bfs(
+  n,
+  state1,
+  state2,
+  max_level,
+  moves = NULL,
+  k = NULL,
+  group = NULL
+)
 }
 \arguments{
 \item{n}{Integer, size of the permutation}
@@ -15,9 +23,14 @@ bidirectional_bfs(n, state1, state2, max_level, moves, k)
 
 \item{max_level}{Integer, maximum BFS depth in each direction}
 
-\item{moves}{Character vector, allowed operations (e.g., c("1", "2", "3"))}
+\item{moves}{Allowed operations, naming a subset of the group's alphabet
+(default: all of it)}
 
-\item{k}{Integer, parameter for reverse operations}
+\item{k}{Integer, parameter for reverse operations. Ignored when \code{group} is
+given.}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin.}
 }
 \value{
 Character vector of operations forming the shortest path,
@@ -28,9 +41,24 @@ Finds the shortest path between two permutation states using
 bidirectional breadth-first search. Expands from both the start
 and goal states simultaneously, meeting in the middle.
 }
+\details{
+The backward half of the search walks moves in reverse, so the path it
+returns may name moves outside \code{moves}: searching with left shifts alone
+still reports the right shift that undoes one. Inverses are taken from the
+group's whole alphabet for that reason, and a move the group cannot undo at
+all is an error rather than a silently wrong path.
+}
 \examples{
 # Find path between two small states
 path <- bidirectional_bfs(5, 1:5, c(2, 3, 4, 5, 1), max_level = 5,
                           moves = c("1", "2", "3"), k = 3)
 path
+
+# the same search on a cube: undo a three-move scramble
+g <- cube_group(3)
+s <- group_apply(g, group_identity(g), "R U F")
+bidirectional_bfs(54, s, group_identity(g), max_level = 4, group = g)
+}
+\seealso{
+\code{\link{perm_group}}
 }

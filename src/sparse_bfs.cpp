@@ -5,6 +5,7 @@
 #include <string>
 #include <algorithm>
 #include "cayley_utils.h"
+#include "perm_group.h"
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -22,12 +23,26 @@ struct Candidate {
 
 // [[Rcpp::export]]
 DataFrame sparse_bfs_cpp(IntegerVector start_state,
-                         int k,
+                         SEXP group,
+                         IntegerVector moves,
                          int n_hubs = 7,
                          int n_random = 3,
                          int max_levels = 1000) {
 
-  const std::vector<std::string> ops = {"L", "R", "X"};
+  XPtr<PermGroup> g(group);
+
+  // The alphabet to branch on, as indices into the group, paired with the
+  // names the edges are reported under. Whatever the puzzle, the highway is
+  // built the same way; only what a move does differs.
+  std::vector<int> ops;
+  std::vector<std::string> op_names;
+  for (int i = 0; i < moves.size(); i++) {
+    int m = moves[i] - 1;
+    if (m < 0 || m >= g->n_moves()) stop("move index %d out of range", moves[i]);
+    ops.push_back(m);
+    op_names.push_back(g->move_name(m));
+  }
+  if (ops.empty()) stop("moves must contain at least one operation");
 
   // Result vectors
   std::vector<std::string> res_parent;
@@ -59,9 +74,9 @@ DataFrame sparse_bfs_cpp(IntegerVector start_state,
       const std::string& parent_key = kv.first;
       const std::vector<int>& parent_state = kv.second;
 
-      for (const auto& op : ops) {
+      for (size_t oi = 0; oi < ops.size(); oi++) {
         std::vector<int> child = parent_state;
-        apply_op_inplace(child, op, k);
+        g->apply(child, ops[oi]);
         std::string child_key = state_to_key(child);
 
         if (visited.count(child_key)) continue;
@@ -71,7 +86,7 @@ DataFrame sparse_bfs_cpp(IntegerVector start_state,
         cand.state = std::move(child);
         cand.parent_key = parent_key;
         cand.child_key = child_key;
-        cand.op = op;
+        cand.op = op_names[oi];
         cand.degree = 0;
         candidates[child_key] = std::move(cand);
       }
@@ -113,9 +128,9 @@ DataFrame sparse_bfs_cpp(IntegerVector start_state,
     for (int ci = 0; ci < (int)cand_ptrs.size(); ci++) {
       Candidate& cand = *cand_ptrs[ci];
       int deg = 0;
-      for (const auto& op : ops) {
+      for (size_t oi = 0; oi < ops.size(); oi++) {
         std::vector<int> grandchild = cand.state;
-        apply_op_inplace(grandchild, op, k);
+        g->apply(grandchild, ops[oi]);
         std::string gc_key = state_to_key(grandchild);
         if (!visited.count(gc_key) && !candidates.count(gc_key)) {
           deg++;

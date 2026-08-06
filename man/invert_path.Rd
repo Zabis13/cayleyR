@@ -4,19 +4,30 @@
 \alias{invert_path}
 \title{Invert a Path of Operations}
 \usage{
-invert_path(path)
+invert_path(path, group = NULL)
 }
 \arguments{
 \item{path}{Character vector of operations}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the path is
+read as TopSpin's, as it always has been.}
 }
 \value{
 Character vector of inverted operations in reverse order
 }
 \description{
-Reverses and inverts a sequence of operations. "1" (shift left) becomes
-"2" (shift right) and vice versa. "3" (reverse) stays the same.
+Reverses a sequence of operations and replaces each by its inverse, giving
+the path that undoes the original. For TopSpin that means "1" (shift left)
+becomes "2" (shift right) and vice versa, while "3" (reverse) is its own
+inverse; for any other \code{\link{perm_group}} the group says which move
+undoes which.
 }
 \examples{
 invert_path(c("1", "3", "2"))
 invert_path(c("1", "1", "3"))
+
+invert_path(c("R", "U", "U", "F'"), group = cube_group(3))
+}
+\seealso{
+\code{\link{group_inverse_seq}}
 }

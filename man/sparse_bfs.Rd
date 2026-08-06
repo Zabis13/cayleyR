@@ -4,22 +4,54 @@
 \alias{sparse_bfs}
 \title{Sparse BFS with Look-ahead and Hybrid Selection}
 \usage{
-sparse_bfs(start_state, k, n_hubs = 7L, n_random = 3L, max_levels = 1000L)
+sparse_bfs(
+  start_state,
+  k = NULL,
+  n_hubs = 7L,
+  n_random = 3L,
+  max_levels = 1000L,
+  moves = NULL,
+  group = NULL
+)
 }
 \arguments{
 \item{start_state}{Integer vector — starting permutation}
 
-\item{k}{Integer — parameter for reverse_prefix operation}
+\item{k}{Integer — parameter for reverse_prefix operation. Ignored when
+\code{group} is given.}
 
 \item{n_hubs}{Number of top-degree candidates to keep per level (exploitation)}
 
 \item{n_random}{Number of random candidates to keep per level (exploration)}
 
 \item{max_levels}{Maximum BFS depth (default 1000)}
+
+\item{moves}{Allowed operations, naming a subset of the group's alphabet
+(default: all of it)}
+
+\item{group}{A \code{\link{perm_group}}. When \code{NULL} (default) the arguments
+describe TopSpin.}
 }
 \value{
 data.frame with columns: parent_key, child_key, operation, level
 }
 \description{
-Sparse BFS with Look-ahead and Hybrid Selection
+Builds a sparse "highway" through the state space: at each level only a few
+candidates are kept, the highest-degree ones plus a random sample, so the
+search reaches deep without materialising the whole frontier.
+}
+\details{
+Runs over any \code{\link{perm_group}}. Operations are reported under the
+group's own move names, so a cube highway is labelled with face turns.
+}
+\examples{
+set.seed(1)
+head(sparse_bfs(1:10, k = 4, max_levels = 5))
+
+# the same highway through the cube
+g <- cube_group(3)
+head(sparse_bfs(group_identity(g), group = g, max_levels = 3))
+}
+\seealso{
+\code{\link{perm_group}}, \code{\link{reconstruct_bfs_path}}
 }

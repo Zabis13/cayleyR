@@ -1,3 +1,56 @@
+# cayleyR 0.2.8
+
+* **The whole `cube3_*` module is removed** — `cube_group(3)` and
+  `cube_moves(3)` replace it, and the generated alphabet is the only one the
+  package now has. `cube3_group()`, `cube3_moves`, `cube3_move_codes`,
+  `cube3_apply()`, `cube3_identity()`, `cube3_is_solved()`, `cube3_cycle()`,
+  `cube3_scramble()`, `cube3_print()`, `cube3_parse_moves()`,
+  `cube3_move_names()` and `cube3_inverse_move()` are gone, along with the
+  numeric move codes 1--18. Half turns went with them: the metric is
+  quarter-turn throughout, so `"U2"` is no longer a move name and is rejected
+  rather than read as `"U U"`.
+
+* **Cubes of any size** — `cube_group(n)`, with moves generated from the
+  geometry as a turn of one layer about one axis. A cube of side `n` has `6n^2`
+  stickers and `6n` moves. The 3x3x3 slice turns `M`, `E`, `S` follow from the
+  same rule as the faces rather than being added by hand; inner layers of
+  larger cubes are written `"1x"`, `"2y"` and so on. Quarter-turn metric: `U2`
+  is the word `"U U"`. Also `cube_moves()`, `cube_move_names()`,
+  `cube_identity()`, `cube_layer_move()`.
+
+* **`cube_is_colour_solved()`** — a cube is solved when every face carries one
+  colour. Slice turns move the centres, so a cube turned bodily in space is
+  solved without its stickers being back where they started.
+
+* **`generate_state()`** takes a `group`, and then returns a state reachable in
+  it. Passing `n = 54` alone used to give a permutation of 54 stickers that no
+  cube can reach.
+
+* `cube3_apply_seq()`, `cube3_compose()`, `cube3_order()` and
+  `cube3_inverse_seq()` are **removed** — `group_apply()`, `group_compose()`,
+  `group_order()` and `group_inverse_seq()` already did the same. The remaining
+  `cube3_*` functions now compute in C++.
+
+
+# cayleyR 0.2.7
+
+* **The 3x3x3 Rubik's cube** (`R/cube3.R`) — a second puzzle alongside TopSpin,
+  in the same terms: a state is an integer vector, a move permutes it. Stickers
+  are numbered 1 to 54 face by face, the solved cube is `1:54`, the six centres
+  never move. Pure R, no compiled code.
+  - `cube3_moves` — the eighteen generators as explicit permutations.
+    `cube3_apply()`, `cube3_apply_seq()`, `cube3_compose()` apply them;
+    `cube3_scramble()`, `cube3_inverse_seq()`, `cube3_is_solved()`,
+    `cube3_print()` round out the basics.
+  - `cube3_cycle()` unrolls a word until the state returns to where it started
+    — the cube counterpart of the cycle expansion the ICI solver is built on.
+    `cube3_order()` gives just the length.
+  - Moves take either spelling: names (`"R U R' U'"`) or codes 1--18
+    (`c(4, 1, 5, 2)`), mixed freely. Codes are returned by default;
+    `as_names = TRUE` and `cube3_move_names()` give the readable form.
+
+* `Description` now covers both puzzles rather than TopSpin alone.
+
 # cayleyR 0.2.6
 
 * **`landmark_states()`** — 25 rule-defined permutations of `1:n` as fixed probe points for graphs too large to enumerate; rotation-equivalent constructions are detected and separated automatically.

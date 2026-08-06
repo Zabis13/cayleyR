@@ -9,3 +9,13 @@ inst/doc
 .quarto
 TODO.md
 CLAUDE.md
+
+# Build products. R CMD build runs ./cleanup, which removes these from a
+# tarball; this keeps them out of the repository as well.
+src/*.o
+src/*.so
+src/*.dll
+src/*.dylib
+src/*.a
+*.tar.gz
+*.Rcheck/

@@ -1,17 +1,40 @@
 #' Sparse BFS with Look-ahead and Hybrid Selection
 #'
+#' Builds a sparse "highway" through the state space: at each level only a few
+#' candidates are kept, the highest-degree ones plus a random sample, so the
+#' search reaches deep without materialising the whole frontier.
+#'
+#' Runs over any \code{\link{perm_group}}. Operations are reported under the
+#' group's own move names, so a cube highway is labelled with face turns.
+#'
 #' @param start_state Integer vector — starting permutation
-#' @param k Integer — parameter for reverse_prefix operation
+#' @param k Integer — parameter for reverse_prefix operation. Ignored when
+#'   `group` is given.
 #' @param n_hubs Number of top-degree candidates to keep per level (exploitation)
 #' @param n_random Number of random candidates to keep per level (exploration)
 #' @param max_levels Maximum BFS depth (default 1000)
+#' @param moves Allowed operations, naming a subset of the group's alphabet
+#'   (default: all of it)
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the arguments
+#'   describe TopSpin.
 #' @return data.frame with columns: parent_key, child_key, operation, level
 #' @export
-sparse_bfs <- function(start_state, k, n_hubs = 7L, n_random = 3L,
-                       max_levels = 1000L) {
+#' @seealso \code{\link{perm_group}}, \code{\link{reconstruct_bfs_path}}
+#' @examples
+#' set.seed(1)
+#' head(sparse_bfs(1:10, k = 4, max_levels = 5))
+#'
+#' # the same highway through the cube
+#' g <- cube_group(3)
+#' head(sparse_bfs(group_identity(g), group = g, max_levels = 3))
+sparse_bfs <- function(start_state, k = NULL, n_hubs = 7L, n_random = 3L,
+                       max_levels = 1000L, moves = NULL, group = NULL) {
+  start_state <- as.integer(start_state)
+  res <- resolve_group(group, length(start_state), k, moves)
   sparse_bfs_cpp(
-    as.integer(start_state),
-    as.integer(k),
+    start_state,
+    res$group$ptr,
+    res$moves,
     as.integer(n_hubs),
     as.integer(n_random),
     as.integer(max_levels)

@@ -39,9 +39,23 @@ analyze_top_combinations <- function(top_combos, start_state, k) {
   all_states
 }
 
+# Split a TopSpin combo word into its operations. Words are written space
+# separated now that a move name need not be a single character, but the old
+# unseparated spelling ("1231") is still what a caller may have on hand, so
+# both are read. TopSpin only: these functions carry celestial coordinates,
+# which count L, R and X specifically.
+.split_topspin_combo <- function(combo) {
+  combo <- as.character(combo)
+  if (is.na(combo) || !nzchar(combo)) return(character(0))
+  if (grepl("[[:space:]]", combo)) {
+    return(strsplit(trimws(combo), "[[:space:]]+")[[1]])
+  }
+  unlist(strsplit(combo, ""))
+}
+
 # Process a single combo (used by both sequential and parallel paths)
 .analyze_single_combo <- function(top_combos, i, start_state, k, n) {
-  allowed_positions <- unlist(strsplit(top_combos$combination[i], ""))
+  allowed_positions <- .split_topspin_combo(top_combos$combination[i])
   current_state <- as.integer(start_state)
   current_coords <- NULL
 

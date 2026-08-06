@@ -4,12 +4,18 @@
 #' to find sequences that produce the best cycles in the Cayley graph.
 #' Uses C++ with OpenMP for parallel evaluation of combinations.
 #'
-#' @param moves Character vector of allowed operation symbols (e.g., c("1", "2", "3") or c("L", "R", "X"))
+#' @param moves Allowed operations, naming a subset of the group's alphabet
+#'   (default: all of it). For TopSpin, c("1","2","3") or c("L","R","X").
 #' @param combo_length Integer, length of each operation sequence to test
 #' @param n_samples Integer, number of random sequences to generate and test
 #' @param n_top Integer, number of top results to return
 #' @param start_state Integer vector, initial permutation state
-#' @param k Integer, parameter for reverse operations
+#' @param k Integer, parameter for reverse operations. Ignored when `group` is
+#'   given.
+#' @param group A \code{\link{perm_group}}. When `NULL` (default) the
+#'   arguments describe TopSpin.
+#' @param max_moves Integer, cap on how far a word is spun while measuring its
+#'   cycle (default 1e7)
 #' @param sort_by Character vector of sorting criteria, applied in order.
 #'   Available criteria:
 #'   \describe{
@@ -23,7 +29,8 @@
 #'   Default: \code{c("longest", "most_unique")} (original behavior).
 #' @return Data frame with columns:
 #'   \item{combo_number}{Integer sequence number}
-#'   \item{combination}{String representation of the operation sequence}
+#'   \item{combination}{The operation sequence, written in the group's own
+#'     move names, space separated}
 #'   \item{total_moves}{Cycle length for this sequence}
 #'   \item{unique_states_count}{Number of unique states visited in the cycle}
 #'   \item{repetition_ratio}{Ratio total_moves / unique_states_count}
@@ -49,13 +56,17 @@
 #'   k = 4,
 #'   sort_by = c("shortest", "most_unique")
 #' )
-find_best_random_combinations <- function(moves,
+find_best_random_combinations <- function(moves = NULL,
                                           combo_length,
                                           n_samples,
                                           n_top,
                                           start_state,
-                                          k,
-                                          sort_by = c("longest", "most_unique")) {
+                                          k = NULL,
+                                          group = NULL,
+                                          sort_by = c("longest", "most_unique"),
+                                          max_moves = 10000000L) {
+  start_state <- as.integer(start_state)
+  res_g <- resolve_group(group, length(start_state), k, moves)
 
   valid_criteria <- c("longest", "shortest", "most_unique", "least_unique",
                        "most_repeated", "least_repeated")
@@ -66,11 +77,12 @@ find_best_random_combinations <- function(moves,
   }
 
   res <- find_best_random_combinations_cpp(
-    as.integer(start_state),
-    as.integer(k),
-    as.character(moves),
+    start_state,
+    res_g$group$ptr,
+    res_g$moves,
     as.integer(combo_length),
-    as.integer(n_samples)
+    as.integer(n_samples),
+    as.integer(max_moves)
   )
 
   if (length(res$combination) == 0) {
