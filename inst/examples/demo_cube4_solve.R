@@ -34,8 +34,8 @@ library(cayleyR)
 N        <- 4L
 n_states <- 20L       # samples -- the table, the parity counts and the summary
                       # all read from these same solves
-n_moves  <- 60L       # quarter turns walked away from the solved cube
-shorten_depth <- 2L   # BFS depth for the shortener; see solve_and_report()
+n_moves  <- 600L       # quarter turns walked away from the solved cube
+shorten_depth <- 4L   # BFS depth for the shortener; see solve_and_report()
 
 set.seed(2026)
 
