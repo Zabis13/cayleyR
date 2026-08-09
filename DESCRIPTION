@@ -1,7 +1,7 @@
 Package: cayleyR
 Type: Package
 Title: Cayley Graph Analysis for Permutation Puzzles
-Version: 0.2.8
+Version: 0.2.9
 Authors@R: c(
     person(
       "Yuri", "Baramykov",
@@ -17,7 +17,9 @@ Description: Implements algorithms for analyzing Cayley graphs of
     for Rubik's cubes of any size, whose moves are generated from the
     geometry as a turn of one layer about one axis, so that the slice
     turns of the 3x3x3 and the inner layers of larger cubes follow from
-    the same rule as the face turns. Also provides rule-defined landmark
+    the same rule as the face turns. The 3x3x3 is solved by four human
+    methods --- CFOP, layer by layer, and the blindfolded Old Pochmann
+    and M2. Also provides rule-defined landmark
     states for probing
     graphs too large to enumerate, and convex and non-convex hulls for
     measuring the solid such states span. The method Iterative Cycle
@@ -35,6 +37,7 @@ Suggests:
     testthat (>= 3.0.0),
     ggmlR,
     data.table,
+    jsonlite,
     knitr,
     rmarkdown
 Config/testthat/edition: 3

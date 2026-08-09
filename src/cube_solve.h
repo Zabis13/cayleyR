@@ -108,7 +108,7 @@ template <typename Pred>
 inline bool match_alg(const std::vector<int>& state,
                       const std::vector<Alg>& table, Pred goal,
                       std::vector<int>& word, std::string& case_name) {
-  const Cube3& C = cube3();
+  const CubeN& C = cube3();
   const int U = C.move_index("U");
 
   word.clear();
@@ -151,7 +151,7 @@ inline bool match_alg_prefixed(const std::vector<int>& state,
                                const std::vector<Alg>& table,
                                const std::string& prefix, Pred goal,
                                std::vector<int>& word, std::string& case_name) {
-  const Cube3& C = cube3();
+  const CubeN& C = cube3();
   const int U = C.move_index("U");
 
   word.clear();
@@ -288,7 +288,7 @@ inline const char* middle_lift(int slot) {
 template <typename Pred>
 inline bool solve_cross_edge(std::vector<int>& state, int which, Pred goal,
                              Solution& sol, const std::string& label) {
-  const Cube3& C = cube3();
+  const CubeN& C = cube3();
   const CrossSlot& cs = cross_slots()[which];
 
   if (goal(read_state(state))) return true;
@@ -400,7 +400,7 @@ template <typename Pred>
 inline bool solve_middle_edge(std::vector<int>& state, int which, int home,
                               Pred goal, Solution& sol,
                               const std::string& label) {
-  const Cube3& C = cube3();
+  const CubeN& C = cube3();
   const int U = C.move_index("U");
 
   if (goal(read_state(state))) return true;
@@ -519,7 +519,7 @@ inline std::vector<int> orient_to_centres(const std::vector<int>& state) {
 // The last layer may be finished and still need turning: PLL leaves the U face
 // correct relative to itself but possibly rotated. This is the final AUF.
 inline std::vector<int> final_auf(const std::vector<int>& state) {
-  const Cube3& C = cube3();
+  const CubeN& C = cube3();
   const int U = C.move_index("U");
   std::vector<int> w;
   for (int auf = 0; auf < 4; auf++) {
@@ -533,7 +533,7 @@ inline std::vector<int> final_auf(const std::vector<int>& state) {
 // final_auf() means either "already solved" or "no amount of turning helps",
 // and a caller deciding whether to raise needs to tell those apart.
 inline bool auf_finishes(const std::vector<int>& state) {
-  const Cube3& C = cube3();
+  const CubeN& C = cube3();
   const int U = C.move_index("U");
   std::vector<int> s = state;
   for (int auf = 0; auf < 4; auf++) {

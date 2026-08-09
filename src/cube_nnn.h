@@ -239,10 +239,17 @@ inline std::string move_name(int n, Axis axis, int layer, int turns) {
 // Ordered so that a 3x3x3 comes out U U' R R' F F' D D' L L' B B' and then the
 // six slice turns, with the slices after the faces rather than interleaved.
 
+// Axis and layer are recorded per move as the alphabet is built. A search
+// needs them to know which moves commute, and deriving them afterwards from
+// the names means parsing "2y" back into geometry that was in hand a moment
+// earlier. They cost two ints per move and remove the only reason a caller
+// would keep its own table of them.
 struct CubeAlphabet {
   int n;
   std::vector<std::string> names;
   std::vector<std::vector<int> > perms;   // 1-based
+  std::vector<int> axis_of;               // AX_X / AX_Y / AX_Z per move
+  std::vector<int> layer_of;              // 0 .. n-1, the layer it turns
 };
 
 inline CubeAlphabet build_alphabet(int n) {
@@ -278,6 +285,8 @@ inline CubeAlphabet build_alphabet(int n) {
                         ? turns : 4 - turns;
       out.names.push_back(plain_name(n, slots[i].axis, slots[i].layer, turns));
       out.perms.push_back(layer_move(n, slots[i].axis, slots[i].layer, eff));
+      out.axis_of.push_back(static_cast<int>(slots[i].axis));
+      out.layer_of.push_back(slots[i].layer);
     }
   }
   return out;

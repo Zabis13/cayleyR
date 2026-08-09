@@ -136,6 +136,118 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_centres_shoot_cpp
+List cube_centres_shoot_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_centres_shoot_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_centres_shoot_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_centre_counts_cpp
+IntegerVector cube_centre_counts_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_centre_counts_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_centre_counts_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_choose_shot_cpp
+int cube_choose_shot_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_choose_shot_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_choose_shot_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_find_colour_cpp
+DataFrame cube_find_colour_cpp(IntegerVector state, int colour);
+RcppExport SEXP _cayleyR_cube_find_colour_cpp(SEXP stateSEXP, SEXP colourSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type colour(colourSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_find_colour_cpp(state, colour));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_has_pair_cpp
+LogicalVector cube_has_pair_cpp(IntegerVector state, int colour);
+RcppExport SEXP _cayleyR_cube_has_pair_cpp(SEXP stateSEXP, SEXP colourSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type colour(colourSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_has_pair_cpp(state, colour));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_slice_map_cpp
+DataFrame cube_slice_map_cpp();
+RcppExport SEXP _cayleyR_cube_slice_map_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cube_slice_map_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_first_centre_cpp
+List cube_first_centre_cpp(IntegerVector state, int target_face);
+RcppExport SEXP _cayleyR_cube_first_centre_cpp(SEXP stateSEXP, SEXP target_faceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type target_face(target_faceSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_first_centre_cpp(state, target_face));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_l_slice_count_cpp
+int cube_l_slice_count_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_l_slice_count_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_l_slice_count_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_centres_12_cpp
+List cube_centres_12_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_centres_12_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_centres_12_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_centres_cpp
+List cube_centres_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_centres_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_centres_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cube_apply_word_cpp
 IntegerVector cube_apply_word_cpp(IntegerVector state, std::string word);
 RcppExport SEXP _cayleyR_cube_apply_word_cpp(SEXP stateSEXP, SEXP wordSEXP) {
@@ -273,6 +385,50 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_orbits_cpp
+DataFrame cube_orbits_cpp(int n);
+RcppExport SEXP _cayleyR_cube_orbits_cpp(SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_orbits_cpp(n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_pieces_cpp
+DataFrame cube_pieces_cpp(int n);
+RcppExport SEXP _cayleyR_cube_pieces_cpp(SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_pieces_cpp(n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_progress_cpp
+DataFrame cube_progress_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_progress_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_progress_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_pieces_home_cpp
+IntegerVector cube_pieces_home_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_pieces_home_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_pieces_home_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cube_solve_cfop_cpp
 List cube_solve_cfop_cpp(IntegerVector state, int cross_depth, int slot_depth);
 RcppExport SEXP _cayleyR_cube_solve_cfop_cpp(SEXP stateSEXP, SEXP cross_depthSEXP, SEXP slot_depthSEXP) {
@@ -297,6 +453,28 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type corner_depth(corner_depthSEXP);
     Rcpp::traits::input_parameter< int >::type edge_depth(edge_depthSEXP);
     rcpp_result_gen = Rcpp::wrap(cube_solve_lbl_cpp(state, cross_depth, corner_depth, edge_depth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_solve_old_pochmann_cpp
+List cube_solve_old_pochmann_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_solve_old_pochmann_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_solve_old_pochmann_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_solve_m2_cpp
+List cube_solve_m2_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_solve_m2_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_solve_m2_cpp(state));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -848,6 +1026,16 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 6},
     {"_cayleyR_openmp_threads", (DL_FUNC) &_cayleyR_openmp_threads, 0},
     {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 5},
+    {"_cayleyR_cube_centres_shoot_cpp", (DL_FUNC) &_cayleyR_cube_centres_shoot_cpp, 1},
+    {"_cayleyR_cube_centre_counts_cpp", (DL_FUNC) &_cayleyR_cube_centre_counts_cpp, 1},
+    {"_cayleyR_cube_choose_shot_cpp", (DL_FUNC) &_cayleyR_cube_choose_shot_cpp, 1},
+    {"_cayleyR_cube_find_colour_cpp", (DL_FUNC) &_cayleyR_cube_find_colour_cpp, 2},
+    {"_cayleyR_cube_has_pair_cpp", (DL_FUNC) &_cayleyR_cube_has_pair_cpp, 2},
+    {"_cayleyR_cube_slice_map_cpp", (DL_FUNC) &_cayleyR_cube_slice_map_cpp, 0},
+    {"_cayleyR_cube_first_centre_cpp", (DL_FUNC) &_cayleyR_cube_first_centre_cpp, 2},
+    {"_cayleyR_cube_l_slice_count_cpp", (DL_FUNC) &_cayleyR_cube_l_slice_count_cpp, 1},
+    {"_cayleyR_cube_centres_12_cpp", (DL_FUNC) &_cayleyR_cube_centres_12_cpp, 1},
+    {"_cayleyR_cube_centres_cpp", (DL_FUNC) &_cayleyR_cube_centres_cpp, 1},
     {"_cayleyR_cube_apply_word_cpp", (DL_FUNC) &_cayleyR_cube_apply_word_cpp, 2},
     {"_cayleyR_cube_word_order_cpp", (DL_FUNC) &_cayleyR_cube_word_order_cpp, 2},
     {"_cayleyR_cube_read_state_cpp", (DL_FUNC) &_cayleyR_cube_read_state_cpp, 1},
@@ -860,8 +1048,14 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_cube_layer_move_cpp", (DL_FUNC) &_cayleyR_cube_layer_move_cpp, 4},
     {"_cayleyR_cube_identity_cpp", (DL_FUNC) &_cayleyR_cube_identity_cpp, 1},
     {"_cayleyR_cube_is_colour_solved_cpp", (DL_FUNC) &_cayleyR_cube_is_colour_solved_cpp, 2},
+    {"_cayleyR_cube_orbits_cpp", (DL_FUNC) &_cayleyR_cube_orbits_cpp, 1},
+    {"_cayleyR_cube_pieces_cpp", (DL_FUNC) &_cayleyR_cube_pieces_cpp, 1},
+    {"_cayleyR_cube_progress_cpp", (DL_FUNC) &_cayleyR_cube_progress_cpp, 1},
+    {"_cayleyR_cube_pieces_home_cpp", (DL_FUNC) &_cayleyR_cube_pieces_home_cpp, 1},
     {"_cayleyR_cube_solve_cfop_cpp", (DL_FUNC) &_cayleyR_cube_solve_cfop_cpp, 3},
     {"_cayleyR_cube_solve_lbl_cpp", (DL_FUNC) &_cayleyR_cube_solve_lbl_cpp, 4},
+    {"_cayleyR_cube_solve_old_pochmann_cpp", (DL_FUNC) &_cayleyR_cube_solve_old_pochmann_cpp, 1},
+    {"_cayleyR_cube_solve_m2_cpp", (DL_FUNC) &_cayleyR_cube_solve_m2_cpp, 1},
     {"_cayleyR_cycle_shortcut_cpp", (DL_FUNC) &_cayleyR_cycle_shortcut_cpp, 12},
     {"_cayleyR_cayley_bfs_full_cpp", (DL_FUNC) &_cayleyR_cayley_bfs_full_cpp, 3},
     {"_cayleyR_cayley_graph_diameter_cpp", (DL_FUNC) &_cayleyR_cayley_graph_diameter_cpp, 6},

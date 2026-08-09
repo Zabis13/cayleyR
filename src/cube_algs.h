@@ -190,6 +190,218 @@ inline const std::vector<Alg>& lbl_corner_twist_table() {
   return v;
 }
 
+// ---- Old Pochmann ------------------------------------------------------
+//
+// The blindfolded method, which is built the other way round from the sighted
+// ones. Those take the cube apart into layers because a person can see a layer;
+// this one never looks at the cube at all after the start, so it needs a step
+// that is the same every time. That step is: swap the piece in the buffer with
+// one chosen piece, leave everything else alone, repeat.
+//
+// One swap is impossible on its own -- the cube group has no odd permutation of
+// edges by itself -- so each algorithm swaps a second pair as well, always the
+// same one, and the second swaps cancel in pairs. That is why the algorithms
+// below are ordinary PLLs: a T-perm is exactly "swap two edges and two
+// corners", which is the shape the method needs.
+//
+// A piece is named by a sticker rather than by a slot, because where a piece
+// goes depends on which way round it is. The standard lettering runs A to X
+// over the 24 stickers of each kind, faces in the order U F R B L D, clockwise
+// within each face; the tables here are indexed by that letter.
+
+// The edge cycle. Both entries swap the buffer at UR with one other edge and
+// the corners URF and UBR; they differ in which edge, and so in which letters
+// use which. Verified: T takes UL, J takes UF, and neither disturbs anything
+// else.
+inline const std::vector<Alg>& old_pochmann_edge_table() {
+  static const Alg t[] = {
+    {"T", "R U R' U' R' F R2 U' R' U' R U R' F'"},
+    {"J", "R U R' F' R U R' U' R' F R2 U' R' U'"}
+  };
+  static const std::vector<Alg> v(t, t + sizeof(t) / sizeof(t[0]));
+  return v;
+}
+
+// The corner cycle: swap the buffer at ULB with URF, and the edges UL and UB.
+// One algorithm serves every corner, because the setup moves do the choosing.
+inline const std::vector<Alg>& old_pochmann_corner_table() {
+  static const Alg t[] = {
+    // The framing F ... F' matters: without it the word swaps ULB with DFR and
+    // twists both, which is a different algorithm that happens to look similar.
+    {"Y", "F R U' R' U' R U R' F' R U R' U' R' F R F'"}
+  };
+  static const std::vector<Alg> v(t, t + sizeof(t) / sizeof(t[0]));
+  return v;
+}
+
+// Parity. Each edge algorithm swaps a pair of corners as a side effect, so an
+// odd number of edge swaps leaves the corners one swap out. This puts that
+// right, between the edges and the corners: it swaps URF with UBR and UL with
+// UB, fixing the corner pair and setting the edges up for the corner stage.
+inline const std::vector<Alg>& old_pochmann_parity_table() {
+  static const Alg t[] = {
+    {"R-perm parity", "y' L U2 L' U2 L F' L' U' L U L F L2 U y"}
+  };
+  static const std::vector<Alg> v(t, t + sizeof(t) / sizeof(t[0]));
+  return v;
+}
+
+// ---- M2 -----------------------------------------------------------------
+//
+// The same idea as old Pochmann and a shorter way of doing the edges. There the
+// buffer edge was swapped into place by a whole PLL wrapped in setup moves,
+// fourteen moves before the setup was counted. Here the buffer is UB and the
+// swap is M2 -- two moves. Everything else follows from that choice.
+//
+// What it costs is that M2 is not clean. It turns the middle slice a half turn,
+// so it moves the centres, and it swaps two pairs of edges that are not the
+// buffer's: the stickers lettered C and W, and E and O. The centres come back
+// after an even number of applications and so do those pairs, which is why the
+// method is stated in terms of odd and even positions in the memorised
+// sequence rather than piece by piece.
+//
+// The four letters M2 disturbs cannot be solved by M2, so they have their own
+// algorithms, and each has two forms depending on whether the letter falls in
+// an odd or an even position. The two forms are inverses of each other.
+
+// C and W, the two stickers of the UF/DB pair that M2 swaps. Each runs after an
+// M2, which has already carried the buffer piece to the delivery point; these
+// take it the rest of the way. Named for the letter each one finishes.
+inline const std::vector<Alg>& m2_cw_table() {
+  static const Alg t[] = {
+    {"W", "U2 M' U2 M'"},
+    {"C", "M U2 M U2"}
+  };
+  static const std::vector<Alg> v(t, t + sizeof(t) / sizeof(t[0]));
+  return v;
+}
+
+// E and O, the other pair, same convention.
+inline const std::vector<Alg>& m2_eo_table() {
+  static const Alg t[] = {
+    {"O", "D M' U R2 U' M U R2 U' D' M2"},
+    {"E", "M2 D U R2 U' M' U R2 U' M D'"}
+  };
+  static const std::vector<Alg> v(t, t + sizeof(t) / sizeof(t[0]));
+  return v;
+}
+
+// Parity, between the edges and the corners. An odd number of edge swaps leaves
+// the corner pair the edge algorithms disturb one swap out; this puts it right.
+inline const std::vector<Alg>& m2_parity_table() {
+  static const Alg t[] = {
+    {"M2 parity", "D' L2 D M2 D' L2 D"}
+  };
+  static const std::vector<Alg> v(t, t + sizeof(t) / sizeof(t[0]));
+  return v;
+}
+
+
+// ---- Edge orientation, the endgame ---------------------------------------
+//
+// The cycle phase never touches orientation. An edge that is home but turned
+// over is set aside at the start -- "inactive", in the method's own word --
+// and left out of every chain, so the chains only ever move pieces between
+// slots. What is left when they finish is a set of edges in the right slots
+// facing the wrong way, and that is what this fixes.
+//
+// One algorithm does it: M' U M' U M' U2 M U M U M U2 turns over UF and UB and
+// leaves the cube otherwise exactly as it was -- permutation intact, corners
+// and centres untouched. Every other pair is that algorithm conjugated, a
+// setup bringing the two edges to UF and UB and undone afterwards.
+//
+// The 66 setups below were found by search rather than copied, each verified
+// to flip its own pair and nothing else. Depth 3 covers all of them.
+
+struct EoSetup {
+  int a, b;            // edge slots, 0-based, a < b
+  const char* setup;   // conjugating word, "" when the pair is already UF/UB
+};
+
+inline const char* eo_base_alg() { return "M' U M' U M' U2 M U M U M U2"; }
+
+inline const EoSetup* eo_setups() {
+  static const EoSetup t[66] = {
+    { 0,  1, "R B"},
+    { 0,  2, "U"},
+    { 0,  3, "R' F'"},
+    { 0,  4, "U D' M'"},
+    { 0,  5, "U M'"},
+    { 0,  6, "U D M'"},
+    { 0,  7, "U' M"},
+    { 0,  8, "U' F'"},
+    { 0,  9, "U' F"},
+    { 0, 10, "U B'"},
+    { 0, 11, "U B"},
+    { 1,  2, "L' B'"},
+    { 1,  3, ""},
+    { 1,  4, "D' M'"},
+    { 1,  5, "M'"},
+    { 1,  6, "D M'"},
+    { 1,  7, "B B"},
+    { 1,  8, "M' F'"},
+    { 1,  9, "M' F"},
+    { 1, 10, "B'"},
+    { 1, 11, "B"},
+    { 2,  3, "L F"},
+    { 2,  4, "U D M"},
+    { 2,  5, "U' M'"},
+    { 2,  6, "U D' M"},
+    { 2,  7, "U M"},
+    { 2,  8, "U F'"},
+    { 2,  9, "U F"},
+    { 2, 10, "U' B'"},
+    { 2, 11, "U' B"},
+    { 3,  4, "D M"},
+    { 3,  5, "F F"},
+    { 3,  6, "D' M"},
+    { 3,  7, "M"},
+    { 3,  8, "F'"},
+    { 3,  9, "F"},
+    { 3, 10, "M B'"},
+    { 3, 11, "M B"},
+    { 4,  5, "R' M' B"},
+    { 4,  6, "D M M"},
+    { 4,  7, "R M F'"},
+    { 4,  8, "D M F'"},
+    { 4,  9, "D M F"},
+    { 4, 10, "D' M' B'"},
+    { 4, 11, "D' M' B"},
+    { 5,  6, "L M' B'"},
+    { 5,  7, "M M"},
+    { 5,  8, "R U M'"},
+    { 5,  9, "L' U' M'"},
+    { 5, 10, "M' B'"},
+    { 5, 11, "M' B"},
+    { 6,  7, "L' M F"},
+    { 6,  8, "D' M F'"},
+    { 6,  9, "D' M F"},
+    { 6, 10, "D M' B'"},
+    { 6, 11, "D M' B"},
+    { 7,  8, "M F'"},
+    { 7,  9, "M F"},
+    { 7, 10, "L U M"},
+    { 7, 11, "R' U' M"},
+    { 8,  9, "F M'"},
+    { 8, 10, "F' B'"},
+    { 8, 11, "F' B"},
+    { 9, 10, "F B'"},
+    { 9, 11, "F B"},
+    {10, 11, "B M"}
+
+  };
+  return t;
+}
+
+inline const char* eo_setup_for(int a, int b) {
+  if (a > b) { int t = a; a = b; b = t; }
+  const EoSetup* t = eo_setups();
+  for (int i = 0; i < 66; i++) {
+    if (t[i].a == a && t[i].b == b) return t[i].setup;
+  }
+  return 0;
+}
+
 // ---- F2L: the 41 cases -------------------------------------------------
 //
 // The first two layers, done as four corner-edge pairs. This is the half of

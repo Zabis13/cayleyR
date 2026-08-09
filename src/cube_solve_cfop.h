@@ -46,26 +46,43 @@ inline void solve_cfop_into(Solution& sol, const std::vector<int>& start,
 
   // ---- Cross -----------------------------------------------------------
   //
-  // The four D edges, searched for with face turns only.
+  // The four D edges, one at a time, by the same rule LBL uses: bring the edge
+  // to the top, turn it over its slot, drop it in. See solve_cross_edge().
   //
-  // Excluding the slices is not a convenience, it is what keeps the rest of
-  // the method meaningful. M, E and S turn the centres, and every stage after
-  // this one is stated against the centres; worse, a slice changes the parity
-  // of the edge permutation without touching the corners, so a cross found
-  // with one hands the last layer a position no real cube can be in. PLL then
-  // correctly matches nothing, and the failure surfaces four stages away from
-  // its cause.
+  // This was an exact search once, and the search is gone. Nothing was wrong
+  // with what it returned -- a shortest cross is shorter than a rule-built one
+  // -- but it was the last place in the package that enumerated, and it earned
+  // none of its cost: the cross is four edges, the rule places them in a
+  // handful of moves each, and CFOP's own F2L had already given up searching
+  // for a table because searching did not work there either.
   //
-  // Measured: with the full alphabet the parity was already broken after the
-  // cross on every scramble tried, and half the solves died at PLL.
+  // Face turns only, which the rule respects by construction. Excluding the
+  // slices is not a convenience: M, E and S turn the centres, and every stage
+  // after this one is stated against the centres; worse, a slice changes the
+  // parity of the edge permutation without touching the corners, so a cross
+  // made with one hands the last layer a position no real cube can be in. PLL
+  // then correctly matches nothing, and the failure surfaces four stages from
+  // its cause. Measured, back when the alphabet was open: parity was broken
+  // after the cross on every scramble tried, and half the solves died at PLL.
+  //
+  // The goal for edge i demands the first i are still home, so a word that
+  // would knock one out is rejected where it happens. The order is the one a
+  // y rotation visits: DF, DR, DB, DL.
   {
-    std::vector<int> w;
-    if (!ida_solve_cubie(state, [](const CubieState& c) { return cross_solved(c); },
-                         moves_faces(), lim.cross_depth, w)) {
-      throw std::runtime_error("cube_solve: no cross within " +
-                               std::to_string(lim.cross_depth) + " moves");
+    for (int i = 0; i < 4; i++) {
+      auto goal = [i](const CubieState& c) {
+        static const int ord[4] = {E_DF, E_DR, E_DB, E_DL};
+        for (int k = 0; k <= i; k++) if (!edge_home(c, ord[k])) return false;
+        return true;
+      };
+      if (goal(read_state(state))) continue;
+
+      if (!solve_cross_edge(state, i, goal, sol,
+                            "cross edge " + std::to_string(i + 1))) {
+        throw std::runtime_error("cube_solve: cross edge " +
+                                 std::to_string(i + 1) + " not placed");
+      }
     }
-    push_stage(sol, state, "cross", "", w);
   }
 
   // ---- F2L: four corner-edge pairs -------------------------------------

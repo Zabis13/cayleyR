@@ -164,7 +164,7 @@ inline void solve_lbl_into(Solution& sol, const std::vector<int>& start,
     // puts the cube back where it started. The loop then repeated it until the
     // guard fired. How many edges are oriented is not the case -- which ones
     // are is.
-    const Cube3& C = cube3();
+    const CubeN& C = cube3();
     const std::vector<int> alg = alg_word(lbl_cross_table()[0].moves);
 
     int guard = 0;
@@ -243,7 +243,7 @@ inline void solve_lbl_into(Solution& sol, const std::vector<int>& start,
   // that corner turned, and a U between corners brings the next one round. The
   // cube looks destroyed until the last U, and then it is solved.
   {
-    const Cube3& C = cube3();
+    const CubeN& C = cube3();
     const int U = C.move_index("U");
     const std::vector<int> twist = alg_word(lbl_corner_twist_table()[0].moves);
 

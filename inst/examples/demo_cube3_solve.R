@@ -1,20 +1,26 @@
 #!/usr/bin/env Rscript
-# Two human methods on the 3x3x3, measured.
+# Four human methods on the 3x3x3, measured.
 #
-# Ten random states, each solved by CFOP and by layer by layer, with the solving
-# word, its length, and the length after a general shortener has taken out the
-# detours. The two methods differ in the middle -- CFOP pairs a corner with its
-# edge and inserts both at once, LBL finishes the bottom layer and then puts the
-# middle edges in one at a time -- and that difference is supposed to show up as
-# roughly half the moves.
+# Ten random states, each solved four ways, with the solving word, its length,
+# and the length after a general shortener has taken out the detours. The first
+# three each give up something the one before relied on, and pay for it in
+# moves; the fourth buys some of it back:
+#
+#   CFOP         pairs a corner with its edge and inserts both at once
+#   LBL          gives up the pairing: bottom layer outright, then the middle
+#                edges one at a time -- roughly twice the moves
+#   OldPochmann  gives up looking at the cube: one algorithm per piece, with
+#                setup moves around it -- roughly four times
+#   M2           the same blindfold idea with a two-move swap for the edges
+#                instead of a whole PLL -- cheaper than Old Pochmann
 #
 # Move counts are quarter turns, the metric the whole package uses. Speedcubers
 # count a half turn as one move, so their figures for the same solve are
-# smaller: expect around 55 quarter turns for CFOP and 110 for LBL where the
-# literature says 25 and 55.
+# smaller.
 #
-# A stage of either method is an exact search to a fixed depth, so a hard state
-# can take a long time or fail outright. Nothing here interrupts it.
+# A stage of the first two methods is an exact search to a fixed depth, so a
+# hard state can take a long time or fail outright. Nothing here interrupts it.
+# The two blindfold methods search for nothing and their length barely varies.
 #
 # Run with:  Rscript inst/examples/demo_cube3_solve.R
 
@@ -85,8 +91,12 @@ for (i in seq_len(n_states)) {
   cat("centres home:",
       all(final_state[cube_centre_positions()] == cube_centre_positions()), "\n")
 
-  for (nm in c("CFOP", "LBL")) {
-    method <- if (nm == "CFOP") cube_solve_cfop else cube_solve_lbl
+  for (nm in c("CFOP", "LBL", "OldPochmann", "M2")) {
+    method <- switch(nm,
+                     CFOP = cube_solve_cfop,
+                     LBL = cube_solve_lbl,
+                     OldPochmann = cube_solve_old_pochmann,
+                     M2 = cube_solve_m2)
     r <- solve_and_report(nm, method, final_state)
     rows[[length(rows) + 1L]] <- data.frame(
       state = i, method = nm, status = r$status,
@@ -118,20 +128,28 @@ summary_row <- function(nm) {
     stringsAsFactors = FALSE)
 }
 
-print(rbind(summary_row("CFOP"), summary_row("LBL")), row.names = FALSE)
+print(rbind(summary_row("CFOP"), summary_row("LBL"),
+            summary_row("OldPochmann"), summary_row("M2")), row.names = FALSE)
 
-# The comparison the two methods are for: how much longer LBL is, on the states
-# where both finished.
-both <- intersect(res$state[res$method == "CFOP" & res$status == "solved"],
-                  res$state[res$method == "LBL" & res$status == "solved"])
+# What the comparison is for: each method costs more than the one before, and
+# the reason is the same each time. LBL gives up CFOP's pairing and does the
+# bottom layer outright; Old Pochmann gives up looking at the cube at all and
+# places one piece per algorithm. Measured against CFOP on the states every
+# method finished.
+both <- Reduce(intersect,
+               lapply(c("CFOP", "LBL", "OldPochmann", "M2"),
+                      function(m) res$state[res$method == m &
+                                            res$status == "solved"]))
 if (length(both) > 0) {
-  c_moves <- res$moves[res$method == "CFOP" & res$state %in% both]
-  l_moves <- res$moves[res$method == "LBL" & res$state %in% both]
-  cat(sprintf("\non the %d state(s) both solved: CFOP %.1f moves, LBL %.1f, ratio %.2f\n",
-              length(both), mean(c_moves), mean(l_moves),
-              mean(l_moves) / mean(c_moves)))
+  mean_for <- function(m) mean(res$moves[res$method == m & res$state %in% both])
+  base <- mean_for("CFOP")
+  cat(sprintf("\non the %d state(s) every method solved:\n", length(both)))
+  for (m in c("CFOP", "LBL", "OldPochmann", "M2")) {
+    cat(sprintf("  %-12s %6.1f moves   %.2fx CFOP\n",
+                m, mean_for(m), mean_for(m) / base))
+  }
 } else {
-  cat("\nno state was solved by both methods\n")
+  cat("\nno state was solved by every method\n")
 }
 
 fails <- res[res$status != "solved", ]

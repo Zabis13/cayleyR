@@ -4,6 +4,8 @@
 #include "cube_solve.h"
 #include "cube_solve_cfop.h"
 #include "cube_solve_lbl.h"
+#include "cube_solve_old_pochmann.h"
+#include "cube_solve_m2.h"
 
 using namespace Rcpp;
 using namespace cube_solve;
@@ -115,6 +117,26 @@ std::vector<int> as_state(IntegerVector state) {
     stop("cube_solve: state must have 54 entries, got %d",
          static_cast<int>(state.size()));
   }
+
+  // The solvers read a state as positions -- sticker i holds the number of the
+  // place it belongs in -- not as colours. A state of six repeated colours is
+  // the other common way to write a cube down, and passing one in used to
+  // return `found = FALSE` with no hint as to why. Say so instead.
+  std::vector<bool> seen(55, false);
+  for (int i = 0; i < 54; i++) {
+    const int v = state[i];
+    if (v < 1 || v > 54) {
+      stop("cube_solve: state entries must be 1..54, got %d. Colours 0..5 are "
+           "the other way of writing a cube down; cube_colour_state() converts "
+           "one to the positions the solvers want.", v);
+    }
+    if (seen[v]) {
+      stop("cube_solve: state must be a permutation of 1..54, but %d appears "
+           "more than once. Six repeated values are colours, not positions; "
+           "cube_colour_state() converts them.", v);
+    }
+    seen[v] = true;
+  }
   return as< std::vector<int> >(state);
 }
 
@@ -138,4 +160,16 @@ List cube_solve_lbl_cpp(IntegerVector state, int cross_depth, int corner_depth,
   lim.edge_depth = edge_depth;
   const std::vector<int> s = as_state(state);
   return run_method([&](Solution& sol) { solve_lbl_into(sol, s, lim); });
+}
+
+// [[Rcpp::export]]
+List cube_solve_old_pochmann_cpp(IntegerVector state) {
+  const std::vector<int> s = as_state(state);
+  return run_method([&](Solution& sol) { solve_old_pochmann_into(sol, s); });
+}
+
+// [[Rcpp::export]]
+List cube_solve_m2_cpp(IntegerVector state) {
+  const std::vector<int> s = as_state(state);
+  return run_method([&](Solution& sol) { solve_m2_into(sol, s); });
 }

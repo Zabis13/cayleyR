@@ -21,6 +21,7 @@ search. It is described in the accompanying paper:
 
 - **Basic permutation operations** (C++): cyclic left/right shifts, prefix reversal
 - **Rubik's cubes of any size** (C++): moves generated from the geometry, so the 3x3x3 slice turns and the inner layers of a 4x4x4 follow from the same rule as the faces; scrambling, inversion, cycle unrolling and a console net for the 3x3x3
+- **Four human solving methods for the 3x3x3** (C++): CFOP and layer by layer, which solve by looking, and the blindfolded Old Pochmann and M2, which place one piece at a time by conjugation and never look at the cube after the start
 - **Cycle analysis**: find cycles in Cayley graphs with detailed state information
 - **Sequence optimization**: search for operation sequences with flexible sorting criteria
 - **C++ StateStore**: compact hash-indexed state storage with O(1) incremental insert and O(min(N,M)) intersection
@@ -204,6 +205,71 @@ The generated table is checked against the hand-written 3x3x3 one, which it
 reproduces entry for entry, and the 2x2x2 against its published state counts
 per depth.
 
+## Solving the 3x3x3 the way people do
+
+Four methods, all taking a reachable 54-sticker state and returning the same
+four things — `path`, `found`, `stages`, `states` — so they can be swapped for
+one another and compared.
+
+```r
+set.seed(42)
+s <- generate_state(group = cube_group(3), n_moves = 20)
+
+cube_solve_cfop(s)$path           # cross, F2L, OLL, PLL
+cube_solve_lbl(s)$path            # layer by layer
+cube_solve_old_pochmann(s)$path   # blindfolded, one piece at a time
+cube_solve_m2(s)$path             # blindfolded, cheaper edges
+```
+
+They split in two on one question: does the method look at the cube while it
+runs? CFOP and layer by layer do — a stage ends when the cuber can see that it
+has, and a move is chosen for the position in front of them, so one move can
+serve several pieces at once. The two blindfolded methods never look after the
+start. That forces a single repeated step whose shape is always the same: swap
+whatever is in the buffer with one chosen piece, disturb nothing else. Nothing
+is searched. Each piece is placed by a conjugate — setup moves that bring the
+target where the algorithm can reach it, one memorised algorithm, the setups
+undone.
+
+The algorithms used are ordinary PLLs, because "swap two edges and two corners"
+is exactly what a T-perm does. The second swap is not incidental: a single swap
+is an odd permutation and the cube group has none, so the spare swaps cancel in
+pairs and the leftover when their count is odd is the parity step, between the
+edges and the corners.
+
+`cube_solve_m2()` is the usual next thing a blindfold solver learns. The corners
+are Old Pochmann's; the edges are not. Where an edge cost a whole PLL wrapped in
+setups, the buffer is DF and the swap is `M2` — two moves. `M2` is not a clean
+swap, and the method is arranged around that rather than avoiding it: it turns
+the middle slice a half turn, so it also moves the centres and exchanges UF/DB.
+Those two edges get their own algorithms, edges left facing the wrong way are
+set aside while the chain runs and turned afterwards in one orientation phase,
+and whether parity needs fixing is decided by reading the edge permutation
+rather than by counting swaps — a chain that breaks into a new cycle spends
+turns the tally does not see. The cube comes back solved relative to the
+centres, which is what the method means by solved and what a real cube looks
+like.
+
+### What it costs to not look
+
+Ten scrambled states, 985 moves from solved, every method solving all ten
+(`inst/examples/demo_cube3_solve.R`):
+
+| method | solved | mean moves | after shortening | mean sec | vs CFOP |
+|---|---:|---:|---:|---:|---:|
+| CFOP | 10/10 | 89.2 | 82.0 | 1.62 | 1.00x |
+| LBL | 10/10 | 169.2 | 154.6 | 0.06 | 1.90x |
+| M2 | 10/10 | 277.6 | 254.2 | 0.09 | 3.11x |
+| Old Pochmann | 10/10 | 432.6 | 399.0 | 0.14 | 4.85x |
+
+The ordering is the methods' own. CFOP is dearest in time and cheapest in moves
+because it is the only one that searches: the F2L slots are solved by IDA*,
+which is where the 1.6 seconds go. The others look up algorithms and cost
+milliseconds. Blindfolded costs about three to five times the moves, and the
+reason is structural rather than a matter of tuning — no move does two things at
+once when the method may not look at what it is doing. M2 buys back a third of
+that, all of it on the edges.
+
 ## Landmark states and the solid they span
 
 A Cayley graph at `n = 20` has 20! vertices, so nothing about it can be measured
@@ -386,6 +452,12 @@ package, TopSpin included.
 - `cube_layer_move()` — one turn named by axis, layer and quarter turns
 - `cube_identity()` — the solved state, `1:(6n^2)`
 - `cube_is_colour_solved()` — every face one colour, which slice turns make distinct from the identity
+
+**Solving the 3x3x3:**
+- `cube_solve_cfop()` — cross, F2L by IDA*, OLL, PLL; the fewest moves and the only one that searches
+- `cube_solve_lbl()` — layer by layer, the beginner's method
+- `cube_solve_old_pochmann()` — blindfolded: one piece per conjugated PLL, plus the parity step
+- `cube_solve_m2()` — blindfolded with the edges done by `M2` instead, about two thirds the moves
 
 **Analysis:**
 - `get_reachable_states()` — full cycle analysis with state tracking

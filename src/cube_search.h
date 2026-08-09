@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <map>
 #include <stdexcept>
 #include "cube_cubie.h"
 
@@ -32,41 +33,39 @@ namespace cube_search {
 using namespace cube_cubie;
 using namespace cube_nnn;
 
-// The 3x3x3 alphabet, built once. Face turns and slices, 18 moves, in the
-// package's own order and naming.
-struct Cube3 {
+// The alphabet of one cube size, built once and kept. Face turns and inner
+// layers, 6n moves over 6n^2 stickers, in the package's own order and naming.
+//
+// Axis and layer come from `build_alphabet`, which knew both while it was
+// laying the moves out. They are what lets the search skip redundant
+// sequences, and taking them from the alphabet rather than from a table
+// written out by hand is what makes this work at any n.
+struct CubeN {
   CubeAlphabet a;
+  int n;
+  int n_stickers;
   std::vector<std::vector<int> > perm;   // 0-based, new[i] = state[perm[i]]
-  std::vector<int> axis_of;              // which axis each move turns
-  std::vector<int> layer_of_move;
 
-  Cube3() {
-    a = build_alphabet(3);
+  explicit CubeN(int side) {
+    n = side;
+    n_stickers = 6 * side * side;
+    a = build_alphabet(side);
     perm.resize(a.perms.size());
     for (size_t m = 0; m < a.perms.size(); m++) {
-      perm[m].resize(54);
-      for (int i = 0; i < 54; i++) perm[m][i] = a.perms[m][i] - 1;
-    }
-    // The alphabet is built face by face, two moves each: U U' R R' F F' D D'
-    // L L' B B' then M M' E E' S S'. Axis and layer come from that order, and
-    // they are what lets the search skip redundant sequences.
-    static const int ax[9] = {1, 0, 2, 1, 0, 2, 0, 1, 2};   // U R F D L B M E S
-    static const int ly[9] = {2, 2, 2, 0, 0, 0, 1, 1, 1};
-    axis_of.resize(a.names.size());
-    layer_of_move.resize(a.names.size());
-    for (size_t m = 0; m < a.names.size(); m++) {
-      axis_of[m] = ax[m / 2];
-      layer_of_move[m] = ly[m / 2];
+      perm[m].resize(n_stickers);
+      for (int i = 0; i < n_stickers; i++) perm[m][i] = a.perms[m][i] - 1;
     }
   }
 
   int n_moves() const { return (int)a.names.size(); }
   const std::string& name(int m) const { return a.names[m]; }
+  int axis_of(int m) const { return a.axis_of[m]; }
+  int layer_of(int m) const { return a.layer_of[m]; }
 
   void apply(std::vector<int>& s, int m) const {
-    std::vector<int> t(54);
+    std::vector<int> t(n_stickers);
     const std::vector<int>& p = perm[m];
-    for (int i = 0; i < 54; i++) t[i] = s[p[i]];
+    for (int i = 0; i < n_stickers; i++) t[i] = s[p[i]];
     s.swap(t);
   }
 
@@ -76,14 +75,40 @@ struct Cube3 {
   }
 };
 
-inline const Cube3& cube3() {
-  static Cube3 c;
-  return c;
+// One alphabet per size, built on first use. A 7x7x7 alphabet is 42 moves of
+// 294 entries and there is no reason to build it twice; a map keeps each size
+// for as long as the process lives.
+inline const CubeN& cube_n(int n) {
+  static std::map<int, CubeN*> cache;
+  std::map<int, CubeN*>::iterator it = cache.find(n);
+  if (it != cache.end()) return *it->second;
+  if (n < 2) {
+    throw std::runtime_error("cube: a cube has side 2 or more, got " +
+                             std::to_string(n));
+  }
+  CubeN* c = new CubeN(n);
+  cache[n] = c;
+  return *c;
+}
+
+// The 3x3x3, which is what every method in the package solves today. Kept as
+// its own name because the solvers read better for it, and because it is the
+// size their piece tables are written for.
+inline const CubeN& cube3() { return cube_n(3); }
+
+// The side of a cube with this many stickers, or -1 if no cube has that many.
+// A state vector is all a caller has, and 96 entries means 4x4x4 with nothing
+// else to consult.
+inline int cube_side_of(size_t n_stickers) {
+  for (int n = 2; 6 * n * n <= (int)n_stickers; n++) {
+    if ((size_t)(6 * n * n) == n_stickers) return n;
+  }
+  return -1;
 }
 
 // A word as move indices, and the same word as text.
-inline std::vector<std::string> word_names(const std::vector<int>& w) {
-  const Cube3& C = cube3();
+inline std::vector<std::string> word_names(const std::vector<int>& w, int n = 3) {
+  const CubeN& C = cube_n(n);
   std::vector<std::string> out;
   out.reserve(w.size());
   for (size_t i = 0; i < w.size(); i++) out.push_back(C.name(w[i]));
@@ -93,8 +118,8 @@ inline std::vector<std::string> word_names(const std::vector<int>& w) {
 // Parse "R U R' U'" into move indices. Half turns are written out, so "U2"
 // becomes two moves -- the alphabet is quarter turns and this is where a
 // literature algorithm crosses into it.
-inline std::vector<int> parse_word(const std::string& text) {
-  const Cube3& C = cube3();
+inline std::vector<int> parse_word(const std::string& text, int n = 3) {
+  const CubeN& C = cube_n(n);
   std::vector<int> out;
   std::string tok;
   for (size_t i = 0; i <= text.size(); i++) {
@@ -104,8 +129,9 @@ inline std::vector<int> parse_word(const std::string& text) {
         std::string base = half ? tok.substr(0, tok.size() - 1) : tok;
         int m = C.move_index(base);
         if (m < 0) {
-          throw std::runtime_error("cube: '" + tok + "' is not a move of the "
-                                   "3x3x3 alphabet");
+          throw std::runtime_error("cube: '" + tok + "' is not a move of the " +
+                                   std::to_string(n) + "x" + std::to_string(n) +
+                                   "x" + std::to_string(n) + " alphabet");
         }
         out.push_back(m);
         if (half) out.push_back(m);
@@ -124,14 +150,15 @@ inline std::vector<int> parse_word(const std::string& text) {
 // anything; an OLL algorithm may not disturb what is below it. Passing a mask
 // keeps the searches honest about that without a second copy of the alphabet.
 
-inline std::vector<int> moves_all() {
+inline std::vector<int> moves_all(int n = 3) {
   std::vector<int> v;
-  for (int m = 0; m < cube3().n_moves(); m++) v.push_back(m);
+  for (int m = 0; m < cube_n(n).n_moves(); m++) v.push_back(m);
   return v;
 }
 
-inline std::vector<int> moves_named(const std::vector<std::string>& names) {
-  const Cube3& C = cube3();
+inline std::vector<int> moves_named(const std::vector<std::string>& names,
+                                    int n = 3) {
+  const CubeN& C = cube_n(n);
   std::vector<int> v;
   for (size_t i = 0; i < names.size(); i++) {
     int m = C.move_index(names[i]);
@@ -141,110 +168,55 @@ inline std::vector<int> moves_named(const std::vector<std::string>& names) {
   return v;
 }
 
-// The twelve face turns: no slices. This is the set a last-layer algorithm
-// works in, and the one most human methods stay inside.
-inline std::vector<int> moves_faces() {
+// The twelve face turns: no inner layers. This is the set a last-layer
+// algorithm works in, and the one most human methods stay inside. The six
+// faces are named the same whatever the size, so this is the same twelve
+// moves on a 7x7x7 as on a 3x3x3 -- they are just a smaller share of the
+// alphabet.
+inline std::vector<int> moves_faces(int n = 3) {
   static const char* nm[12] = {"U","U'","R","R'","F","F'",
                                "D","D'","L","L'","B","B'"};
   std::vector<std::string> v(nm, nm + 12);
-  return moves_named(v);
+  return moves_named(v, n);
 }
 
-// ---- Iterative deepening -----------------------------------------------
-//
-// Two prunings, both cheap and both sound:
-//
-//   * a move may not be followed by its own inverse -- the pair is nothing;
-//   * moves on one axis commute, so among the orderings of a run of them fix
-//     one representative: a move may not follow a higher-numbered layer of its
-//     own axis.
-//
-// Together they cut the effective branching factor from 18 to about 14.
-//
-// Two stronger-looking rules are wrong here, both because the alphabet is
-// quarter turns rather than half ones. Forbidding the same layer twice running
-// would forbid D D, and D D is D2 -- a half turn, which in this metric is
-// genuinely two moves and cannot be shortened. Forbidding "layer A, other
-// layer, layer A again" on one axis would forbid U E U, where the E between
-// them is a different layer and the two U turns do not merge. Either rule
-// makes the search return words longer than the shortest, which is the one
-// thing a stage solver must not do.
-
-struct SearchLimit {
-  long long nodes;      // budget, counted down
-  bool exhausted;       // true if the budget ran out before an answer
-};
-
-template <typename Pred>
-static bool ida_dfs(std::vector<int>& state, int depth, int last,
-                    const std::vector<int>& moves, Pred goal,
-                    std::vector<int>& path, SearchLimit& lim) {
-  if (lim.nodes <= 0) { lim.exhausted = true; return false; }
-  lim.nodes--;
-
-  if (depth == 0) return goal(state);
-
-  const Cube3& C = cube3();
-  for (size_t k = 0; k < moves.size(); k++) {
-    const int m = moves[k];
-
-    // a move undone by the next one: the pair is nothing at all. The alphabet
-    // pairs each move with its inverse, so m ^ 1 is that inverse.
-    if (last >= 0 && m == (last ^ 1)) continue;
-    // moves on one axis commute, so fix a single order for each run of them.
-    // Equal layers are left alone: on this axis that is the same layer turned
-    // twice, which is a half turn and not reducible in the quarter-turn metric.
-    if (last >= 0 && C.axis_of[m] == C.axis_of[last] &&
-        C.layer_of_move[m] < C.layer_of_move[last]) continue;
-
-    std::vector<int> next = state;
-    C.apply(next, m);
-    path.push_back(m);
-    if (ida_dfs(next, depth - 1, m, moves, goal, path, lim)) return true;
-    path.pop_back();
-    if (lim.exhausted) return false;
-  }
-  return false;
+// Everything that is not a face turn: the slices of a 3x3x3, and on a larger
+// cube the inner layers that make up most of the alphabet. The alphabet puts
+// the six faces first, so these are the moves from index 12 on.
+inline std::vector<int> moves_inner(int n = 3) {
+  std::vector<int> v;
+  for (int m = 12; m < cube_n(n).n_moves(); m++) v.push_back(m);
+  return v;
 }
 
-// Shortest word taking `state` to something satisfying `goal`, searching to
-// `max_depth`. Returns true and fills `path` on success.
-template <typename Pred>
-inline bool ida_solve(const std::vector<int>& state, Pred goal,
-                      const std::vector<int>& moves, int max_depth,
-                      std::vector<int>& path, long long node_budget = 200000000LL) {
-  path.clear();
-  if (goal(state)) return true;
-  for (int d = 1; d <= max_depth; d++) {
-    std::vector<int> s = state;
-    SearchLimit lim = {node_budget, false};
-    path.clear();
-    if (ida_dfs(s, d, -1, moves, goal, path, lim)) return true;
-    if (lim.exhausted) {
-      throw std::runtime_error("cube: search budget exhausted at depth " +
-                               std::to_string(d));
-    }
-  }
-  path.clear();
-  return false;
-}
+// ---- No search here -----------------------------------------------------
+//
+// There was an iterative-deepening search in this file, and it is gone. Every
+// method in the package now places pieces by rule or by table: CFOP's cross
+// uses solve_cross_edge() like LBL does, its F2L has a table of 41 cases, and
+// the two blindfold methods never searched at all.
+//
+// Removing it was the point rather than a side effect. Enumeration does not
+// survive the cube growing: a 3x3x3 branches 18 ways per move and a 7x7x7
+// branches 42, and the stages that matter on a large cube are deeper than the
+// ones that were being searched for here. CFOP's own F2L had already reached
+// that conclusion and written a table -- see the note in cube_solve_cfop.h,
+// where an exact search exhausted its budget at depth 7 and took over a minute
+// to do it. What is left in this file is the alphabet and how to apply it,
+// which is what the methods actually build on.
 
-// The common case: a goal phrased on cubies.
-template <typename CubiePred>
-inline bool ida_solve_cubie(const std::vector<int>& state, CubiePred goal,
-                            const std::vector<int>& moves, int max_depth,
-                            std::vector<int>& path) {
-  return ida_solve(state,
-                   [&](const std::vector<int>& s) {
-                     return goal(read_state(s));
-                   },
-                   moves, max_depth, path);
-}
-
-// Apply a word, returning the new state.
+// Apply a word, returning the new state. The size comes from the state: a
+// state of 96 entries is a 4x4x4 and there is nothing else it could be, so a
+// caller that already holds one need not say so twice. The move indices are
+// indices into that size's alphabet.
 inline std::vector<int> apply_word(const std::vector<int>& state,
                                    const std::vector<int>& word) {
-  const Cube3& C = cube3();
+  const int side = cube_side_of(state.size());
+  if (side < 0) {
+    throw std::runtime_error("cube: " + std::to_string(state.size()) +
+                             " stickers is not a cube of any size");
+  }
+  const CubeN& C = cube_n(side);
   std::vector<int> s = state;
   for (size_t i = 0; i < word.size(); i++) C.apply(s, word[i]);
   return s;

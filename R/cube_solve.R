@@ -77,3 +77,87 @@ cube_solve_lbl <- function(state, cross_depth = 8L, corner_depth = 9L,
   cube_solve_lbl_cpp(as.integer(state), as.integer(cross_depth),
                      as.integer(corner_depth), as.integer(edge_depth))
 }
+
+#' Solve a 3x3x3 Cube by Old Pochmann
+#'
+#' The blindfolded method, and it is built on a different principle from the
+#' other two. CFOP and layer by layer both work by looking: a stage ends when
+#' the cuber can see that it has. Old Pochmann never looks at the cube after
+#' the start, so it repeats one step whose shape is always the same --- swap
+#' whatever is in the buffer with one chosen piece, disturbing nothing else.
+#' Follow it and the pieces come home in a chain.
+#'
+#' Nothing here is searched. Each piece is placed by a conjugate: setup moves
+#' that bring the target where the algorithm can reach it, one memorised
+#' algorithm, then the setup moves undone. The algorithms are ordinary PLLs,
+#' because "swap two edges and two corners" is exactly what a T-perm does, and
+#' the second swap is not incidental: a single swap is an odd permutation and
+#' the cube group has none. Those extra swaps cancel in pairs, and when their
+#' count is odd one is left over --- that is the parity step, between the edges
+#' and the corners.
+#'
+#' Expect around twice the moves of layer by layer. The cost of never looking
+#' is that no move ever does two things at once.
+#'
+#' @param state Integer vector of 54 stickers, a reachable cube state --- from
+#'   \code{\link{generate_state}} with \code{group = cube_group(3)}.
+#' @return List with the same components as \code{\link{cube_solve_cfop}}:
+#'   \code{path}, \code{found}, \code{stages}, \code{states}. Each stage's
+#'   \code{detail} names the target sticker by its standard letter and the
+#'   algorithm used.
+#' @export
+#' @seealso \code{\link{cube_solve_cfop}}, \code{\link{cube_solve_lbl}},
+#'   \code{\link{cube_group}}, \code{\link{generate_state}}
+#' @examples
+#' set.seed(42)
+#' s <- generate_state(group = cube_group(3), n_moves = 20)
+#' \donttest{
+#' res <- cube_solve_old_pochmann(s)
+#' res$found
+#' length(res$path)
+#' }
+cube_solve_old_pochmann <- function(state) {
+  cube_solve_old_pochmann_cpp(as.integer(state))
+}
+
+#' Solve a 3x3x3 Cube by M2
+#'
+#' Old Pochmann's method with a cheaper edge step, and the usual next thing a
+#' blindfold solver learns. There an edge was placed by a whole PLL wrapped in
+#' setup moves; here the buffer is DF and the swap is \code{M2}, which is two
+#' moves. The corners are unchanged.
+#'
+#' \code{M2} is not a clean swap, and the method is arranged around that rather
+#' than avoiding it. It turns the middle slice a half turn, so it moves the
+#' centres and exchanges the UF/DB edge as well. Those two get their own
+#' algorithms; edges left facing the wrong way are set aside while the chain
+#' runs and turned afterwards in one orientation phase; and whether the parity
+#' fix is needed is decided by reading the edge permutation rather than by
+#' counting swaps, because a chain that breaks into a new cycle spends turns the
+#' tally does not see.
+#'
+#' The cube comes back solved with the centres sometimes rotated among
+#' themselves --- "solved relative to the centres", which is what the method
+#' means by solved and what a real cube looks like.
+#'
+#' Expect roughly two thirds the moves of \code{\link{cube_solve_old_pochmann}},
+#' with the saving all on the edges.
+#'
+#' @param state Integer vector of 54 stickers, a reachable cube state --- from
+#'   \code{\link{generate_state}} with \code{group = cube_group(3)}.
+#' @return List with the same components as \code{\link{cube_solve_cfop}}:
+#'   \code{path}, \code{found}, \code{stages}, \code{states}.
+#' @export
+#' @seealso \code{\link{cube_solve_old_pochmann}}, \code{\link{cube_solve_cfop}},
+#'   \code{\link{cube_solve_lbl}}, \code{\link{cube_group}}
+#' @examples
+#' set.seed(42)
+#' s <- generate_state(group = cube_group(3), n_moves = 20)
+#' \donttest{
+#' res <- cube_solve_m2(s)
+#' res$found
+#' length(res$path)
+#' }
+cube_solve_m2 <- function(state) {
+  cube_solve_m2_cpp(as.integer(state))
+}

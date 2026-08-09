@@ -1,3 +1,13 @@
+# cayleyR 0.2.9
+
+* **`cube_solve_old_pochmann()`** and **`cube_solve_m2()`** — the two
+  blindfolded methods, so the 3x3x3 now has four solvers. Both place one piece
+  at a time by conjugation and never look at the cube after the start.
+
+* Over 10 states, all four solving all 10: CFOP 89.2 moves, LBL 169.2, M2
+  277.6, Old Pochmann 432.6.
+
+
 # cayleyR 0.2.8
 
 * **The whole `cube3_*` module is removed** — `cube_group(3)` and

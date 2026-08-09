@@ -41,6 +41,46 @@ apply_operations <- function(state, operations, k, coords = NULL, compute_coords
     .Call(`_cayleyR_apply_operations`, state, operations, k, coords, compute_coords)
 }
 
+cube_centres_shoot_cpp <- function(state) {
+    .Call(`_cayleyR_cube_centres_shoot_cpp`, state)
+}
+
+cube_centre_counts_cpp <- function(state) {
+    .Call(`_cayleyR_cube_centre_counts_cpp`, state)
+}
+
+cube_choose_shot_cpp <- function(state) {
+    .Call(`_cayleyR_cube_choose_shot_cpp`, state)
+}
+
+cube_find_colour_cpp <- function(state, colour) {
+    .Call(`_cayleyR_cube_find_colour_cpp`, state, colour)
+}
+
+cube_has_pair_cpp <- function(state, colour) {
+    .Call(`_cayleyR_cube_has_pair_cpp`, state, colour)
+}
+
+cube_slice_map_cpp <- function() {
+    .Call(`_cayleyR_cube_slice_map_cpp`)
+}
+
+cube_first_centre_cpp <- function(state, target_face) {
+    .Call(`_cayleyR_cube_first_centre_cpp`, state, target_face)
+}
+
+cube_l_slice_count_cpp <- function(state) {
+    .Call(`_cayleyR_cube_l_slice_count_cpp`, state)
+}
+
+cube_centres_12_cpp <- function(state) {
+    .Call(`_cayleyR_cube_centres_12_cpp`, state)
+}
+
+cube_centres_cpp <- function(state) {
+    .Call(`_cayleyR_cube_centres_cpp`, state)
+}
+
 cube_apply_word_cpp <- function(state, word) {
     .Call(`_cayleyR_cube_apply_word_cpp`, state, word)
 }
@@ -89,12 +129,36 @@ cube_is_colour_solved_cpp <- function(state, n) {
     .Call(`_cayleyR_cube_is_colour_solved_cpp`, state, n)
 }
 
+cube_orbits_cpp <- function(n) {
+    .Call(`_cayleyR_cube_orbits_cpp`, n)
+}
+
+cube_pieces_cpp <- function(n) {
+    .Call(`_cayleyR_cube_pieces_cpp`, n)
+}
+
+cube_progress_cpp <- function(state) {
+    .Call(`_cayleyR_cube_progress_cpp`, state)
+}
+
+cube_pieces_home_cpp <- function(state) {
+    .Call(`_cayleyR_cube_pieces_home_cpp`, state)
+}
+
 cube_solve_cfop_cpp <- function(state, cross_depth, slot_depth) {
     .Call(`_cayleyR_cube_solve_cfop_cpp`, state, cross_depth, slot_depth)
 }
 
 cube_solve_lbl_cpp <- function(state, cross_depth, corner_depth, edge_depth) {
     .Call(`_cayleyR_cube_solve_lbl_cpp`, state, cross_depth, corner_depth, edge_depth)
+}
+
+cube_solve_old_pochmann_cpp <- function(state) {
+    .Call(`_cayleyR_cube_solve_old_pochmann_cpp`, state)
+}
+
+cube_solve_m2_cpp <- function(state) {
+    .Call(`_cayleyR_cube_solve_m2_cpp`, state)
 }
 
 cycle_shortcut_cpp <- function(start_state, path, group, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose) {
