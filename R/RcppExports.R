@@ -81,6 +81,22 @@ cube_centres_cpp <- function(state) {
     .Call(`_cayleyR_cube_centres_cpp`, state)
 }
 
+cube_reduce_cpp <- function(state) {
+    .Call(`_cayleyR_cube_reduce_cpp`, state)
+}
+
+cube_parity_fix_cpp <- function(state, which) {
+    .Call(`_cayleyR_cube_parity_fix_cpp`, state, which)
+}
+
+cube_squeeze_cpp <- function(state) {
+    .Call(`_cayleyR_cube_squeeze_cpp`, state)
+}
+
+cube_lift_path_cpp <- function(path) {
+    .Call(`_cayleyR_cube_lift_path_cpp`, path)
+}
+
 cube_apply_word_cpp <- function(state, word) {
     .Call(`_cayleyR_cube_apply_word_cpp`, state, word)
 }

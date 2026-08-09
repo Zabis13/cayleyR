@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include "cube_centres.h"
+#include "cube_edges.h"
+#include "cube_reduce.h"
 
 using namespace Rcpp;
 using namespace cube_solve;
@@ -228,4 +230,68 @@ List cube_centres_cpp(IntegerVector state) {
     sol.failure = e.what();
   }
   return solution_to_r_4(sol);
+}
+
+// [[Rcpp::export]]
+List cube_reduce_cpp(IntegerVector state) {
+  const std::vector<int> s = as_state_4(state);
+  Solution sol;
+  sol.solved = false;
+  std::vector<int> cur = s;
+  try {
+    Orient o;
+    if (!build_first_centre(cur, sol, o, 4, "first centre")) {
+      sol.failure = "could not build the first centre";
+      return solution_to_r_4(sol);
+    }
+    if (!build_l_slice(cur, sol, o, "l-slice")) {
+      sol.failure = "could not finish the l-slice";
+      return solution_to_r_4(sol);
+    }
+    Orient after = o;
+    if (!centres_built(cur, o)) {
+      push_stage(sol, cur, "rotate", "z'", parse_word("B 1z' 2z' F'", 4));
+      o = rotate_orient(o, "z'");
+      after = o;
+      bool done = empty_u_slice(cur, sol, o, &after, "u-slice");
+      if (!done) done = settle_pairs(cur, sol, after, "pairs");
+      if (!done) {
+        sol.failure = "could not finish the centres";
+        return solution_to_r_4(sol);
+      }
+    }
+
+    // Stage two: the edges. The centres are built and every algorithm below
+    // was measured to leave them that way, so the guard is a check, not a
+    // hope.
+    sol.solved = pair_edges(cur, sol, after, "edges");
+    if (!sol.solved) sol.failure = "could not pair the edges";
+  } catch (const std::exception& e) {
+    sol.solved = false;
+    sol.failure = e.what();
+  }
+  return solution_to_r_4(sol);
+}
+
+// [[Rcpp::export]]
+List cube_parity_fix_cpp(IntegerVector state, std::string which) {
+  const std::vector<int> s = as_state_4(state);
+  const char* w = (which == "OLL") ? oll_parity_word() : pll_parity_word();
+  const std::vector<int> out = apply_word(s, parse_word(w, 4));
+  return List::create(_["state"] = wrap(out),
+                      _["path"] = wrap(cube_search::word_names(parse_word(w, 4), 4)));
+}
+
+// [[Rcpp::export]]
+IntegerVector cube_squeeze_cpp(IntegerVector state) {
+  const std::vector<int> s = as_state_4(state);
+  return wrap(squeeze_to_3(s));
+}
+
+// [[Rcpp::export]]
+List cube_lift_path_cpp(CharacterVector path) {
+  std::vector<std::string> p;
+  for (int i = 0; i < path.size(); i++) p.push_back(as<std::string>(path[i]));
+  const std::string w = lift_word(p);
+  return List::create(_["path"] = wrap(cube_search::word_names(parse_word(w, 4), 4)));
 }

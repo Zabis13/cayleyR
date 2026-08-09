@@ -248,6 +248,51 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_reduce_cpp
+List cube_reduce_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_reduce_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_reduce_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_parity_fix_cpp
+List cube_parity_fix_cpp(IntegerVector state, std::string which);
+RcppExport SEXP _cayleyR_cube_parity_fix_cpp(SEXP stateSEXP, SEXP whichSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< std::string >::type which(whichSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_parity_fix_cpp(state, which));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_squeeze_cpp
+IntegerVector cube_squeeze_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_squeeze_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_squeeze_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_lift_path_cpp
+List cube_lift_path_cpp(CharacterVector path);
+RcppExport SEXP _cayleyR_cube_lift_path_cpp(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< CharacterVector >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_lift_path_cpp(path));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cube_apply_word_cpp
 IntegerVector cube_apply_word_cpp(IntegerVector state, std::string word);
 RcppExport SEXP _cayleyR_cube_apply_word_cpp(SEXP stateSEXP, SEXP wordSEXP) {
@@ -1036,6 +1081,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_cube_l_slice_count_cpp", (DL_FUNC) &_cayleyR_cube_l_slice_count_cpp, 1},
     {"_cayleyR_cube_centres_12_cpp", (DL_FUNC) &_cayleyR_cube_centres_12_cpp, 1},
     {"_cayleyR_cube_centres_cpp", (DL_FUNC) &_cayleyR_cube_centres_cpp, 1},
+    {"_cayleyR_cube_reduce_cpp", (DL_FUNC) &_cayleyR_cube_reduce_cpp, 1},
+    {"_cayleyR_cube_parity_fix_cpp", (DL_FUNC) &_cayleyR_cube_parity_fix_cpp, 2},
+    {"_cayleyR_cube_squeeze_cpp", (DL_FUNC) &_cayleyR_cube_squeeze_cpp, 1},
+    {"_cayleyR_cube_lift_path_cpp", (DL_FUNC) &_cayleyR_cube_lift_path_cpp, 1},
     {"_cayleyR_cube_apply_word_cpp", (DL_FUNC) &_cayleyR_cube_apply_word_cpp, 2},
     {"_cayleyR_cube_word_order_cpp", (DL_FUNC) &_cayleyR_cube_word_order_cpp, 2},
     {"_cayleyR_cube_read_state_cpp", (DL_FUNC) &_cayleyR_cube_read_state_cpp, 1},
