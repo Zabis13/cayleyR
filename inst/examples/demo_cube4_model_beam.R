@@ -35,7 +35,7 @@ args  <- commandArgs(trailingOnly = TRUE)
 arg   <- function(i, default) if (length(args) >= i) as.integer(args[i]) else default
 
 DEPTH <- arg(1L, 1000L)
-WIDTH <- arg(2L, 10L)
+WIDTH <- arg(2L, 20L)
 STEPS <- arg(3L, 400L)
 CUBES <- arg(4L, 1L)
 ARCHIVE <- Sys.getenv("CUBE4_ARCHIVE", "/mnt/Data2/DS_projects/444/archive")
@@ -77,39 +77,58 @@ key_of <- function(c) paste(c, collapse = ",")
 beam_solve <- function(start, width, steps, trace = FALSE) {
   seen <- new.env(hash = TRUE, parent = emptyenv())
   assign(key_of(start), TRUE, envir = seen)
-  beam <- list(list(state = start, path = character(0)))
+
+  # The beam as a matrix, one state per row, with the paths alongside. The
+  # whole beam is scored in ONE call to the model rather than one call per
+  # state: pt_forward() batches, and a tall matmul is what BLAS is for.
+  beam  <- matrix(start, 1L)
+  paths <- list(character(0))
 
   for (step in seq_len(steps)) {
-    cand <- list()
-    for (b in beam) {
-      q <- pt_forward(model, b$state)
-      for (j in seq_along(moves)) {
-        s2 <- b$state[G[[moves[j]]]]
-        k2 <- key_of(s2)
-        if (exists(k2, envir = seen, inherits = FALSE)) next
-        if (is_solved(s2))
-          return(list(found = TRUE, path = c(b$path, moves[j]), steps = step))
-        cand[[length(cand) + 1L]] <- list(state = s2, key = k2,
-                                          path = c(b$path, moves[j]), val = q[j])
-      }
+    q <- pt_forward(model, beam)
+    if (is.null(dim(q))) q <- matrix(q, 1L)
+
+    n_beam <- nrow(beam)
+    n_mv   <- length(moves)
+
+    # Every successor of every state at once: row (b-1)*n_mv + j is state b
+    # after move j, which is the order as.vector(t(q)) puts the values in.
+    nxt <- matrix(0L, n_beam * n_mv, ncol(beam))
+    for (j in seq_len(n_mv))
+      nxt[seq.int(j, by = n_mv, length.out = n_beam), ] <-
+        beam[, G[[moves[j]]], drop = FALSE]
+
+    vals <- as.vector(t(q))
+    ord  <- order(vals)
+
+    for (i in ord) {
+      if (!is_solved(nxt[i, ])) next
+      b <- (i - 1L) %/% n_mv + 1L
+      return(list(found = TRUE, steps = step,
+                  path = c(paths[[b]], moves[(i - 1L) %% n_mv + 1L])))
     }
-    if (!length(cand))
+
+    keep_rows <- integer(0)
+    keep_path <- list()
+    for (i in ord) {
+      if (length(keep_rows) >= width) break
+      k2 <- key_of(nxt[i, ])
+      if (exists(k2, envir = seen, inherits = FALSE)) next
+      assign(k2, TRUE, envir = seen)
+      keep_rows <- c(keep_rows, i)
+      b <- (i - 1L) %/% n_mv + 1L
+      keep_path[[length(keep_path) + 1L]] <-
+        c(paths[[b]], moves[(i - 1L) %% n_mv + 1L])
+    }
+    if (!length(keep_rows))
       return(list(found = FALSE, why = "beam exhausted", steps = step))
 
-    vals <- vapply(cand, `[[`, numeric(1), "val")
-    ord  <- order(vals)
-    keep <- list()
-    for (i in ord) {
-      if (length(keep) >= width) break
-      if (exists(cand[[i]]$key, envir = seen, inherits = FALSE)) next
-      assign(cand[[i]]$key, TRUE, envir = seen)
-      keep[[length(keep) + 1L]] <- cand[[i]]
-    }
-    beam <- keep
+    beam  <- nxt[keep_rows, , drop = FALSE]
+    paths <- keep_path
 
     if (trace)
-      cat(sprintf("%5d  %8.3f  %8.3f  %7d\n", step, vals[ord[1L]],
-                  vals[ord[min(length(ord), width)]], length(cand)))
+      cat(sprintf("%5d  %8.3f  %8.3f  %7d\n", step, vals[keep_rows[1L]],
+                  vals[keep_rows[length(keep_rows)]], length(vals)))
   }
   list(found = FALSE, why = "out of steps", steps = steps)
 }

@@ -22,11 +22,26 @@ library(cayleyR)
 library(ggmlR)
 
 DATA      <- "/kaggle/input/competitions/cayley-py-444-cube"
-MODEL_DIR <- "/kaggle/input/cube4-model"      # <- the dataset with the model
+MODEL_DIR <- "/kaggle/input/datasets/trydotatwo/cube4-full-transformer-inference/model"
+GEN_DIR   <- "/kaggle/input/datasets/trydotatwo/cube4-full-transformer-inference/generators"
+
 WIDTH     <- 10L      # beam width; 1 is greedy, wider is slower and stronger
-STEPS     <- 340L     # give the model this many steps before reduction takes over
+STEPS     <- 40L      # give the model this many steps before reduction takes over
 
 if (!dir.exists(DATA)) DATA <- "."            # running outside Kaggle
+
+MODEL_PTH <- file.path(MODEL_DIR, "model.pth")
+GEN_JSON  <- file.path(GEN_DIR, "p002.json")
+
+# Say which file is missing and what is actually there, rather than let
+# normalizePath() report a path with no hint as to what was expected.
+for (f in c(MODEL_PTH, GEN_JSON))
+  if (!file.exists(f)) {
+    cat("missing:", f, "\n\nwhat is under /kaggle/input:\n")
+    print(utils::head(list.files("/kaggle/input", recursive = TRUE,
+                                 full.names = TRUE), 50))
+    stop("set MODEL_DIR / GEN_DIR to match", call. = FALSE)
+  }
 
 test <- read.csv(file.path(DATA, "test.csv"), stringsAsFactors = FALSE)
 cat("puzzles:", nrow(test), "\n")
@@ -40,11 +55,10 @@ cat("puzzles:", nrow(test), "\n")
 # The action order matters: the model's output is 24 numbers and nothing in
 # them says which move each belongs to. It comes from the generator file.
 
-model <- pt_transformer_load(file.path(MODEL_DIR, "model.pth"))
+model <- pt_transformer_load(MODEL_PTH)
 print(model)
 
-gen    <- paste(readLines(file.path(MODEL_DIR, "p002.json"), warn = FALSE),
-                collapse = "")
+gen    <- paste(readLines(GEN_JSON, warn = FALSE), collapse = "")
 mn_txt <- regmatches(gen, regexpr("\"move_names\"\\s*:\\s*\\[[^]]*\\]", gen))
 moves  <- gsub("\"", "", regmatches(mn_txt, gregexpr("\"-?[a-z][0-9]\"",
                                                      mn_txt))[[1]])
@@ -82,32 +96,54 @@ beam_solve <- function(start, width = WIDTH, steps = STEPS) {
 
   seen <- new.env(hash = TRUE, parent = emptyenv())
   assign(key_of(start), TRUE, envir = seen)
-  beam <- list(list(state = start, path = character(0)))
+
+  # The beam as a matrix, one state per row, with the paths alongside. Scoring
+  # the whole beam in one call rather than one call per state is most of what
+  # makes the search affordable: the model batches, and a tall matmul is what
+  # BLAS is for.
+  beam  <- matrix(start, 1L)
+  paths <- list(character(0))
 
   for (step in seq_len(steps)) {
-    cand <- list()
-    for (b in beam) {
-      q <- pt_forward(model, b$state)
-      for (j in seq_along(moves)) {
-        s2 <- b$state[G[[moves[j]]]]
-        k2 <- key_of(s2)
-        if (exists(k2, envir = seen, inherits = FALSE)) next
-        if (is_solved(s2)) return(c(b$path, moves[j]))
-        cand[[length(cand) + 1L]] <- list(state = s2, key = k2,
-                                          path = c(b$path, moves[j]), val = q[j])
-      }
-    }
-    if (!length(cand)) return(NULL)          # every branch a dead end
+    q <- pt_forward(model, beam)               # [beam, 24], one call
+    if (is.null(dim(q))) q <- matrix(q, 1L)
 
-    ord  <- order(vapply(cand, `[[`, numeric(1), "val"))
-    keep <- list()
+    n_beam <- nrow(beam)
+    n_mv   <- length(moves)
+    total  <- n_beam * n_mv
+
+    # Every successor of every state in the beam, built in one go: row
+    # (b-1)*n_mv + j is state b after move j.
+    nxt <- matrix(0L, total, ncol(beam))
+    for (j in seq_len(n_mv))
+      nxt[seq.int(j, by = n_mv, length.out = n_beam), ] <-
+        beam[, G[[moves[j]]], drop = FALSE]
+
+    # A solved successor ends it, and the cheapest one is checked first.
+    vals <- as.vector(t(q))
+    ord  <- order(vals)
     for (i in ord) {
-      if (length(keep) >= width) break
-      if (exists(cand[[i]]$key, envir = seen, inherits = FALSE)) next
-      assign(cand[[i]]$key, TRUE, envir = seen)
-      keep[[length(keep) + 1L]] <- cand[[i]]
+      if (!is_solved(nxt[i, ])) next
+      b <- (i - 1L) %/% n_mv + 1L
+      return(c(paths[[b]], moves[(i - 1L) %% n_mv + 1L]))
     }
-    beam <- keep
+
+    keep_rows <- integer(0)
+    keep_path <- list()
+    for (i in ord) {
+      if (length(keep_rows) >= width) break
+      k2 <- key_of(nxt[i, ])
+      if (exists(k2, envir = seen, inherits = FALSE)) next
+      assign(k2, TRUE, envir = seen)
+      keep_rows <- c(keep_rows, i)
+      b <- (i - 1L) %/% n_mv + 1L
+      keep_path[[length(keep_path) + 1L]] <-
+        c(paths[[b]], moves[(i - 1L) %% n_mv + 1L])
+    }
+    if (!length(keep_rows)) return(NULL)       # every branch a dead end
+
+    beam  <- nxt[keep_rows, , drop = FALSE]
+    paths <- keep_path
   }
   NULL                                       # out of steps
 }
