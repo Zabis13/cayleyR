@@ -50,14 +50,52 @@ read_state <- function(csv_row) {
 }
 
 # ---- 3. Solve --------------------------------------------------------------
+#
+# Two things a long run needs and a short one can do without.
+#
+# A solve that throws must not take the run with it: one bad cube out of
+# thousands would otherwise lose every solve made before it. Whatever the
+# solver managed is kept, and the reason it stopped is kept beside it.
+#
+# The submission is written as we go rather than at the end, so a run cut short
+# -- by the clock, by anything -- still leaves a valid file on disk covering
+# the cubes it reached.
 
-paths <- character(nrow(test))
+paths  <- character(nrow(test))
+why    <- character(nrow(test))     # empty when solved; the failure otherwise
+secs   <- numeric(nrow(test))
+
+write_submission <- function() {
+  write.csv(data.frame(initial_state_id = test$initial_state_id,
+                       path = paths, stringsAsFactors = FALSE),
+            "submission.csv", row.names = FALSE, quote = TRUE)
+}
+
+t_start <- proc.time()[["elapsed"]]
 
 for (i in seq_len(nrow(test))) {
+  t0    <- proc.time()[["elapsed"]]
   state <- read_state(test$initial_state[i])
-  res   <- cube_solve4(state)
-  paths[i] <- if (isTRUE(res$found)) cube_santa_path_out(res$path, 4) else ""
-  if (i %% 100 == 0) cat("solved", i, "of", nrow(test), "\n")
+  res   <- try(cube_solve4(state), silent = TRUE)
+
+  if (inherits(res, "try-error")) {
+    paths[i] <- ""
+    why[i]   <- trimws(conditionMessage(attr(res, "condition")))
+  } else {
+    # The path is worth writing whether or not the solver finished: a cube left
+    # part-solved is closer than one not touched, and the check below reports
+    # what actually landed either way.
+    paths[i] <- if (length(res$path)) cube_santa_path_out(res$path, 4) else ""
+    why[i]   <- if (isTRUE(res$found)) "" else res$failure
+  }
+  secs[i] <- proc.time()[["elapsed"]] - t0
+
+  if (i %% 100 == 0 || i == nrow(test)) {
+    write_submission()
+    el <- proc.time()[["elapsed"]] - t_start
+    cat(sprintf("solved %d of %d  |  %.1f s elapsed, ~%.1f s left\n",
+                i, nrow(test), el, el / i * (nrow(test) - i)))
+  }
 }
 
 # ---- 4. Check the paths in Kaggle's own terms ------------------------------
@@ -87,12 +125,38 @@ ok <- vapply(seq_len(nrow(test)), function(i) {
 lens <- vapply(strsplit(paths, ".", fixed = TRUE), length, integer(1))
 
 cat("\ncubes solved  :", sum(ok), "of", nrow(test), "\n")
-cat("path length   : median", median(lens), " range", min(lens), "-", max(lens), "\n")
 
-# ---- 5. Write the submission ----------------------------------------------
+# Lengths over the cubes that came out solved. Averaging an unsolved cube's
+# path in with the rest measures nothing -- a cube left alone scores a length
+# of zero and would pull the median down.
+if (any(ok))
+  cat(sprintf("path length   : median %g, range %g-%g\n",
+              median(lens[ok]), min(lens[ok]), max(lens[ok])))
 
-submission <- data.frame(initial_state_id = test$initial_state_id,
-                         path = paths, stringsAsFactors = FALSE)
-write.csv(submission, "submission.csv", row.names = FALSE, quote = TRUE)
-cat("\nwrote submission.csv\n")
-head(submission, 3)
+cat(sprintf("time          : %.1f s total, %.2f s per cube\n",
+            sum(secs), mean(secs)))
+
+# The solver says why it stopped; that is worth more than the count of
+# failures on its own, since the reasons point at different repairs.
+if (any(!ok)) {
+  cat("\nnot solved:\n")
+  print(table(ifelse(nzchar(why[!ok]), why[!ok], "path replayed unsolved")))
+}
+
+# A path the solver called good but Kaggle's replay does not: that is a fault
+# in the translation, not in the solve, and it is worth saying loudly.
+disagree <- which(!ok & !nzchar(why))
+if (length(disagree))
+  cat("\nWARNING:", length(disagree),
+      "path(s) the solver called solved did not replay solved --",
+      "check the move translation\n")
+
+# ---- 5. The submission -----------------------------------------------------
+#
+# Already on disk -- written every hundred cubes above, and once more at the
+# end of the loop. This is the last write, and a look at what went out.
+
+write_submission()
+cat("\nwrote submission.csv --", nrow(test), "rows\n")
+head(submission <- data.frame(initial_state_id = test$initial_state_id,
+                              path = paths, stringsAsFactors = FALSE), 3)
