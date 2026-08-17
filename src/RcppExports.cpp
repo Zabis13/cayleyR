@@ -136,6 +136,44 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_adi_scramble
+List cube_adi_scramble(SEXP group, int n, int max_depth);
+RcppExport SEXP _cayleyR_cube_adi_scramble(SEXP groupSEXP, SEXP nSEXP, SEXP max_depthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth(max_depthSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_adi_scramble(group, n, max_depth));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_adi_children
+List cube_adi_children(SEXP group, IntegerMatrix states);
+RcppExport SEXP _cayleyR_cube_adi_children(SEXP groupSEXP, SEXP statesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< IntegerMatrix >::type states(statesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_adi_children(group, states));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_adi_targets
+List cube_adi_targets(NumericVector child_values, LogicalVector child_solved, int n_moves);
+RcppExport SEXP _cayleyR_cube_adi_targets(SEXP child_valuesSEXP, SEXP child_solvedSEXP, SEXP n_movesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< NumericVector >::type child_values(child_valuesSEXP);
+    Rcpp::traits::input_parameter< LogicalVector >::type child_solved(child_solvedSEXP);
+    Rcpp::traits::input_parameter< int >::type n_moves(n_movesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_adi_targets(child_values, child_solved, n_moves));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cube_centres_shoot_cpp
 List cube_centres_shoot_cpp(IntegerVector state);
 RcppExport SEXP _cayleyR_cube_centres_shoot_cpp(SEXP stateSEXP) {
@@ -623,6 +661,333 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_kociemba_cpp
+CharacterVector cube_kociemba_cpp(IntegerVector state, int max_depth1, int max_depth2, double node_budget);
+RcppExport SEXP _cayleyR_cube_kociemba_cpp(SEXP stateSEXP, SEXP max_depth1SEXP, SEXP max_depth2SEXP, SEXP node_budgetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth1(max_depth1SEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth2(max_depth2SEXP);
+    Rcpp::traits::input_parameter< double >::type node_budget(node_budgetSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba_cpp(state, max_depth1, max_depth2, node_budget));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba_init_cpp
+void cube_kociemba_init_cpp(double table1, int depth1, double table2, int depth2);
+RcppExport SEXP _cayleyR_cube_kociemba_init_cpp(SEXP table1SEXP, SEXP depth1SEXP, SEXP table2SEXP, SEXP depth2SEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type table1(table1SEXP);
+    Rcpp::traits::input_parameter< int >::type depth1(depth1SEXP);
+    Rcpp::traits::input_parameter< double >::type table2(table2SEXP);
+    Rcpp::traits::input_parameter< int >::type depth2(depth2SEXP);
+    cube_kociemba_init_cpp(table1, depth1, table2, depth2);
+    return R_NilValue;
+END_RCPP
+}
+// cube_cubie_pieces_cpp
+List cube_cubie_pieces_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_cubie_pieces_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_cubie_pieces_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_in_g1_cpp
+bool cube_in_g1_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_in_g1_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_in_g1_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba_last_cpp
+List cube_kociemba_last_cpp();
+RcppExport SEXP _cayleyR_cube_kociemba_last_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba_last_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_reduce_cpp
+CharacterVector cube_kociemba4_reduce_cpp(IntegerVector state, int max_depth1, int max_depth2, int max_depth3, double node_budget, double progress_every, int prune_depth_bonus);
+RcppExport SEXP _cayleyR_cube_kociemba4_reduce_cpp(SEXP stateSEXP, SEXP max_depth1SEXP, SEXP max_depth2SEXP, SEXP max_depth3SEXP, SEXP node_budgetSEXP, SEXP progress_everySEXP, SEXP prune_depth_bonusSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth1(max_depth1SEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth2(max_depth2SEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth3(max_depth3SEXP);
+    Rcpp::traits::input_parameter< double >::type node_budget(node_budgetSEXP);
+    Rcpp::traits::input_parameter< double >::type progress_every(progress_everySEXP);
+    Rcpp::traits::input_parameter< int >::type prune_depth_bonus(prune_depth_bonusSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_reduce_cpp(state, max_depth1, max_depth2, max_depth3, node_budget, progress_every, prune_depth_bonus));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_last_cpp
+List cube_kociemba4_last_cpp();
+RcppExport SEXP _cayleyR_cube_kociemba4_last_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_last_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_tables_cpp
+List cube_kociemba4_tables_cpp();
+RcppExport SEXP _cayleyR_cube_kociemba4_tables_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_tables_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_at_phase_goal_cpp
+bool cube_at_phase_goal_cpp(IntegerVector state, int phase);
+RcppExport SEXP _cayleyR_cube_at_phase_goal_cpp(SEXP stateSEXP, SEXP phaseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type phase(phaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_at_phase_goal_cpp(state, phase));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_set_table_size_cpp
+double cube_kociemba4_set_table_size_cpp(double slots);
+RcppExport SEXP _cayleyR_cube_kociemba4_set_table_size_cpp(SEXP slotsSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< double >::type slots(slotsSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_set_table_size_cpp(slots));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_save_phase3_cpp
+bool cube_kociemba4_save_phase3_cpp(std::string path);
+RcppExport SEXP _cayleyR_cube_kociemba4_save_phase3_cpp(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_save_phase3_cpp(path));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_load_phase3_cpp
+List cube_kociemba4_load_phase3_cpp(std::string path);
+RcppExport SEXP _cayleyR_cube_kociemba4_load_phase3_cpp(SEXP pathSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_load_phase3_cpp(path));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_save_phase_cpp
+bool cube_kociemba4_save_phase_cpp(std::string path, int phase);
+RcppExport SEXP _cayleyR_cube_kociemba4_save_phase_cpp(SEXP pathSEXP, SEXP phaseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    Rcpp::traits::input_parameter< int >::type phase(phaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_save_phase_cpp(path, phase));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_load_phase_cpp
+List cube_kociemba4_load_phase_cpp(std::string path, int phase);
+RcppExport SEXP _cayleyR_cube_kociemba4_load_phase_cpp(SEXP pathSEXP, SEXP phaseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::string >::type path(pathSEXP);
+    Rcpp::traits::input_parameter< int >::type phase(phaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_load_phase_cpp(path, phase));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_fill_phase_cpp
+List cube_kociemba4_fill_phase_cpp(int depth, int phase, double table_size, bool breadth_first, double max_frontier);
+RcppExport SEXP _cayleyR_cube_kociemba4_fill_phase_cpp(SEXP depthSEXP, SEXP phaseSEXP, SEXP table_sizeSEXP, SEXP breadth_firstSEXP, SEXP max_frontierSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    Rcpp::traits::input_parameter< int >::type phase(phaseSEXP);
+    Rcpp::traits::input_parameter< double >::type table_size(table_sizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type breadth_first(breadth_firstSEXP);
+    Rcpp::traits::input_parameter< double >::type max_frontier(max_frontierSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_fill_phase_cpp(depth, phase, table_size, breadth_first, max_frontier));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_fill_phase3_cpp
+List cube_kociemba4_fill_phase3_cpp(int depth, double table_size, bool breadth_first, double max_frontier);
+RcppExport SEXP _cayleyR_cube_kociemba4_fill_phase3_cpp(SEXP depthSEXP, SEXP table_sizeSEXP, SEXP breadth_firstSEXP, SEXP max_frontierSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type depth(depthSEXP);
+    Rcpp::traits::input_parameter< double >::type table_size(table_sizeSEXP);
+    Rcpp::traits::input_parameter< bool >::type breadth_first(breadth_firstSEXP);
+    Rcpp::traits::input_parameter< double >::type max_frontier(max_frontierSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_fill_phase3_cpp(depth, table_size, breadth_first, max_frontier));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_phase3_cpp
+List cube_kociemba4_phase3_cpp(IntegerVector state, int max_depth3, double node_budget, int prune_depth_bonus, bool use_exact_centres, double progress_every);
+RcppExport SEXP _cayleyR_cube_kociemba4_phase3_cpp(SEXP stateSEXP, SEXP max_depth3SEXP, SEXP node_budgetSEXP, SEXP prune_depth_bonusSEXP, SEXP use_exact_centresSEXP, SEXP progress_everySEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth3(max_depth3SEXP);
+    Rcpp::traits::input_parameter< double >::type node_budget(node_budgetSEXP);
+    Rcpp::traits::input_parameter< int >::type prune_depth_bonus(prune_depth_bonusSEXP);
+    Rcpp::traits::input_parameter< bool >::type use_exact_centres(use_exact_centresSEXP);
+    Rcpp::traits::input_parameter< double >::type progress_every(progress_everySEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_phase3_cpp(state, max_depth3, node_budget, prune_depth_bonus, use_exact_centres, progress_every));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_phase_generators_cpp
+List cube_phase_generators_cpp(int phase);
+RcppExport SEXP _cayleyR_cube_phase_generators_cpp(SEXP phaseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type phase(phaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_phase_generators_cpp(phase));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_to_pieces4_cpp
+List cube_to_pieces4_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_to_pieces4_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_to_pieces4_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_phase3_coord_cpp
+List cube_phase3_coord_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_phase3_coord_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_phase3_coord_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_wing_parities_cpp
+List cube_wing_parities_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_wing_parities_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_wing_parities_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_phase_goal_keys_cpp
+List cube_phase_goal_keys_cpp(int phase);
+RcppExport SEXP _cayleyR_cube_phase_goal_keys_cpp(SEXP phaseSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type phase(phaseSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_phase_goal_keys_cpp(phase));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_is_reduced_cpp
+bool cube_is_reduced_cpp(IntegerVector state);
+RcppExport SEXP _cayleyR_cube_is_reduced_cpp(SEXP stateSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_is_reduced_cpp(state));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_fsm_size_cpp
+List cube_fsm_size_cpp(int n);
+RcppExport SEXP _cayleyR_cube_fsm_size_cpp(SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_fsm_size_cpp(n));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_phase12_cpp
+CharacterVector cube_kociemba4_phase12_cpp(IntegerVector state, int upto_phase, int max_depth1, int max_depth2, double node_budget);
+RcppExport SEXP _cayleyR_cube_kociemba4_phase12_cpp(SEXP stateSEXP, SEXP upto_phaseSEXP, SEXP max_depth1SEXP, SEXP max_depth2SEXP, SEXP node_budgetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type upto_phase(upto_phaseSEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth1(max_depth1SEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth2(max_depth2SEXP);
+    Rcpp::traits::input_parameter< double >::type node_budget(node_budgetSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_phase12_cpp(state, upto_phase, max_depth1, max_depth2, node_budget));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_kociemba4_phase2_solutions_cpp
+List cube_kociemba4_phase2_solutions_cpp(IntegerVector state, int n_solutions, int max_depth1, int max_depth2, double node_budget);
+RcppExport SEXP _cayleyR_cube_kociemba4_phase2_solutions_cpp(SEXP stateSEXP, SEXP n_solutionsSEXP, SEXP max_depth1SEXP, SEXP max_depth2SEXP, SEXP node_budgetSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerVector >::type state(stateSEXP);
+    Rcpp::traits::input_parameter< int >::type n_solutions(n_solutionsSEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth1(max_depth1SEXP);
+    Rcpp::traits::input_parameter< int >::type max_depth2(max_depth2SEXP);
+    Rcpp::traits::input_parameter< double >::type node_budget(node_budgetSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_kociemba4_phase2_solutions_cpp(state, n_solutions, max_depth1, max_depth2, node_budget));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_wing_geometry_cpp
+List cube_wing_geometry_cpp();
+RcppExport SEXP _cayleyR_cube_wing_geometry_cpp() {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    rcpp_result_gen = Rcpp::wrap(cube_wing_geometry_cpp());
+    return rcpp_result_gen;
+END_RCPP
+}
 // perm_group_create_table_cpp
 SEXP perm_group_create_table_cpp(int state_length, CharacterVector move_names, List move_perms);
 RcppExport SEXP _cayleyR_perm_group_create_table_cpp(SEXP state_lengthSEXP, SEXP move_namesSEXP, SEXP move_permsSEXP) {
@@ -1071,6 +1436,9 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_find_best_random_combinations_cpp", (DL_FUNC) &_cayleyR_find_best_random_combinations_cpp, 6},
     {"_cayleyR_openmp_threads", (DL_FUNC) &_cayleyR_openmp_threads, 0},
     {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 5},
+    {"_cayleyR_cube_adi_scramble", (DL_FUNC) &_cayleyR_cube_adi_scramble, 3},
+    {"_cayleyR_cube_adi_children", (DL_FUNC) &_cayleyR_cube_adi_children, 2},
+    {"_cayleyR_cube_adi_targets", (DL_FUNC) &_cayleyR_cube_adi_targets, 3},
     {"_cayleyR_cube_centres_shoot_cpp", (DL_FUNC) &_cayleyR_cube_centres_shoot_cpp, 1},
     {"_cayleyR_cube_centre_counts_cpp", (DL_FUNC) &_cayleyR_cube_centre_counts_cpp, 1},
     {"_cayleyR_cube_choose_shot_cpp", (DL_FUNC) &_cayleyR_cube_choose_shot_cpp, 1},
@@ -1112,6 +1480,33 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_run_length_cpp", (DL_FUNC) &_cayleyR_run_length_cpp, 1},
     {"_cayleyR_human_phase1_rank_cpp", (DL_FUNC) &_cayleyR_human_phase1_rank_cpp, 2},
     {"_cayleyR_human_algorithm_cpp", (DL_FUNC) &_cayleyR_human_algorithm_cpp, 4},
+    {"_cayleyR_cube_kociemba_cpp", (DL_FUNC) &_cayleyR_cube_kociemba_cpp, 4},
+    {"_cayleyR_cube_kociemba_init_cpp", (DL_FUNC) &_cayleyR_cube_kociemba_init_cpp, 4},
+    {"_cayleyR_cube_cubie_pieces_cpp", (DL_FUNC) &_cayleyR_cube_cubie_pieces_cpp, 1},
+    {"_cayleyR_cube_in_g1_cpp", (DL_FUNC) &_cayleyR_cube_in_g1_cpp, 1},
+    {"_cayleyR_cube_kociemba_last_cpp", (DL_FUNC) &_cayleyR_cube_kociemba_last_cpp, 0},
+    {"_cayleyR_cube_kociemba4_reduce_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_reduce_cpp, 7},
+    {"_cayleyR_cube_kociemba4_last_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_last_cpp, 0},
+    {"_cayleyR_cube_kociemba4_tables_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_tables_cpp, 0},
+    {"_cayleyR_cube_at_phase_goal_cpp", (DL_FUNC) &_cayleyR_cube_at_phase_goal_cpp, 2},
+    {"_cayleyR_cube_kociemba4_set_table_size_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_set_table_size_cpp, 1},
+    {"_cayleyR_cube_kociemba4_save_phase3_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_save_phase3_cpp, 1},
+    {"_cayleyR_cube_kociemba4_load_phase3_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_load_phase3_cpp, 1},
+    {"_cayleyR_cube_kociemba4_save_phase_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_save_phase_cpp, 2},
+    {"_cayleyR_cube_kociemba4_load_phase_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_load_phase_cpp, 2},
+    {"_cayleyR_cube_kociemba4_fill_phase_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_fill_phase_cpp, 5},
+    {"_cayleyR_cube_kociemba4_fill_phase3_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_fill_phase3_cpp, 4},
+    {"_cayleyR_cube_kociemba4_phase3_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_phase3_cpp, 6},
+    {"_cayleyR_cube_phase_generators_cpp", (DL_FUNC) &_cayleyR_cube_phase_generators_cpp, 1},
+    {"_cayleyR_cube_to_pieces4_cpp", (DL_FUNC) &_cayleyR_cube_to_pieces4_cpp, 1},
+    {"_cayleyR_cube_phase3_coord_cpp", (DL_FUNC) &_cayleyR_cube_phase3_coord_cpp, 1},
+    {"_cayleyR_cube_wing_parities_cpp", (DL_FUNC) &_cayleyR_cube_wing_parities_cpp, 1},
+    {"_cayleyR_cube_phase_goal_keys_cpp", (DL_FUNC) &_cayleyR_cube_phase_goal_keys_cpp, 1},
+    {"_cayleyR_cube_is_reduced_cpp", (DL_FUNC) &_cayleyR_cube_is_reduced_cpp, 1},
+    {"_cayleyR_cube_fsm_size_cpp", (DL_FUNC) &_cayleyR_cube_fsm_size_cpp, 1},
+    {"_cayleyR_cube_kociemba4_phase12_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_phase12_cpp, 5},
+    {"_cayleyR_cube_kociemba4_phase2_solutions_cpp", (DL_FUNC) &_cayleyR_cube_kociemba4_phase2_solutions_cpp, 5},
+    {"_cayleyR_cube_wing_geometry_cpp", (DL_FUNC) &_cayleyR_cube_wing_geometry_cpp, 0},
     {"_cayleyR_perm_group_create_table_cpp", (DL_FUNC) &_cayleyR_perm_group_create_table_cpp, 3},
     {"_cayleyR_perm_group_create_topspin_cpp", (DL_FUNC) &_cayleyR_perm_group_create_topspin_cpp, 3},
     {"_cayleyR_perm_group_info_cpp", (DL_FUNC) &_cayleyR_perm_group_info_cpp, 1},

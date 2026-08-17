@@ -43,6 +43,14 @@
 #' @param sort_by Character vector of sorting criteria for combo selection.
 #'   See \code{\link{find_best_random_combinations}} for details.
 #'   Default: c("longest", "most_unique").
+#' @param max_scored Integer, at most this many candidates are scored when
+#'   choosing a bridge; a random sample is taken when a cycle offers more.
+#'   \code{NULL} (default) scores every candidate. Only methods that pay per
+#'   state are affected -- "manhattan" and "human" score in C++ and ignore it.
+#'   A cycle's candidates lie along one sequence rather than spread across the
+#'   space, so a sample of them ranks nearly as well as all of them; with
+#'   "cube4_model", where a state costs milliseconds, this is the difference
+#'   between seconds and minutes per cycle.
 #' @param verbose Logical, if TRUE prints progress messages (default TRUE)
 #' @return List containing:
 #'   \item{path}{Character vector of operations, or NULL if not found}
@@ -75,6 +83,7 @@ find_path_iterative <- function(start_state,
                                  one_sided = FALSE,
                                  distance_method = "manhattan",
                                  sort_by = c("longest", "most_unique"),
+                                 max_scored = NULL,
                                  verbose = TRUE) {
 
   n <- length(start_state)
@@ -90,13 +99,20 @@ find_path_iterative <- function(start_state,
 
   # The ring heuristics measure a TopSpin state; on any other group they return
   # numbers that mean nothing about the pair being compared, so refuse rather
-  # than search by them.
+  # than search by them. Each method says which group it belongs to: the ring
+  # ones to TopSpin, the 4x4x4 model to a 96-sticker cube, and manhattan to
+  # anything, being a plain array distance.
   is_topspin <- identical(sort(g$moves), sort(c("1", "2", "3"))) ||
     identical(sort(g$moves), sort(c("L", "R", "X")))
-  if (!is_topspin && distance_method != "manhattan") {
+  ring_only <- c("breakpoints", "human")
+  if (!is_topspin && distance_method %in% ring_only) {
     stop("find_path_iterative: distance_method = \"", distance_method,
          "\" is defined for TopSpin only; use \"manhattan\" with group '",
          g$name, "'")
+  }
+  if (distance_method == "cube4_model" && length(start_state) != 96L) {
+    stop("find_path_iterative: distance_method = \"cube4_model\" is defined ",
+         "for the 4x4x4; got a state of length ", length(start_state))
   }
 
   if (identical(start_state, final_state)) {
@@ -315,7 +331,9 @@ find_path_iterative <- function(start_state,
             bridge_states_start, bridge_states_final,
             opd, verbose, k, g,
             distance_method = distance_method,
-            final_cycle = if (one_sided) 1L else cycle_num
+            final_cycle = if (one_sided) 1L else cycle_num,
+            max_scored = max_scored,
+            goal_state = final_state
           )
 
           current_start <- bridge_result$current_start
@@ -337,7 +355,9 @@ find_path_iterative <- function(start_state,
         bridge_states_start, bridge_states_final,
         opd, verbose, k, g,
         distance_method = distance_method,
-        final_cycle = if (one_sided) 1L else cycle_num
+        final_cycle = if (one_sided) 1L else cycle_num,
+            max_scored = max_scored,
+            goal_state = final_state
       )
 
       current_start <- bridge_result$current_start
@@ -496,7 +516,9 @@ find_path_iterative <- function(start_state,
                                        bridge_states_start, bridge_states_final,
                                        opd, verbose, k, group,
                                        distance_method = "manhattan",
-                                       final_cycle = cycle_num) {
+                                       final_cycle = cycle_num,
+                                       max_scored = NULL,
+                                       goal_state = NULL) {
 
   n <- state_store_perm_length(store_start)
 
@@ -521,41 +543,81 @@ find_path_iterative <- function(start_state,
   # Best match under the selected distance method. "manhattan" and "human" both
   # score entirely in C++, never materialising the candidate states in R; other
   # methods fall back to scoring a matrix through the registry.
-  .best_match <- function(store, target, candidates) {
-    if (distance_method == "manhattan") {
+  .best_match <- function(store, target, candidates, method = distance_method) {
+    if (method == "manhattan") {
       return(store_find_best_match(store, target, candidates))
     }
     if (length(candidates) == 0) return(-1L)
     candidates <- as.integer(candidates)
 
-    scores <- if (distance_method == "human") {
+    # A cycle holds hundreds of states and a model costs milliseconds each, so
+    # scoring all of them puts the run's time entirely in the metric. Thinning
+    # first bounds that cost: the candidates of one cycle are states along one
+    # sequence, near-neighbours of each other rather than a spread of choices,
+    # so a sample of them ranks about as well as the whole. Only methods that
+    # pay per state are thinned; the C++ ones score everything.
+    if (!is.null(max_scored) && length(candidates) > max_scored) {
+      candidates <- sort(candidates[sample.int(length(candidates), max_scored)])
+    }
+
+    scores <- if (method == "human") {
       state_store_human_scores(store, candidates, as.integer(target),
                                      as.integer(k))
     } else {
       states <- state_store_get_states(store, candidates)
-      cayley_distance(distance_method)(states, target, k)
+      cayley_distance(method)(states, target, k)
     }
 
     state_store_find_best_match_scored(store, candidates, as.numeric(scores))
   }
 
-  # Find best match: start side closest to current_final
-  best_start_idx <- .best_match(store_start, current_final, start_filtered)
+  # "human" and "cube4_model" score a state against one fixed goal and ignore
+  # the target they are handed. That is the right question for the start side,
+  # which is heading for that goal -- but on the final side, which sits AT the
+  # goal already, every candidate scores the same and the bridge never moves.
+  # The final side therefore falls back to manhattan, which compares the pair it
+  # is actually given.
+  one_ended <- distance_method %in% c("human", "cube4_model")
+
+  # Find best match: start side closest to current_final.
+  #
+  # Under a one-ended method the start side is scored against the goal itself,
+  # not against the other side's bridge. Scoring against the bridge makes the
+  # two sides chase each other: the final bridge is picked out of random cycles
+  # and drifts away from the goal, the start bridge follows it, and both wander
+  # off while the model, which only ever answers "how far to the goal", watches
+  # the number it reports climb. Against a fixed goal the model is steering
+  # instead of following, which is the whole reason it is here.
+  start_target <- if (one_ended) goal_state else current_final
+  best_start_idx <- .best_match(store_start, start_target, start_filtered)
   new_start <- store_get_state(store_start, best_start_idx)
   new_start <- as.integer(new_start)
   names(new_start) <- NULL
 
   # Find best match: final side closest to new_start
-  best_final_idx <- .best_match(store_final, new_start, final_filtered)
+  best_final_idx <- .best_match(store_final, new_start, final_filtered,
+                                method = if (one_ended) "manhattan"
+                                         else distance_method)
   new_final <- store_get_state(store_final, best_final_idx)
   new_final <- as.integer(new_final)
   names(new_final) <- NULL
 
-  bridge_dist <- cayley_distance(distance_method)(
+  # Reported as the gap between the two bridges, which is what the search is
+  # closing. A one-ended method cannot express that gap -- it would report the
+  # start bridge's distance to its own goal and call it the gap -- so the report
+  # comes from manhattan and says so.
+  report_method <- if (one_ended) "manhattan" else distance_method
+  bridge_dist <- cayley_distance(report_method)(
     matrix(new_start, nrow = 1L), new_final, k
   )
   if (verbose) {
-    cat("Bridge", distance_method, "distance:", bridge_dist, "\n")
+    cat("Bridge", report_method, "distance:", bridge_dist)
+    if (one_ended) {
+      cat("  |  start bridge to goal (", distance_method, "): ",
+          format(cayley_distance(distance_method)(
+            matrix(new_start, nrow = 1L), new_final, k), digits = 4), sep = "")
+    }
+    cat("\n")
     flush.console()
   }
 

@@ -263,6 +263,16 @@ inline int n_edge_algs() { return 6; }
 // five half-edges -- the same shape a 4-cycle of centres had, and the same
 // reason, that a greedy step cannot see a move which pays only on the next
 // one.
+//
+// That is the reading of an older pool, and the pool below is no longer that
+// one: it was widened to every composition of up to THREE outer turns for
+// exactly those stalls. Re-measured after the widening, on thirty random cubes
+// of twenty quarter turns (diag_pair_edges_stall.R, 14.08.2026): thirty of
+// thirty reached all twelve pairs, none stalled, 121 to 296 moves with a mean
+// near 180. So the greedy choice is no longer reaching a position its
+// algorithms cannot improve -- at least not at a rate this sample can see, and
+// the two failures above should be read as a property of the narrow pool
+// rather than of the method.
 inline bool pair_edges(std::vector<int>& state, Solution& sol, const Orient& o,
                        const std::string& label) {
   const std::vector<std::vector<std::string> >& setups = setup_words();

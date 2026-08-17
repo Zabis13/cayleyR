@@ -1,0 +1,366 @@
+#' Autodidactic Iteration on a Permutation Puzzle
+#'
+#' Training a network to solve a cube without ever being shown a solution.
+#'
+#' The difficulty with learning a distance-to-solved is that nobody knows what
+#' it is. Labelling a state with the length of the scramble that produced it is
+#' the obvious thing to do and it is wrong: the scramble is one path to that
+#' state, not the shortest, so the label is an upper bound that gets looser the
+#' deeper the scramble goes, and a network trained on it learns the looseness
+#' along with the distance.
+#'
+#' Autodidactic iteration sidesteps this. A state's target is not its scramble
+#' length but \eqn{\min_a (1 + v(child_a))} --- one move, plus whatever the
+#' network currently believes about the best of its children. That looks
+#' circular, and would be, except that a child which is already solved counts
+#' as zero no matter what the network says. States one move from solved
+#' therefore get an exact target immediately, their neighbours get an almost
+#' exact one from them, and correctness spreads outward as training goes on.
+#' This is why scrambles are drawn uniformly over depth and the loss carries no
+#' weighting: the ordering is in the structure of the targets, not the sampling.
+#'
+#' @section Two networks:
+#' Value and policy are separate models here, not two heads on one trunk.
+#' \code{ggml_fit} trains a single output, so a shared trunk would need a
+#' multi-output loss that ggmlR does not yet have. The cost is a second forward
+#' pass per move at solve time; the benefit is that each network trains under
+#' the loss that suits it -- mean squared error for a distance, cross-entropy
+#' for a choice of move -- with no changes to ggmlR.
+#'
+#' @section The frozen network:
+#' Targets are computed with a copy of the value network held fixed for the
+#' whole batch. Without it the targets move as the network moves and training
+#' chases itself; the copy is refreshed only once the running loss drops below
+#' \code{loss_thresh}, which is DeepCubeA's criterion and steadier than
+#' refreshing on a fixed schedule.
+#'
+#' @name cube_adi
+#' @seealso \code{\link{cube_adi_train}}, \code{\link{cube_adi_solve}}
+NULL
+
+# ggmlR is a Suggests: everything here needs it, nothing else in the package
+# does. One message, naming what to install, beats a missing-object error from
+# somewhere three calls down.
+adi_require_ggml <- function() {
+  if (!requireNamespace("ggmlR", quietly = TRUE)) {
+    stop("cube_adi needs ggmlR for the networks.\n",
+         "  install.packages('ggmlR')  # or install from source",
+         call. = FALSE)
+  }
+  invisible(TRUE)
+}
+
+# A state is a permutation of 1..96, and how it is handed to a network depends
+# on how that network reads it. The embedding wants token ids, zero-based
+# because that is what ggml_get_rows indexes with. The recurrent variant has no
+# embedding to index into, so the positions go in as numbers, scaled to keep
+# them in the range recurrent units are happy with.
+adi_encode <- function(states, arch = "mlp") {
+  if (is.null(arch)) arch <- "mlp"   # nets built before arch existed are mlp
+  if (is.null(dim(states))) states <- matrix(states, nrow = 1L)
+  if (arch %in% c("lstm", "gru")) {
+    # [batch, timesteps, features]: one position per step, one number per
+    # position. ggml_fit reads a c(seq_len, 1) input shape as a 3-d array, so
+    # the trailing feature axis has to be there even though it is 1 wide.
+    array(as.numeric(states) / ncol(states),
+          dim = c(nrow(states), ncol(states), 1L))
+  } else {
+    matrix(as.integer(states) - 1L, nrow = nrow(states), ncol = ncol(states))
+  }
+}
+
+#' Build the Value and Policy Networks
+#'
+#' Two models over the same input: 96 sticker positions read as tokens through
+#' a shared-in-shape, separate-in-weights embedding, then a stack of dense
+#' layers. The value network ends in one linear unit (a distance), the policy
+#' network in one softmax unit per move.
+#'
+#' @param group A \code{perm_group}, used for its state length and move count
+#' @param embed_dim Width of the token embedding (\code{arch = "mlp"} only)
+#' @param hidden Integer vector of hidden layer widths
+#' @param arch \code{"mlp"} (default) reads the state as a set of tokens
+#'   through an embedding and puts a dense stack on top; \code{"resnet"} is the
+#'   same input under residual blocks, which is the shape DeepCubeA uses.
+#'   \code{"lstm"} and \code{"gru"} instead read the state as a sequence, one
+#'   position at a time. A cube state is a set, not a sequence -- position 5
+#'   does not come before position 6 in any sense the moves respect -- so the
+#'   recurrent variants are here to be measured, not because the shape of the
+#'   data asks for them; measured, they diverge.
+#' @param rnn_units Width of the recurrent layer (\code{"lstm"}/\code{"gru"})
+#' @param n_blocks Number of residual blocks (\code{arch = "resnet"} only).
+#'   Every block is \code{hidden[1]} wide, since a skip connection has to add
+#'   tensors of the same shape.
+#' @param backend \code{"auto"}, \code{"cpu"} or \code{"vulkan"}
+#' @return List with \code{value} and \code{policy} models, plus the group
+#' @export
+#' @examples
+#' \donttest{
+#' g   <- cube_group(4)
+#' net <- cube_adi_model(g, embed_dim = 16L, hidden = c(512L, 512L))
+#' }
+cube_adi_model <- function(group, embed_dim = 32L, hidden = c(1024L, 512L),
+                           arch = c("mlp", "resnet", "lstm", "gru"),
+                           rnn_units = 256L, n_blocks = 4L,
+                           backend = "auto") {
+  arch <- match.arg(arch)
+  adi_require_ggml()
+  if (!is_perm_group(group)) stop("group must be a perm_group")
+
+  state_len <- group$n
+  n_moves   <- length(group$moves)
+
+  # The vocabulary is the set of things that can sit in a position, which for a
+  # permutation state is every position -- 96 tokens, not 6 colours. Sticker
+  # identity is what the moves permute, so it is what the network should see.
+  build <- switch(arch,
+    mlp = function(units, activation) {
+      inp <- ggmlR::ggml_input(shape = state_len, dtype = "int32")
+      h   <- ggmlR::ggml_layer_embedding(inp, vocab_size = state_len,
+                                         dim = embed_dim)
+      h   <- ggmlR::ggml_layer_flatten(h)
+      for (w in hidden) h <- ggmlR::ggml_layer_dense(h, w, activation = "relu")
+      out <- ggmlR::ggml_layer_dense(h, units, activation = activation)
+      ggmlR::ggml_model(inputs = inp, outputs = out)
+    },
+    # The recurrent variant reads the state one position at a time. It takes no
+    # embedding, and that is forced rather than chosen: ggml_layer_embedding
+    # returns [dim, seq_len] while ggml_layer_lstm reads its first axis as
+    # time, so stacking them walks the LSTM along the embedding dimension and
+    # treats the 96 positions as features -- recurrence over nothing. With no
+    # reshape layer in ggmlR to swap the axes, feeding the positions directly
+    # is what makes the sequence the sequence.
+    lstm = function(units, activation) {
+      inp <- ggmlR::ggml_input(shape = c(state_len, 1L))
+      h   <- ggmlR::ggml_layer_lstm(inp, units = rnn_units)
+      for (w in hidden) h <- ggmlR::ggml_layer_dense(h, w, activation = "relu")
+      out <- ggmlR::ggml_layer_dense(h, units, activation = activation)
+      ggmlR::ggml_model(inputs = inp, outputs = out)
+    },
+    # DeepCubeA's shape: one wide projection, then residual blocks of two dense
+    # layers with a skip around each. The skip is what lets the stack go deep
+    # without the gradient dying on the way back, which is the whole reason to
+    # prefer this over simply adding more layers to the plain stack.
+    resnet = function(units, activation) {
+      inp <- ggmlR::ggml_input(shape = state_len, dtype = "int32")
+      h   <- ggmlR::ggml_layer_embedding(inp, vocab_size = state_len,
+                                         dim = embed_dim)
+      h   <- ggmlR::ggml_layer_flatten(h)
+      h   <- ggmlR::ggml_layer_dense(h, hidden[1], activation = "relu")
+      # Blocks are all one width -- the skip adds the block's input to its
+      # output, so the two have to match.
+      for (b in seq_len(n_blocks)) {
+        r <- ggmlR::ggml_layer_dense(h, hidden[1], activation = "relu")
+        r <- ggmlR::ggml_layer_dense(r, hidden[1], activation = NULL)
+        h <- ggmlR::ggml_layer_add(list(h, r))
+      }
+      out <- ggmlR::ggml_layer_dense(h, units, activation = activation)
+      ggmlR::ggml_model(inputs = inp, outputs = out)
+    },
+    # Same shape of network with the cheaper recurrent cell: two gates rather
+    # than three, so fewer weights per step and a shorter unrolled graph.
+    gru = function(units, activation) {
+      inp <- ggmlR::ggml_input(shape = c(state_len, 1L))
+      h   <- ggmlR::ggml_layer_gru(inp, units = rnn_units)
+      for (w in hidden) h <- ggmlR::ggml_layer_dense(h, w, activation = "relu")
+      out <- ggmlR::ggml_layer_dense(h, units, activation = activation)
+      ggmlR::ggml_model(inputs = inp, outputs = out)
+    }
+  )
+
+  value <- ggmlR::ggml_compile(build(1L, NULL), optimizer = "adam",
+                               loss = "mse", metrics = NULL,
+                               backend = backend)
+  policy <- ggmlR::ggml_compile(build(n_moves, "softmax"), optimizer = "adam",
+                                loss = "categorical_crossentropy",
+                                metrics = NULL, backend = backend)
+
+  structure(list(value = value, policy = policy, group = group,
+                 n_moves = n_moves, state_len = state_len, arch = arch),
+            class = "cube_adi_net")
+}
+
+#' @export
+print.cube_adi_net <- function(x, ...) {
+  cat("<cube_adi_net>\n")
+  cat("  group     :", x$group$name, "-- state length", x$state_len,
+      "and", x$n_moves, "moves\n")
+  cat("  arch      :", x$arch,
+      switch(x$arch,
+             lstm = , gru = "(one position per timestep)",
+             resnet = "(embedded tokens, residual blocks)",
+             "(embedded tokens, dense stack)"), "\n")
+  cat("  value     : 1 linear output (distance to solved)\n")
+  cat("  policy    :", x$n_moves, "softmax outputs\n")
+  invisible(x)
+}
+
+# A compiled model holds a graph built for one batch size, and asking it for a
+# different one rebuilds that graph -- which at solve time, where the batch is
+# 24 children rather than the 256 it trained on, runs out of context memory.
+# So the batch is always the same size: short inputs are padded out with
+# repeats of their first row and the padding is dropped from the answer.
+adi_predict_padded <- function(model, x, batch_size, n_out) {
+  n <- dim(x)[1L]
+  if (n < batch_size) {
+    idx <- c(seq_len(n), rep(1L, batch_size - n))
+    # The recurrent input is [batch, steps, 1] and the dense one [batch, cols];
+    # indexing the first axis and keeping the rest covers both.
+    x <- if (length(dim(x)) == 3L) x[idx, , , drop = FALSE]
+         else x[idx, , drop = FALSE]
+  }
+  out <- ggmlR::ggml_predict(model, x, batch_size = batch_size)
+  out <- matrix(as.numeric(out), ncol = n_out)
+  out[seq_len(n), , drop = FALSE]
+}
+
+# Score states with the value network, returning a plain numeric vector.
+adi_value_of <- function(model, states, batch_size, arch = "mlp") {
+  as.numeric(adi_predict_padded(model, adi_encode(states, arch), batch_size, 1L))
+}
+
+# Move probabilities from the policy network, one row per state.
+adi_policy_of <- function(model, states, batch_size, n_moves, arch = "mlp") {
+  adi_predict_padded(model, adi_encode(states, arch), batch_size, n_moves)
+}
+
+#' Train Value and Policy by Autodidactic Iteration
+#'
+#' @param net A \code{cube_adi_net} from \code{\link{cube_adi_model}}
+#' @param iterations Number of ADI iterations
+#' @param batch_states States generated per iteration
+#' @param max_depth Longest scramble drawn (uniform over 1..max_depth)
+#' @param epochs Passes over each batch
+#' @param batch_size Minibatch size for fitting and for scoring children
+#' @param loss_thresh Refresh the frozen network once the batch loss on value
+#'   falls below this. Set it too low and the copy never refreshes: the targets
+#'   stay pinned to an untrained network, every state looks one move from
+#'   solved, and the mean target sticks near 1 while the value loss looks
+#'   healthy. If the reported mean target stops rising, this is the first thing
+#'   to raise.
+#' @param verbose \code{TRUE} to report each iteration
+#' @return The network, with \code{$history} recording loss per iteration
+#' @export
+#' @examples
+#' \donttest{
+#' g   <- cube_group(4)
+#' net <- cube_adi_model(g)
+#' net <- cube_adi_train(net, iterations = 50L, batch_states = 5000L)
+#' }
+cube_adi_train <- function(net, iterations = 100L, batch_states = 10000L,
+                           max_depth = 20L, epochs = 1L, batch_size = 256L,
+                           loss_thresh = 0.5, verbose = TRUE) {
+  adi_require_ggml()
+  if (!inherits(net, "cube_adi_net")) stop("net must be a cube_adi_net")
+
+  g       <- net$group
+  n_moves <- net$n_moves
+  history <- data.frame(iteration = integer(), value_loss = numeric(),
+                        policy_loss = numeric(), refreshed = logical())
+
+  # The frozen copy starts as the live network. Before the first fit both are
+  # untrained, so the first batch of targets is noise everywhere except at the
+  # solved children -- which is exactly the part that is exact, and the part
+  # everything else is eventually derived from.
+  frozen <- net$value
+
+  for (it in seq_len(iterations)) {
+    sc <- cube_adi_scramble(g$ptr, as.integer(batch_states),
+                            as.integer(max_depth))
+    ch <- cube_adi_children(g$ptr, sc$states)
+
+    child_v <- adi_value_of(frozen, ch$children, batch_size, net$arch)
+    tg      <- cube_adi_targets(child_v, ch$solved, n_moves)
+
+    x  <- adi_encode(sc$states, net$arch)
+    nx <- dim(x)[1L]        # x may be 3-d for the recurrent architecture
+    y_value  <- matrix(tg$value, ncol = 1L)
+    y_policy <- matrix(0, nrow = nx, ncol = n_moves)
+    y_policy[cbind(seq_len(nx), tg$policy)] <- 1
+
+    net$value <- ggmlR::ggml_fit(net$value, x, y_value, epochs = epochs,
+                                 batch_size = batch_size, verbose = 0L)
+    net$policy <- ggmlR::ggml_fit(net$policy, x, y_policy, epochs = epochs,
+                                  batch_size = batch_size, verbose = 0L)
+
+    v_loss <- utils::tail(net$value$history$train_loss, 1L)
+    p_loss <- utils::tail(net$policy$history$train_loss, 1L)
+
+    # Refresh on loss, not on a counter: early on the loss falls fast and the
+    # frozen copy should follow, later it plateaus and the copy should hold.
+    refreshed <- isTRUE(v_loss < loss_thresh)
+    if (refreshed) frozen <- net$value
+
+    history <- rbind(history, data.frame(iteration = it, value_loss = v_loss,
+                                         policy_loss = p_loss,
+                                         refreshed = refreshed))
+    if (verbose) {
+      cat(sprintf("iter %4d | value %.4f | policy %.4f | mean target %.2f%s\n",
+                  it, v_loss, p_loss, mean(tg$value),
+                  if (refreshed) " | target refreshed" else ""))
+    }
+  }
+
+  net$history <- history
+  net
+}
+
+#' Solve a Cube With a Trained Network
+#'
+#' Walks downhill on the value network, one forward pass per move, refusing to
+#' revisit a state it has already stood on. Banning only the inverse of the last
+#' move is not enough -- four of the same quarter turn also return to where they
+#' started -- so the walk remembers where it has been, which covers every length
+#' of cycle with one rule.
+#'
+#' @param net A trained \code{cube_adi_net}
+#' @param state Integer vector, the scrambled state
+#' @param budget Most moves to try before giving up
+#' @param use_policy Break ties with the policy network's ranking
+#' @param batch_size Batch the networks were trained with. Scoring reuses the
+#'   compiled graph at this size, padding the 24 children out to fill it.
+#' @return List with \code{solved}, \code{path} (move names) and \code{values}
+#' @export
+cube_adi_solve <- function(net, state, budget = 200L, use_policy = TRUE,
+                           batch_size = 256L) {
+  adi_require_ggml()
+  g       <- net$group
+  cur     <- as.integer(state)
+  path    <- character(0)
+  values  <- numeric(0)
+  seen    <- new.env(hash = TRUE, parent = emptyenv())
+  assign(paste(cur, collapse = ","), TRUE, envir = seen)
+
+  for (step in seq_len(budget)) {
+    if (all(cur == seq_along(cur))) {
+      return(list(solved = TRUE, path = path, values = values))
+    }
+    ch <- cube_adi_children(g$ptr, matrix(cur, nrow = 1L))
+    v  <- adi_value_of(net$value, ch$children, batch_size = batch_size,
+                       arch = net$arch)
+    v[ch$solved] <- -Inf   # a solved child ends it, whatever the network says
+
+    if (use_policy) {
+      p <- adi_policy_of(net$policy, matrix(cur, nrow = 1L), batch_size,
+                         net$n_moves, net$arch)[1L, ]
+      v <- v - 1e-3 * p    # policy nudges, value decides
+    }
+
+    ord  <- order(v)
+    took <- FALSE
+    for (a in ord) {
+      cand <- ch$children[a, ]
+      key  <- paste(cand, collapse = ",")
+      if (!is.null(seen[[key]])) next
+      assign(key, TRUE, envir = seen)
+      cur    <- cand
+      path   <- c(path, g$moves[a])
+      values <- c(values, v[a])
+      took   <- TRUE
+      break
+    }
+    if (!took) break   # every child already visited
+  }
+
+  list(solved = all(cur == seq_along(cur)), path = path, values = values)
+}

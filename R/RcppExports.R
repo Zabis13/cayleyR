@@ -41,6 +41,68 @@ apply_operations <- function(state, operations, k, coords = NULL, compute_coords
     .Call(`_cayleyR_apply_operations`, state, operations, k, coords, compute_coords)
 }
 
+#' Random Scrambles From the Solved State
+#'
+#' Walks away from the identity by a uniformly random number of moves between
+#' 1 and \code{max_depth}, \code{n} times over. Uniform in depth is the
+#' sampling ADI asks for: it is what lets accuracy spread outward from the
+#' states near the goal without any weighting in the loss.
+#'
+#' The walk never undoes its own last move. A move immediately followed by its
+#' inverse returns the state to where it was and would quietly make the
+#' scramble shorter than its label. Longer cycles are left alone -- they are
+#' rarer, and ADI's targets do not depend on the label being exact anyway.
+#'
+#' @param group External pointer to a \code{perm_group}
+#' @param n Number of states to generate
+#' @param max_depth Longest scramble
+#' @return List with \code{states} (n x state_len integer matrix) and
+#'   \code{depth} (integer vector, the scramble length of each row)
+#' @keywords internal
+cube_adi_scramble <- function(group, n, max_depth) {
+    .Call(`_cayleyR_cube_adi_scramble`, group, n, max_depth)
+}
+
+#' All Children of Each State
+#'
+#' Applies every move to every state. The result is one matrix of
+#' \code{nrow(states) * n_moves} children, laid out state-major so that row
+#' \code{(i - 1) * n_moves + a} is child \code{a} of state \code{i}. That is
+#' the layout the value network scores in a single pass, and the layout
+#' \code{cube_adi_targets} reads back.
+#'
+#' @param group External pointer to a \code{perm_group}
+#' @param states Integer matrix, one state per row
+#' @return List with \code{children} (integer matrix, state-major) and
+#'   \code{solved} (logical vector, whether each child is the identity)
+#' @keywords internal
+cube_adi_children <- function(group, states) {
+    .Call(`_cayleyR_cube_adi_children`, group, states)
+}
+
+#' ADI Targets From Children Values
+#'
+#' The value target of a state is \code{min_a (1 + v(child_a))} and its policy
+#' target is the move attaining that minimum. Value is cost-to-go, so the
+#' network learns a distance and the solved state is zero.
+#'
+#' Solved children are what anchors the scheme. A child that is already solved
+#' contributes exactly 1 no matter what the network says about it, so states
+#' one move from the goal get an exact target from the first iteration onward,
+#' and deeper states inherit that accuracy through their neighbours as
+#' training goes on. This is why ADI needs no weighting by depth.
+#'
+#' @param child_values Numeric vector of network values, one per child, in the
+#'   state-major order \code{cube_adi_children} produces
+#' @param child_solved Logical vector, whether each child is the solved state
+#' @param n_moves Number of moves per state
+#' @return List with \code{value} (numeric) and \code{policy} (integer, the
+#'   1-based index of the best move)
+#' @keywords internal
+cube_adi_targets <- function(child_values, child_solved, n_moves) {
+    .Call(`_cayleyR_cube_adi_targets`, child_values, child_solved, n_moves)
+}
+
 cube_centres_shoot_cpp <- function(state) {
     .Call(`_cayleyR_cube_centres_shoot_cpp`, state)
 }
@@ -203,6 +265,114 @@ human_phase1_rank_cpp <- function(state, k) {
 
 human_algorithm_cpp <- function(start_state, k, max_ops, final_rotate) {
     .Call(`_cayleyR_human_algorithm_cpp`, start_state, k, max_ops, final_rotate)
+}
+
+cube_kociemba_cpp <- function(state, max_depth1 = 12L, max_depth2 = 18L, node_budget = 2e8) {
+    .Call(`_cayleyR_cube_kociemba_cpp`, state, max_depth1, max_depth2, node_budget)
+}
+
+cube_kociemba_init_cpp <- function(table1 = 4194304, depth1 = 0L, table2 = 16777216, depth2 = 0L) {
+    invisible(.Call(`_cayleyR_cube_kociemba_init_cpp`, table1, depth1, table2, depth2))
+}
+
+cube_cubie_pieces_cpp <- function(state) {
+    .Call(`_cayleyR_cube_cubie_pieces_cpp`, state)
+}
+
+cube_in_g1_cpp <- function(state) {
+    .Call(`_cayleyR_cube_in_g1_cpp`, state)
+}
+
+cube_kociemba_last_cpp <- function() {
+    .Call(`_cayleyR_cube_kociemba_last_cpp`)
+}
+
+cube_kociemba4_reduce_cpp <- function(state, max_depth1 = 10L, max_depth2 = 12L, max_depth3 = 14L, node_budget = 5e7, progress_every = 0, prune_depth_bonus = 0L) {
+    .Call(`_cayleyR_cube_kociemba4_reduce_cpp`, state, max_depth1, max_depth2, max_depth3, node_budget, progress_every, prune_depth_bonus)
+}
+
+cube_kociemba4_last_cpp <- function() {
+    .Call(`_cayleyR_cube_kociemba4_last_cpp`)
+}
+
+cube_kociemba4_tables_cpp <- function() {
+    .Call(`_cayleyR_cube_kociemba4_tables_cpp`)
+}
+
+cube_at_phase_goal_cpp <- function(state, phase) {
+    .Call(`_cayleyR_cube_at_phase_goal_cpp`, state, phase)
+}
+
+cube_kociemba4_set_table_size_cpp <- function(slots) {
+    .Call(`_cayleyR_cube_kociemba4_set_table_size_cpp`, slots)
+}
+
+cube_kociemba4_save_phase3_cpp <- function(path) {
+    .Call(`_cayleyR_cube_kociemba4_save_phase3_cpp`, path)
+}
+
+cube_kociemba4_load_phase3_cpp <- function(path) {
+    .Call(`_cayleyR_cube_kociemba4_load_phase3_cpp`, path)
+}
+
+cube_kociemba4_save_phase_cpp <- function(path, phase) {
+    .Call(`_cayleyR_cube_kociemba4_save_phase_cpp`, path, phase)
+}
+
+cube_kociemba4_load_phase_cpp <- function(path, phase) {
+    .Call(`_cayleyR_cube_kociemba4_load_phase_cpp`, path, phase)
+}
+
+cube_kociemba4_fill_phase_cpp <- function(depth, phase, table_size = 0, breadth_first = TRUE, max_frontier = 40e6) {
+    .Call(`_cayleyR_cube_kociemba4_fill_phase_cpp`, depth, phase, table_size, breadth_first, max_frontier)
+}
+
+cube_kociemba4_fill_phase3_cpp <- function(depth, table_size = 0, breadth_first = TRUE, max_frontier = 40e6) {
+    .Call(`_cayleyR_cube_kociemba4_fill_phase3_cpp`, depth, table_size, breadth_first, max_frontier)
+}
+
+cube_kociemba4_phase3_cpp <- function(state, max_depth3 = 14L, node_budget = 5e7, prune_depth_bonus = 0L, use_exact_centres = FALSE, progress_every = 0) {
+    .Call(`_cayleyR_cube_kociemba4_phase3_cpp`, state, max_depth3, node_budget, prune_depth_bonus, use_exact_centres, progress_every)
+}
+
+cube_phase_generators_cpp <- function(phase) {
+    .Call(`_cayleyR_cube_phase_generators_cpp`, phase)
+}
+
+cube_to_pieces4_cpp <- function(state) {
+    .Call(`_cayleyR_cube_to_pieces4_cpp`, state)
+}
+
+cube_phase3_coord_cpp <- function(state) {
+    .Call(`_cayleyR_cube_phase3_coord_cpp`, state)
+}
+
+cube_wing_parities_cpp <- function(state) {
+    .Call(`_cayleyR_cube_wing_parities_cpp`, state)
+}
+
+cube_phase_goal_keys_cpp <- function(phase) {
+    .Call(`_cayleyR_cube_phase_goal_keys_cpp`, phase)
+}
+
+cube_is_reduced_cpp <- function(state) {
+    .Call(`_cayleyR_cube_is_reduced_cpp`, state)
+}
+
+cube_fsm_size_cpp <- function(n) {
+    .Call(`_cayleyR_cube_fsm_size_cpp`, n)
+}
+
+cube_kociemba4_phase12_cpp <- function(state, upto_phase = 2L, max_depth1 = 10L, max_depth2 = 12L, node_budget = 5e7) {
+    .Call(`_cayleyR_cube_kociemba4_phase12_cpp`, state, upto_phase, max_depth1, max_depth2, node_budget)
+}
+
+cube_kociemba4_phase2_solutions_cpp <- function(state, n_solutions = 4L, max_depth1 = 10L, max_depth2 = 12L, node_budget = 5e7) {
+    .Call(`_cayleyR_cube_kociemba4_phase2_solutions_cpp`, state, n_solutions, max_depth1, max_depth2, node_budget)
+}
+
+cube_wing_geometry_cpp <- function() {
+    .Call(`_cayleyR_cube_wing_geometry_cpp`)
 }
 
 perm_group_create_table_cpp <- function(state_length, move_names, move_perms) {

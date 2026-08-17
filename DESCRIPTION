@@ -1,7 +1,7 @@
 Package: cayleyR
 Type: Package
 Title: Cayley Graph Analysis for Permutation Puzzles
-Version: 0.2.9
+Version: 0.3.0
 Authors@R: c(
     person(
       "Yuri", "Baramykov",
@@ -19,7 +19,10 @@ Description: Implements algorithms for analyzing Cayley graphs of
     turns of the 3x3x3 and the inner layers of larger cubes follow from
     the same rule as the face turns. The 3x3x3 is solved by four human
     methods --- CFOP, layer by layer, and the blindfolded Old Pochmann
-    and M2. Also provides rule-defined landmark
+    and M2 --- and by a two-phase search after Herbert Kociemba
+    <https://kociemba.org/cube.htm>, following the implementation in
+    'twips' <https://github.com/cubing/twips>, which reaches the same
+    cube in a fraction of the moves. Also provides rule-defined landmark
     states for probing
     graphs too large to enumerate, and convex and non-convex hulls for
     measuring the solid such states span. The method Iterative Cycle
@@ -36,6 +39,7 @@ LinkingTo: Rcpp
 Suggests:
     testthat (>= 3.0.0),
     ggmlR,
+    parallel,
     data.table,
     jsonlite,
     knitr,

@@ -21,7 +21,7 @@ search. It is described in the accompanying paper:
 
 - **Basic permutation operations** (C++): cyclic left/right shifts, prefix reversal
 - **Rubik's cubes of any size** (C++): moves generated from the geometry, so the 3x3x3 slice turns and the inner layers of a 4x4x4 follow from the same rule as the faces; scrambling, inversion, cycle unrolling and a console net for the 3x3x3
-- **Four human solving methods for the 3x3x3** (C++): CFOP and layer by layer, which solve by looking, and the blindfolded Old Pochmann and M2, which place one piece at a time by conjugation and never look at the cube after the start
+- **Five solving methods for the 3x3x3** (C++): four human ones -- CFOP and layer by layer, which solve by looking, and the blindfolded Old Pochmann and M2, which place one piece at a time by conjugation and never look at the cube after the start -- plus a two-phase search after Kociemba, which is not a human method at all and reaches the same cube in a quarter of the moves
 - **Cycle analysis**: find cycles in Cayley graphs with detailed state information
 - **Sequence optimization**: search for operation sequences with flexible sorting criteria
 - **C++ StateStore**: compact hash-indexed state storage with O(1) incremental insert and O(min(N,M)) intersection
@@ -219,6 +219,7 @@ cube_solve_cfop(s)$path           # cross, F2L, OLL, PLL
 cube_solve_lbl(s)$path            # layer by layer
 cube_solve_old_pochmann(s)$path   # blindfolded, one piece at a time
 cube_solve_m2(s)$path             # blindfolded, cheaper edges
+cube_kociemba(s)                  # two-phase search, the fewest moves
 ```
 
 They split in two on one question: does the method look at the cube while it
@@ -255,20 +256,33 @@ like.
 Ten scrambled states, 985 moves from solved, every method solving all ten
 (`inst/examples/demo_cube3_solve.R`):
 
-| method | solved | mean moves | after shortening | mean sec | vs CFOP |
+| method | solved | mean moves | after shortening | mean sec | vs KociembaMod |
 |---|---:|---:|---:|---:|---:|
-| CFOP | 10/10 | 89.2 | 82.0 | 1.62 | 1.00x |
-| LBL | 10/10 | 169.2 | 154.6 | 0.06 | 1.90x |
-| M2 | 10/10 | 277.6 | 254.2 | 0.09 | 3.11x |
-| Old Pochmann | 10/10 | 432.6 | 399.0 | 0.14 | 4.85x |
+| KociembaMod | 10/10 | 40.4 | 40.0 | 1.03 | 1.00x |
+| CFOP | 10/10 | 103.0 | 94.0 | 0.04 | 2.55x |
+| LBL | 10/10 | 169.2 | 154.6 | 0.06 | 4.19x |
+| M2 | 10/10 | 277.6 | 254.2 | 0.09 | 6.87x |
+| Old Pochmann | 10/10 | 432.6 | 399.0 | 0.14 | 10.71x |
 
-The ordering is the methods' own. CFOP is dearest in time and cheapest in moves
-because it is the only one that searches: the F2L slots are solved by IDA*,
-which is where the 1.6 seconds go. The others look up algorithms and cost
-milliseconds. Blindfolded costs about three to five times the moves, and the
-reason is structural rather than a matter of tuning — no move does two things at
-once when the method may not look at what it is doing. M2 buys back a third of
-that, all of it on the edges.
+The baseline is the shortest of them, so the last column reads as "how many
+times longer". The ordering is the methods' own, and each step down it gives up
+something the one above relied on.
+
+KociembaMod is apart from the other four: it is the only one that searches the
+cube rather than following a method, and the only one whose word cannot be
+explained move by move. It is also the only one the shortener barely improves —
+40.4 to 40.0 — because a searched phase has no seams to cut, while a method that
+finishes each stage before looking at the next leaves a turn and its inverse at
+every join.
+
+Among the four human methods, CFOP is cheapest in moves because it pairs a
+corner with its edge and inserts both at once. Blindfolded costs about three to
+five times CFOP, and the reason is structural rather than a matter of tuning —
+no move does two things at once when the method may not look at what it is
+doing. M2 buys back a third of that, all of it on the edges.
+
+`tests/testthat/test-cube-kociemba.R` checks the search at four scramble
+lengths, slice moves included.
 
 ## Landmark states and the solid they span
 
@@ -458,6 +472,7 @@ package, TopSpin included.
 - `cube_solve_lbl()` — layer by layer, the beginner's method
 - `cube_solve_old_pochmann()` — blindfolded: one piece per conjugated PLL, plus the parity step
 - `cube_solve_m2()` — blindfolded with the edges done by `M2` instead, about two thirds the moves
+- `cube_kociemba()` — the two-phase search: into the subgroup `<U, D, L2, R2, F2, B2>`, then to solved within it. A quarter of CFOP's moves, and the only solver here with a prune table. Short rather than shortest — phase 1 takes the first way in it finds. The search machinery follows [twips](https://github.com/cubing/twips) (MPL-2.0)
 
 **Analysis:**
 - `get_reachable_states()` — full cycle analysis with state tracking

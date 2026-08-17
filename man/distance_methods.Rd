@@ -38,6 +38,14 @@ run. Scores against the identity \code{1:n} and ignores \code{target},
 so it applies only to searches heading for the sorted ring. Ties break
 on the gap phase 1 works to close. See
 \code{\link{find_best_match_human}}.}
+\item{\code{cube4_model}}{Moves still to play on a 4x4x4, read off a
+trained model rather than counted. The other methods score how far two
+states are \emph{as arrays}, which on a cube says little about how far
+they are as \emph{cubes}: two states one quarter turn apart can differ in
+most of their stickers. This one asks a model that was trained to predict
+exactly that number. Like \code{human} it scores against the solved cube
+and ignores \code{target}, so it belongs to searches heading for the
+solved state. See \code{\link{find_best_match_cube4_model}}.}
 }
 
 Every method is a function of \code{(states, target, k)}: a matrix with one

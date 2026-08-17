@@ -28,6 +28,14 @@
 #' half turn expands into two quarter turns because the alphabet has no other
 #' way to say it.
 #'
+#' A block move counts slices, and the count is bounded at both ends by the WCA
+#' regulations (12a2, 12a2+): strictly more than one and strictly fewer than
+#' \eqn{n}. One slice is a face turn and drops the \code{w}; every slice is a
+#' rotation and is written \code{x}, \code{y} or \code{z}. So \code{"1Rw"} names
+#' nothing on any cube, \code{"4Rw"} names nothing on a 4x4x4, and both are
+#' refused --- otherwise one move would have two spellings. \code{Rw} and
+#' \code{2Rw} are the same move, as the regulations say.
+#'
 #' The senses are the ones the literature uses: \code{x} follows \code{R},
 #' \code{y} follows \code{U}, \code{z} follows \code{F}. Lower-case \code{r} is
 #' accepted as a synonym for \code{Rw}, which is how many sources write it.
@@ -198,6 +206,18 @@ cube_wide_word <- function(word, n) {
   if (depth < 1L || depth > n)
     stop("cube_expand_move: '", name, "' asks for layer ", depth, " of a ", n,
          "x", n, "x", n, " cube", call. = FALSE)
+
+  # A block move counts slices, and the WCA fixes the range at 1 < n < N
+  # (Regulations 12a2, and 12a2+ for the cases): a block of one slice is a face
+  # turn and is written without the w, and a block of every slice is a rotation
+  # and is written x, y or z. So "1Rw" is not notation on any cube and "4Rw" is
+  # not notation on a 4x4x4 -- both name a move that has its own spelling.
+  # Accepting them would let two names mean one move, which is the ambiguity the
+  # rule exists to remove.
+  if (wide && !is.na(count) && (count <= 1L || count >= n))
+    stop("cube_expand_move: '", name, "' is not notation on a ", n, "x", n, "x",
+         n, " cube; a block move turns between 2 and ", n - 1L,
+         " slices (WCA 12a2)", call. = FALSE)
   depths <- if (wide || is.na(count)) seq_len(depth) else depth
 
   # Layers are numbered from the negative end of the axis, and a letter counts

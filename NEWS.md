@@ -1,11 +1,16 @@
+# cayleyR 0.3.0
+
+* **`cube_kociemba()`** — the 3x3x3 by a two-phase search after Kociemba, so
+  the cube now has five solvers and the first one that searches. Short rather
+  than shortest: phase 1 takes the first way it finds into the subgroup instead
+  of hunting for the one that leaves phase 2 cheapest.
+
+
 # cayleyR 0.2.9
 
 * **`cube_solve_old_pochmann()`** and **`cube_solve_m2()`** — the two
   blindfolded methods, so the 3x3x3 now has four solvers. Both place one piece
   at a time by conjugation and never look at the cube after the start.
-
-* Over 10 states, all four solving all 10: CFOP 89.2 moves, LBL 169.2, M2
-  277.6, Old Pochmann 432.6.
 
 
 # cayleyR 0.2.8

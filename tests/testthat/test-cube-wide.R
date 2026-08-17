@@ -34,18 +34,24 @@ test_that("a wide turn is the face plus the layers behind it", {
 
     expect_identical(cube_expand_move("R", n), "R")
     expect_length(cube_expand_move("Rw", n), 2L)
-    expect_length(cube_expand_move("3Rw", n), 3L)
+    # 3Rw needs a fourth layer to be notation at all -- on a 3x3x3 three slices
+    # is the whole cube, which is written x (WCA 12a2+).
+    if (n >= 4L) expect_length(cube_expand_move("3Rw", n), 3L)
 
     # Rw is R together with the next layer in
     expect_identical(group_compose(g, cube_expand_move("Rw", n)),
                      group_compose(g, c("R", cube_expand_move("2R", n))))
 
-    # and kRw is the first k layers, so it grows one layer at a time
-    for (k in 2:min(n, 4L)) {
+    # and kRw is the first k layers, so it grows one layer at a time. The count
+    # stops at n - 1: turning every slice is a rotation, not a block move.
+    for (k in 2:min(n - 1L, 4L)) {
       wide <- cube_expand_move(paste0(k, "Rw"), n)
       expect_length(wide, k)
+      # the block one slice narrower, plus the slice it gains. At k = 2 that
+      # narrower block is the face turn, which is written R rather than 1Rw.
+      narrower <- if (k == 2L) "R" else cube_expand_move(paste0(k - 1L, "Rw"), n)
       expect_identical(group_compose(g, wide),
-                       group_compose(g, c(cube_expand_move(paste0(k - 1L, "Rw"), n),
+                       group_compose(g, c(narrower,
                                           cube_expand_move(paste0(k, "R"), n))))
     }
   }
@@ -80,9 +86,17 @@ test_that("a whole-cube rotation turns every layer and keeps the cube solved", {
       # and four of them is the identity
       expect_identical(group_apply(g, s, rep(w, 4L)), s)
     }
-    # turning n layers wide is turning the whole cube
-    expect_identical(group_compose(g, cube_expand_move(paste0(n, "Rw"), n)),
-                     group_compose(g, cube_expand_move("x", n)))
+    # Turning every layer is turning the whole cube -- but that move is spelled
+    # x, and "nRw" for it is not notation (WCA 12a2). The identity still holds
+    # and is worth checking; it is just written as the n-1 block and the far
+    # face, which is what x is made of.
+    if (n >= 3L) {
+      expect_error(cube_expand_move(paste0(n, "Rw"), n), "not notation")
+      expect_identical(
+        group_compose(g, c(cube_expand_move(paste0(n - 1L, "Rw"), n),
+                           cube_expand_move("L'", n))),
+        group_compose(g, cube_expand_move("x", n)))
+    }
   }
 })
 
@@ -92,7 +106,8 @@ test_that("the permutation is the composition of the expansion", {
   for (n in c(2L, 3L, 4L, 5L)) {
     g <- cube_group(n)
     names_to_try <- c("R", "Rw", "x", "y'", "z2", "Lw", "Uw'")
-    if (n >= 3L) names_to_try <- c(names_to_try, "3Rw", "2R")
+    if (n >= 3L) names_to_try <- c(names_to_try, "2R")
+    if (n >= 4L) names_to_try <- c(names_to_try, "3Rw")
     for (nm in names_to_try) {
       expect_identical(cube_wide_move(nm, n),
                        group_compose(g, cube_expand_move(nm, n)), info = nm)
@@ -151,6 +166,26 @@ test_that("slices are refused where they have no meaning", {
   expect_identical(cube_expand_move("M", 3L), "M")
   expect_error(cube_expand_move("M", 4L), "3x3x3 slice")
   expect_error(cube_expand_move("E", 5L), "3x3x3 slice")
+})
+
+# WCA 12a2 puts a block move's slice count strictly between 1 and n, and 12a2+
+# spells out the cases. Either end names a move that already has its own
+# spelling -- one slice is the face turn, every slice is the rotation -- so
+# accepting them would give one move two names.
+test_that("a block move turns between 2 and n-1 slices", {
+  expect_error(cube_expand_move("1Rw", 4L), "not notation")
+  expect_error(cube_expand_move("4Rw", 4L), "not notation")
+  expect_error(cube_expand_move("3Rw", 3L), "not notation")
+  expect_error(cube_expand_move("2Rw", 2L), "not notation")
+  expect_error(cube_expand_move("1Uw", 5L), "not notation")
+
+  # and what the rule leaves valid still is
+  expect_length(cube_expand_move("2Rw", 4L), 2L)
+  expect_length(cube_expand_move("3Rw", 4L), 3L)
+  expect_length(cube_expand_move("4Rw", 5L), 4L)
+
+  # Rw and 2Rw are the same move (12a2+)
+  expect_identical(cube_expand_move("Rw", 4L), cube_expand_move("2Rw", 4L))
 })
 
 test_that("bad names are refused", {

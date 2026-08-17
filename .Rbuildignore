@@ -27,6 +27,7 @@
 ^cleanup\.win$
 \.o$
 \.so$
+^phase[0-9]+_d[0-9]+\.bin$
 \.a$
 \.dll$
 \.dylib$

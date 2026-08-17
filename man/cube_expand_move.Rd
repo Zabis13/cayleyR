@@ -60,6 +60,14 @@ A trailing prime inverts and a trailing \code{2} doubles, as usual, and a
 half turn expands into two quarter turns because the alphabet has no other
 way to say it.
 
+A block move counts slices, and the count is bounded at both ends by the WCA
+regulations (12a2, 12a2+): strictly more than one and strictly fewer than
+\eqn{n}. One slice is a face turn and drops the \code{w}; every slice is a
+rotation and is written \code{x}, \code{y} or \code{z}. So \code{"1Rw"} names
+nothing on any cube, \code{"4Rw"} names nothing on a 4x4x4, and both are
+refused --- otherwise one move would have two spellings. \code{Rw} and
+\code{2Rw} are the same move, as the regulations say.
+
 The senses are the ones the literature uses: \code{x} follows \code{R},
 \code{y} follows \code{U}, \code{z} follows \code{F}. Lower-case \code{r} is
 accepted as a synonym for \code{Rw}, which is how many sources write it.
