@@ -67,6 +67,12 @@ replay <- function(state, path) {
   state
 }
 
+# Defined once and used both by the header below and by profile_one(), so the
+# printed setup cannot drift from what the run actually asks for.
+NODE_BUDGET  <- 5e7
+PREP_BUDGET  <- 5e6
+BUDGET_STEPS <- c(0.1, 0.3)
+
 hr("setup")
 cat(sprintf("cubes      : %d, scrambled %d moves from solved\n",
             n_states, n_moves))
@@ -75,12 +81,12 @@ cat("table size : 268,435,456 (2^28) -- the ceiling, so no search regrows it\n")
 # The rungs as well as the ceiling: printing "5e7" alone described a run whose
 # searches never asked for more than 1.5e7.
 cat(sprintf("phase 3    : %s nodes ceiling, rungs %s\n",
-            format(5e7, big.mark = ",", scientific = FALSE),
-            paste(format(cayleyR:::.budget_rungs(5e7, c(0.1, 0.3)),
+            format(NODE_BUDGET, big.mark = ",", scientific = FALSE),
+            paste(format(cayleyR:::.budget_rungs(NODE_BUDGET, BUDGET_STEPS),
                          big.mark = ",", scientific = FALSE),
                   collapse = ", ")))
 cat(sprintf("phases 1-2 : %s nodes, no ladder\n",
-            format(2e5, big.mark = ",", scientific = FALSE)))
+            format(PREP_BUDGET, big.mark = ",", scientific = FALSE)))
 cat(sprintf("workers    : %d %s\n", workers,
             if (workers > 1L) "candidates at a time (progress lines off)"
             else "-- one candidate at a time"))
@@ -105,7 +111,8 @@ states <- lapply(seq_len(n_states),
 # The gap between the two budgets is deliberate: node_budget is phase 3's ladder
 # top, prep_budget is what phases 1 and 2 spend whole. Handing 5e7 to both let
 # phase 2 burn 30 million nodes on the batch's slowest cube.
-profile_one <- function(s, node_budget = 5e7, prep_budget = 2e5) {
+profile_one <- function(s, node_budget = NODE_BUDGET,
+                        prep_budget = PREP_BUDGET) {
   t_all <- proc.time()[["elapsed"]]
 
   r <- cube_solve4_cascade(s, node_budget = node_budget,

@@ -14,12 +14,11 @@
 #'   orientation. It is the top of the ladder rather than the amount every
 #'   attempt pays -- see \code{budget_steps}. It bounds phase 3 only; phases 1
 #'   and 2 have \code{prep_budget}.
-#' @param prep_budget The largest number of nodes phases 1 and 2 may spend on
-#'   one orientation. Separate from \code{node_budget}, which is a ladder top
-#'   divided by \code{budget_steps}, where this is spent whole: sharing the one
-#'   name gave phase 2 the undivided ceiling. Measured at 5e7, phase 2 usually
-#'   took 0.1 to 0.5 s but spent 10.8 s on 30 million nodes on one orientation,
-#'   which is what made that cube the slowest of its batch.
+#' @param prep_budget Nodes phases 1 and 2 may spend on one orientation, spent
+#'   whole rather than divided by \code{budget_steps} as \code{node_budget} is.
+#'   Measured over thirty cubes: 116 of 120 phase-2 searches finished inside 3.3
+#'   million nodes, the other four took 17.3 to 30.0 million and were the slow
+#'   cubes. 2e5 is too tight -- it cuts off ordinary orientations.
 #' @param budget_steps The rungs of that ladder, as fractions of
 #'   \code{node_budget}. Every orientation is tried at the first rung before any
 #'   of them is tried at the second, so a cube that phase 3 finds cheaply is
@@ -146,7 +145,7 @@
 #' @export
 cube_solve4_cascade <- function(state,
                                 node_budget = 2e5,
-                                prep_budget = 2e5,
+                                prep_budget = 5e6,
                                 orientations = c("", "1y", "1x", "1z"),
                                 max_orientations = 4L,
                                 phase2_solutions = 4L,

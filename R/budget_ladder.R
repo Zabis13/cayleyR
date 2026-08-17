@@ -81,6 +81,9 @@
   # for every one of the sixteen even when the second was a winner. A chunk of
   # `workers` pays at most one chunk of waste past the answer.
   n <- length(attempts)
+  # Nothing to sweep: every candidate failed before the ladder, so seq() would
+  # be asked for 1..0 and stop on the sign of `by`.
+  if (n == 0L) return(NULL)
   idx <- seq_len(n)
   for (from in seq(1L, n, by = workers)) {
     to <- min(from + workers - 1L, n)
