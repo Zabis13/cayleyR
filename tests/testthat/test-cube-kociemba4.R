@@ -18,7 +18,9 @@ apply4 <- function(s, path) {
 }
 
 test_that("the solved cube needs no moves", {
-  expect_length(cube_kociemba4_reduce(cube_identity(4)), 0L)
+  res <- cube_kociemba4_reduce(cube_identity(4))
+  expect_length(res$path, 0L)
+  expect_true(res$found)
 })
 
 test_that("a solved cube is already reduced, so the whole solve is empty", {
@@ -35,7 +37,7 @@ test_that("the reduction really reduces", {
   set.seed(7)
   for (n in c(2, 4, 5)) {
     s <- generate_state(group = cube_group(4), n_moves = n)
-    path <- cube_kociemba4_reduce(s)
+    path <- cube_kociemba4_reduce(s)$path
     expect_gt(length(path), 0L)
     expect_true(cube_is_reduced(apply4(s, path)))
   }
@@ -71,7 +73,9 @@ test_that("the report says which phase did what", {
 test_that("running out of budget returns nothing and reports it", {
   set.seed(7)
   s <- generate_state(group = cube_group(4), n_moves = 20)
-  path <- cube_kociemba4_reduce(s, node_budget = 1000)
+  red <- cube_kociemba4_reduce(s, node_budget = 1000)
+  path <- red$path
+  expect_false(red$found)
   expect_length(path, 0L)
   r <- cube_kociemba4_report()
   expect_true(any(unlist(r[c("phase1", "phase2", "phase3")]) == "exhausted"))

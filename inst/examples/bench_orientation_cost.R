@@ -91,7 +91,7 @@ for (i in seq_len(n_states)) {
     # One orientation at a time, by handing the loop a list of length one --
     # which is the branch in cube_kociemba4_reduce that skips the loop entirely.
     p <- try(cube_kociemba4_reduce(state, node_budget = budget,
-                                   orientations = rot), silent = TRUE)
+                                   orientations = rot)$path, silent = TRUE)
     el <- proc.time()[["elapsed"]] - t0
 
     if (inherits(p, "try-error")) {

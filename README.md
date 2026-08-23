@@ -461,11 +461,74 @@ package, TopSpin included.
 
 ### Cubes of any size
 
-- `cube_group()` — the group of an `n x n x n` cube, `6n` moves over `6n^2` stickers
-- `cube_moves()` / `cube_move_names()` — the generated move table, and its names
-- `cube_layer_move()` — one turn named by axis, layer and quarter turns
-- `cube_identity()` — the solved state, `1:(6n^2)`
-- `cube_is_colour_solved()` — every face one colour, which slice turns make distinct from the identity
+Every cube function in the package, and the sizes it actually accepts. The
+sizes are measured rather than read off the documentation: each function was
+called at `n = 2` through `7` and the answer recorded. **Any n** means all six
+sizes worked.
+
+**Structure — the group and its geometry (all: any n):**
+
+| Function | What it gives |
+| --- | --- |
+| `cube_group()` | the group of an `n x n x n` cube, `6n` moves over `6n^2` stickers |
+| `cube_moves()` / `cube_move_names()` | the generated move table, and its names |
+| `cube_layer_move()` | one turn named by axis, layer and quarter turns |
+| `cube_identity()` | the solved state, `1:(6n^2)` |
+| `cube_is_colour_solved()` | every face one colour, which slice turns make distinct from the identity |
+| `cube_orbits()` / `cube_pieces()` | the orbits a size has, and which stickers each piece carries |
+| `cube_progress()` / `cube_pieces_home()` | how much of each orbit is solved |
+| `cube_colours()` | a state written as colours rather than positions |
+| `cube_wing_geometry_cpp()` | where the wings of a size sit |
+
+**Notation — reading and expanding words (all: any n):**
+
+| Function | What it gives |
+| --- | --- |
+| `cube_expand_move()` / `cube_expand_word()` | `Rw`, `3R`, `x` turned into single-layer moves at that size |
+| `cube_wide_move()` / `cube_wide_word()` | the same, composed into one permutation |
+| `cube_expand_alg()` | an algorithm string expanded |
+| `cube_word_order()` | how many repetitions bring a word back to the start |
+| `cube_alg_table()` | the OLL, PLL and layer-by-layer tables |
+| `cube_centre_positions()` | the centre sticker of each face |
+
+**Centres — derived from the size, not tabulated (all: any n):**
+
+| Function | What it gives |
+| --- | --- |
+| `cube_centre_structure()` | every centre sticker: face, orbit and slot |
+| `cube_slice_map()` | where a turn sends each centre, as `(face, orbit, slot)` |
+| `cube_centre_shots()` | commutators that carry centres off one face and spare another |
+| `cube_central_moves()` | the turns that rotate the whole cube — empty on an even cube |
+| `cube_centre_counts()` | how many centres are home, per face, optionally per orbit |
+
+**Santa-format interchange (all: any n):**
+
+`cube_santa_group()`, `cube_santa_moves()`, `cube_santa_move_names()`,
+`cube_moves_santa()`, `cube_santa_perm()`, `cube_santa_state()`,
+`cube_santa_state_out()`, `cube_santa_path()`, `cube_santa_path_out()` —
+converting states and paths to and from the Santa competition's conventions.
+
+**Learned solving (any n):**
+
+`cube_adi_model()`, `cube_adi_train()`, `cube_adi_solve()` — autodidactic
+iteration over any cube group, given `ggmlR`.
+
+**Tied to one size:**
+
+| Function | Sizes | Why |
+| --- | --- | --- |
+| `cube_solve_cfop()`, `cube_solve_lbl()`, `cube_solve_m2()`, `cube_solve_old_pochmann()`, `cube_kociemba()` | 3 only | human and blindfolded methods written for a 54-sticker cube |
+| `cube_read_state()`, `cube_predicates()`, `cube_apply_word()` | 3 only | read and describe a 3x3x3 |
+| `cube_solve4()`, `cube_solve4_cascade()`, `cube_solve_centres()` | 4 only | reduction built around four centres to a face |
+| `cube_is_reduced()` | 4 only | the 4x4x4 test for "now solvable as a 3x3x3" |
+| `cube_kociemba4()`, `cube_kociemba4_reduce()`, and the `_cpp` phase helpers | 4 only | the two-phase search over a 4x4x4's coordinates |
+
+The split is clean and worth stating plainly: **the structure of a cube is
+universal, the methods that solve one are not.** Anything that describes a
+cube — its moves, orbits, pieces, notation, centres — works at any size,
+because it is derived from the geometry. Anything that *solves* a cube is
+still written for the size it was written for. A 5x5x5 therefore has a full
+vocabulary and no solver.
 
 **Solving the 3x3x3:**
 - `cube_solve_cfop()` — cross, F2L by IDA*, OLL, PLL; the fewest moves and the only one that searches

@@ -81,7 +81,7 @@ for (i in seq_len(N_SCRAMBLES)) {
   hits[which_goal] <- hits[which_goal] + 1L
 
   # And from that goal, does the whole reduction still finish?
-  path <- cube_kociemba4_reduce(scramble, node_budget = BUDGET)
+  path <- cube_kociemba4_reduce(scramble, node_budget = BUDGET)$path
   if (length(path) && cube_is_reduced(apply_path(scramble, path))) {
     reduced_from[which_goal] <- reduced_from[which_goal] + 1L
   }

@@ -93,3 +93,94 @@ test_that("the parity algorithms leave the reduction intact", {
                            logical(1))))
   }
 })
+
+test_that("reduction is a question that can be asked at any size", {
+  # A solved cube is reduced whatever its size.
+  for (n in 2:7) expect_true(cube_is_reduced(cube_identity(n)))
+
+  # An outer face turn moves whole pieces and so keeps the cube reduced; an
+  # inner slice cuts through them and does not.
+  for (n in c(4, 5, 6)) {
+    m <- cube_moves(n)
+    names(m) <- cube_move_names(n)
+    s <- cube_identity(n)
+    expect_true(cube_is_reduced(s[m[["U"]]]))
+    inner <- grep("^[0-9]+x$", names(m), value = TRUE)[1]
+    expect_false(cube_is_reduced(s[m[[inner]]]))
+  }
+})
+
+test_that("outer turns alone can never break reduction", {
+  # The property the 3x3x3 stage depends on: once reduced, a cube stays
+  # reduced under the moves a 3x3x3 method uses.
+  set.seed(42)
+  outer <- c("U", "U'", "R", "R'", "F", "F'", "D", "D'", "L", "L'", "B", "B'")
+  for (n in c(4, 5, 6)) {
+    g <- cube_group(n)
+    id <- group_identity(g)
+    for (trial in 1:15) {
+      s <- group_apply(g, id, sample(outer, 12, replace = TRUE))
+      expect_true(cube_is_reduced(s))
+    }
+  }
+})
+
+test_that("a 3x3x3 is reduced in every state", {
+  # There is nothing to reduce: its centres are single and its edges have no
+  # wings. Saying TRUE is the right answer rather than a degenerate one.
+  set.seed(3)
+  g <- cube_group(3)
+  for (trial in 1:20) {
+    s <- group_apply(g, group_identity(g),
+                     sample(cube_move_names(3), 15, replace = TRUE))
+    expect_true(cube_is_reduced(s))
+  }
+})
+
+test_that("cube_is_reduced infers n and rejects a length that is no cube", {
+  g <- cube_group(4)
+  set.seed(7)
+  s <- group_apply(g, group_identity(g),
+                   sample(cube_move_names(4), 10, replace = TRUE))
+  expect_identical(cube_is_reduced(s), cube_is_reduced(s, n = 4))
+  expect_error(cube_is_reduced(s, n = 5), "stickers")
+  expect_error(cube_is_reduced(1:50), "no cube")
+})
+
+test_that("every method of cube_solve4 returns a result rather than erroring", {
+  # cube_kociemba returns the word itself, a character vector, where the other
+  # four return a list with $path and $found. Reading $found off a character
+  # vector is an error, not FALSE, so the kociemba method used to fail on every
+  # cube -- and the failure looked like a solver bug rather than a shape
+  # mismatch. Each method is called here so that a return shape changing again
+  # is caught at once.
+  set.seed(7)
+  g <- cube_group(4)
+  id <- group_identity(g)
+  for (m in c("cfop", "kociemba", "lbl", "m2", "pochmann")) {
+    s <- group_apply(g, id, sample(cube_move_names(4), 30, replace = TRUE))
+    r <- cube_solve4(s, method = m)
+    expect_type(r, "list")
+    expect_true(all(c("path", "found", "failure") %in% names(r)))
+    expect_type(r$found, "logical")
+  }
+})
+
+test_that("the kociemba method solves a 4x4x4", {
+  set.seed(1)
+  g <- cube_group(4)
+  id <- group_identity(g)
+  for (trial in 1:2) {
+    s <- group_apply(g, id, sample(cube_move_names(4), 30, replace = TRUE))
+    r <- cube_solve4(s, method = "kociemba")
+    expect_true(r$found)
+    expect_gt(length(r$path), 0)
+
+    # and the path it returns really solves the cube it was given
+    moves <- cube_moves(4)
+    names(moves) <- cube_move_names(4)
+    cur <- s
+    for (mv in r$path) cur <- cur[moves[[mv]]]
+    expect_true(cube_is_colour_solved(cur))
+  }
+})

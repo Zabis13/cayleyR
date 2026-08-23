@@ -4,17 +4,28 @@
 \alias{cube_centre_counts}
 \title{Count the Centre Pieces That Are Home}
 \usage{
-cube_centre_counts(state)
+cube_centre_counts(state, n = NULL, by_orbit = FALSE)
 }
 \arguments{
-\item{state}{Integer vector of 96 stickers.}
+\item{state}{Integer vector of \eqn{6n^2} stickers.}
+
+\item{n}{Side of the cube. Inferred from the length of \code{state} when
+absent.}
+
+\item{by_orbit}{Whether to count each centre orbit separately. A 5x5x5 has
+three --- the corner centres, the plus centres and the fixed six --- and a
+method that solves them in turn needs to see them apart.}
 }
 \value{
-Integer vector of six counts, in face order U R F D L B.
+With \code{by_orbit = FALSE}, an integer vector of six counts in
+face order U R F D L B. With \code{by_orbit = TRUE}, a
+\code{data.frame} of \code{orbit}, \code{face}, \code{home} and
+\code{of} --- how many are home out of how many.
 }
 \description{
-How many of a 4x4x4's twenty-four centre pieces show the colour of the face
-they sit on, counted per face. A face is finished when its count is four.
+How many centre pieces show the colour of the face they sit on, counted per
+face. A face is finished when its count is the number of centres a face has
+at that size --- four on a 4x4x4, nine on a 5x5x5, one on a 3x3x3.
 }
 \details{
 The count compares a piece's colour against the face it began on, so it is
@@ -24,7 +35,12 @@ state \code{\link{generate_state}} hands over and the one
 }
 \examples{
 cube_centre_counts(cube_identity(4))
+cube_centre_counts(cube_identity(5))
+
+# the three orbits of a 5x5x5, seen apart
+cube_centre_counts(cube_identity(5), by_orbit = TRUE)
 }
 \seealso{
-\code{\link{cube_solve_centres}}
+\code{\link{cube_solve_centres}},
+\code{\link{cube_centre_structure}}
 }

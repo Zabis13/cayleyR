@@ -1,5 +1,7 @@
 test_that("the solved cube needs no moves", {
-  expect_length(cube_kociemba(cube_identity(3)), 0L)
+  res <- cube_kociemba(cube_identity(3))
+  expect_length(res$path, 0L)
+  expect_true(res$found)
 })
 
 # Not "in one move". Two phases mean phase 1 stops as soon as the cube is in
@@ -11,7 +13,7 @@ test_that("a state one move from solved comes back solved and short", {
   moves <- cube_moves(3)
   names(moves) <- cube_move_names(3)
   s <- cube_identity(3)[moves[["R"]]]
-  path <- cube_kociemba(s)
+  path <- cube_kociemba(s)$path
   for (mv in path) s <- s[moves[[mv]]]
   expect_identical(s, cube_identity(3))
   expect_lte(length(path), 4L)
@@ -32,7 +34,7 @@ test_that("solutions solve the cube, slices included", {
   for (n in c(3, 8, 20, 40)) {
     s <- cube_identity(3)
     for (mv in sample(cube_move_names(3), n, replace = TRUE)) s <- s[moves[[mv]]]
-    path <- cube_kociemba(s)
+    path <- cube_kociemba(s)$path
     expect_gt(length(path), 0L)
     expect_identical(apply_path(s, path), cube_identity(3))
   }

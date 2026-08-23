@@ -92,7 +92,7 @@ if (worker) {
 
   t0 <- proc.time()[["elapsed"]]
   path <- cube_kociemba4_reduce(sc$state, node_budget = budget,
-                                orientations = ors)
+                                orientations = ors)$path
   secs <- proc.time()[["elapsed"]] - t0
 
   # Reduced or not is decided on the cube, not on whether a path came back:

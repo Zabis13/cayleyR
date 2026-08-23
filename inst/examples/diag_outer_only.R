@@ -78,7 +78,7 @@ for (i in seq_len(n_states)) {
   g <- vapply(1:3, function(p) cayleyR:::cube_at_phase_goal_cpp(state, p),
               logical(1))
 
-  red <- cube_kociemba4_reduce(state, node_budget = node_budget)
+  red <- cube_kociemba4_reduce(state, node_budget = node_budget)$path
   rep <- cube_kociemba4_report()
   after <- replay(state, red)
   ok <- cube_is_reduced(after)

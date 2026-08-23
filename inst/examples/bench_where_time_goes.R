@@ -188,11 +188,11 @@ hr("orientations")
 
 s <- states[[1]]
 t0 <- proc.time()[["elapsed"]]
-r1 <- cube_kociemba4_reduce(s, node_budget = 5e7, max_orientations = 1L)
+r1 <- cube_kociemba4_reduce(s, node_budget = 5e7, max_orientations = 1L)$path
 t_one <- proc.time()[["elapsed"]] - t0
 
 t0 <- proc.time()[["elapsed"]]
-rd <- cube_kociemba4_reduce(s, node_budget = 5e7)
+rd <- cube_kociemba4_reduce(s, node_budget = 5e7)$path
 t_def <- proc.time()[["elapsed"]] - t0
 
 cat(sprintf("  one orientation      : %.1f s, %d moves\n", t_one, length(r1)))

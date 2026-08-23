@@ -63,7 +63,7 @@ measure_one <- function(seed) {
   flush.console()
 
   started <- Sys.time()
-  path <- cube_kociemba4_reduce(state, progress_every = PROGRESS_EVERY)
+  path <- cube_kociemba4_reduce(state, progress_every = PROGRESS_EVERY)$path
   elapsed <- as.numeric(Sys.time() - started, units = "secs")
 
   report <- cube_kociemba4_report()

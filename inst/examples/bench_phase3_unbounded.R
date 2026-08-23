@@ -53,7 +53,7 @@ started <- Sys.time()
 path <- cube_kociemba4_reduce(state,
                               max_depth3 = MAX_DEPTH3,
                               node_budget = NODE_BUDGET,
-                              progress_every = PROGRESS_EVERY)
+                              progress_every = PROGRESS_EVERY)$path
 elapsed <- as.numeric(Sys.time() - started, units = "secs")
 report <- cube_kociemba4_report()
 

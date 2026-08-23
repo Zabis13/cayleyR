@@ -76,7 +76,7 @@ profile_one <- function(state, verbose) {
   # timing is unaffected by it beyond the cost of the printing itself.
   red <- secs(cube_kociemba4_reduce(state, node_budget = node_budget,
                                     progress_every = if (verbose) progress_every
-                                                     else 0))
+                                                     else 0)$path)
   rep3 <- cube_kociemba4_report()
 
   reduced <- length(red$value) > 0 || cube_is_reduced(state)
@@ -90,7 +90,7 @@ profile_one <- function(state, verbose) {
   show_state("reduced   ", cur)
 
   sq <- secs(cube_colour_state(cayleyR:::cube_squeeze_cpp(cur), 3))
-  p4 <- secs(cube_kociemba(sq$value))
+  p4 <- secs(cube_kociemba(sq$value)$path)
   rep4 <- cube_kociemba_report()
 
   solved3 <- length(p4$value) > 0 || identical(sq$value, cube_identity(3))
@@ -127,7 +127,7 @@ hr("warming the tables")
 # state after it takes 12. Building them here, on a solved cube that no phase
 # has to search, separates the two: everything the table below reports is
 # search time on warm tables.
-warm <- secs(cube_kociemba4_reduce(cube_identity(N), node_budget = node_budget))
+warm <- secs(cube_kociemba4_reduce(cube_identity(N), node_budget = node_budget)$path)
 cat(sprintf("  %.2f s to build the phase 1-3 prune tables (once per session)\n",
             warm$seconds))
 cat("  every timing below is on warm tables\n")

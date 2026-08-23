@@ -243,7 +243,7 @@ for (i in seq_len(n_states)) {
 
   # ---- the whole reduction, for the outcome codes and the node counts
   t0 <- proc.time()[["elapsed"]]
-  red <- cube_kociemba4_reduce(state, node_budget = node_budget)
+  red <- cube_kociemba4_reduce(state, node_budget = node_budget)$path
   t_red <- proc.time()[["elapsed"]] - t0
   rep3 <- cube_kociemba4_report()
   reduced <- length(red) > 0 && cube_is_reduced(replay(state, red))

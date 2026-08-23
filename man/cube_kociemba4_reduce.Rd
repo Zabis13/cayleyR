@@ -68,8 +68,10 @@ faster in direct proportion; the risk is that a cube whose only workable
 rotation was cut off stops reducing at all.}
 }
 \value{
-Character vector of moves taking the cube to a reduced state, empty
-if the search did not get there within the limits.
+List with \code{path}, the moves taking the cube to a reduced state,
+and \code{found}, whether the search got there within the limits. The same
+shape the package's other solvers return, so a caller can read
+\code{$found} without knowing which one it called.
 }
 \description{
 Reduction is what an even cube has to reach before a 3x3x3 method can touch
@@ -106,11 +108,12 @@ it takes many more moves and always gets there.
 set.seed(7)
 s <- generate_state(group = cube_group(4), n_moves = 5)
 \donttest{
-path <- cube_kociemba4_reduce(s)
+res <- cube_kociemba4_reduce(s)
+res$found
 
 m <- cube_moves(4)
 names(m) <- cube_move_names(4)
-for (mv in path) s <- s[m[[mv]]]
+for (mv in res$path) s <- s[m[[mv]]]
 cube_is_reduced(s)
 }
 }

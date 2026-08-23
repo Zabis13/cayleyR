@@ -123,7 +123,7 @@ for (i in seq_len(n_states)) {
   p2 <- cayleyR:::cube_kociemba4_phase12_cpp(sc$state, upto_phase = 2L,
                                              node_budget = node_budget)
 
-  red <- cube_kociemba4_reduce(sc$state, node_budget = node_budget)
+  red <- cube_kociemba4_reduce(sc$state, node_budget = node_budget)$path
   rep <- cube_kociemba4_report()
   ok  <- length(red) > 0 && cube_is_reduced(replay(sc$state, red))
 

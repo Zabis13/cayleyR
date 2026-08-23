@@ -72,7 +72,7 @@ for (i in seq_len(n_states)) {
   state <- replay(solved, scr)
 
   t0  <- proc.time()[["elapsed"]]
-  red <- cube_kociemba4_reduce(state, node_budget = node_budget)
+  red <- cube_kociemba4_reduce(state, node_budget = node_budget)$path
   el  <- proc.time()[["elapsed"]] - t0
 
   rep  <- cube_kociemba4_report()

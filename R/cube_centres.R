@@ -43,20 +43,74 @@ cube_solve_centres <- function(state) {
 
 #' Count the Centre Pieces That Are Home
 #'
-#' How many of a 4x4x4's twenty-four centre pieces show the colour of the face
-#' they sit on, counted per face. A face is finished when its count is four.
+#' How many centre pieces show the colour of the face they sit on, counted per
+#' face. A face is finished when its count is the number of centres a face has
+#' at that size --- four on a 4x4x4, nine on a 5x5x5, one on a 3x3x3.
 #'
 #' The count compares a piece's colour against the face it began on, so it is
 #' only meaningful while the cube has not been turned as a whole. That is the
 #' state \code{\link{generate_state}} hands over and the one
 #' \code{\link{cube_solve_centres}} is given.
 #'
-#' @param state Integer vector of 96 stickers.
-#' @return Integer vector of six counts, in face order U R F D L B.
+#' @param state Integer vector of \eqn{6n^2} stickers.
+#' @param n Side of the cube. Inferred from the length of \code{state} when
+#'   absent.
+#' @param by_orbit Whether to count each centre orbit separately. A 5x5x5 has
+#'   three --- the corner centres, the plus centres and the fixed six --- and a
+#'   method that solves them in turn needs to see them apart.
+#' @return With \code{by_orbit = FALSE}, an integer vector of six counts in
+#'   face order U R F D L B. With \code{by_orbit = TRUE}, a
+#'   \code{data.frame} of \code{orbit}, \code{face}, \code{home} and
+#'   \code{of} --- how many are home out of how many.
 #' @export
-#' @seealso \code{\link{cube_solve_centres}}
+#' @seealso \code{\link{cube_solve_centres}},
+#'   \code{\link{cube_centre_structure}}
 #' @examples
 #' cube_centre_counts(cube_identity(4))
-cube_centre_counts <- function(state) {
-  cube_centre_counts_cpp(as.integer(state))
+#' cube_centre_counts(cube_identity(5))
+#'
+#' # the three orbits of a 5x5x5, seen apart
+#' cube_centre_counts(cube_identity(5), by_orbit = TRUE)
+cube_centre_counts <- function(state, n = NULL, by_orbit = FALSE) {
+  state <- as.integer(state)
+
+  if (is.null(n)) {
+    n <- sqrt(length(state) / 6)
+    if (n != round(n) || n < 2)
+      stop("cube_centre_counts: a state of ", length(state),
+           " stickers is no cube; give n if it cannot be inferred",
+           call. = FALSE)
+    n <- as.integer(round(n))
+  }
+  n <- as.integer(n)
+  if (length(state) != 6L * n * n)
+    stop("cube_centre_counts: a ", n, "x", n, "x", n, " state has ",
+         6L * n * n, " stickers, got ", length(state), call. = FALSE)
+
+  # The 4x4x4 path stays with the C++ it has always used, so nothing that
+  # depends on it changes shape or speed.
+  if (n == 4L && !by_orbit) return(cube_centre_counts_cpp(state))
+
+  cs <- cube_centre_structure(n)
+  face_size <- n * n
+  # A sticker's value is where it began and stickers are numbered face by face,
+  # so its colour is the block that value falls in.
+  home <- (state[cs$sticker] - 1L) %/% face_size == cs$face
+
+  if (!by_orbit)
+    return(vapply(0:5, function(f) sum(home[cs$face == f]), integer(1)))
+
+  grid <- expand.grid(face = 0:5, orbit = sort(unique(cs$orbit)))
+  out <- data.frame(
+    orbit = grid$orbit,
+    face  = grid$face,
+    home  = mapply(function(f, ob) sum(home[cs$face == f & cs$orbit == ob]),
+                   grid$face, grid$orbit),
+    of    = mapply(function(f, ob) sum(cs$face == f & cs$orbit == ob),
+                   grid$face, grid$orbit),
+    stringsAsFactors = FALSE
+  )
+  out <- out[order(out$orbit, out$face), ]
+  rownames(out) <- NULL
+  out
 }

@@ -62,7 +62,7 @@ for (depth in DEPTHS) {
   # isolation, since iterative deepening re-walks the shallow ones every time.
   path <- cube_kociemba4_reduce(state, max_depth3 = depth,
                                 node_budget = LEVEL_BUDGET,
-                                progress_every = PROGRESS_EVERY)
+                                progress_every = PROGRESS_EVERY)$path
   elapsed <- as.numeric(Sys.time() - started, units = "secs")
   report <- cube_kociemba4_report()
 

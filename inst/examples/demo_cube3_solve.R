@@ -95,7 +95,7 @@ solve_and_report <- function(method_name, method, state) {
 # to report and returns the word alone, so it is dressed in the same clothes
 # here rather than given a case of its own below.
 kociemba_as_method <- function(state) {
-  path <- cube_kociemba(state)
+  path <- cube_kociemba(state)$path
   list(path = path, found = length(path) > 0L)
 }
 

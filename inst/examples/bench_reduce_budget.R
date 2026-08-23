@@ -96,7 +96,7 @@ for (s in settings) {
 
     t0  <- proc.time()[["elapsed"]]
     red <- try(cube_kociemba4_reduce(state, max_depth3 = s$depth,
-                                     node_budget = s$budget), silent = TRUE)
+                                     node_budget = s$budget)$path, silent = TRUE)
     el  <- proc.time()[["elapsed"]] - t0
 
     if (inherits(red, "try-error")) {

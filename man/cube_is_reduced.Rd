@@ -2,22 +2,25 @@
 % Please edit documentation in R/cube_reduced.R
 \name{cube_is_reduced}
 \alias{cube_is_reduced}
-\title{Is a 4x4x4 Reduced?}
+\title{Is a Cube Reduced?}
 \usage{
-cube_is_reduced(state)
+cube_is_reduced(state, n = NULL)
 }
 \arguments{
-\item{state}{Integer vector of 96 stickers, a 4x4x4 state --- from
-\code{\link{generate_state}} with \code{group = cube_group(4)}.}
+\item{state}{Integer vector of \eqn{6n^2} stickers --- from
+\code{\link{generate_state}} with \code{group = cube_group(n)}.}
+
+\item{n}{Side of the cube. Inferred from the length of \code{state} when
+absent.}
 }
 \value{
 \code{TRUE} if the cube is reduced.
 }
 \description{
-Reduction is the state an even cube has to reach before a 3x3x3 method can
-touch it: every face's four centres one colour, so a face acts as one, and
-the two wings of every edge a matching pair, so an edge acts as one. A cube
-in that state is a 3x3x3 with fat pieces.
+Reduction is the state a large cube has to reach before a 3x3x3 method can
+touch it: every face's centres one colour, so a face acts as one, and the
+wings of every edge a matching group, so an edge acts as one. A cube in that
+state is a 3x3x3 with fat pieces.
 }
 \details{
 What this does \emph{not} ask is where anything is. A solved cube turned by
@@ -26,6 +29,19 @@ together, they are merely in the wrong place, and putting them right is the
 3x3x3's job rather than the reduction's. Asking for position here is the easy
 mistake and it makes the test reject cubes that are plainly reduced.
 }
+\section{Any size}{
+
+Nothing in the test is about a 4x4x4 beyond how many pieces there are. A
+face has \eqn{(n-2)^2} centres rather than four and an edge has \eqn{n-2}
+wings rather than two, and both numbers come from
+\code{\link{cube_pieces}}. An odd cube reduces too: its middle edges and
+fixed centres are groups of one, which pass the test by having nothing to
+disagree with.
+
+A 3x3x3 is reduced in every state, and that is the right answer rather than
+a degenerate one --- there is nothing to reduce.
+}
+
 \examples{
 s <- cube_identity(4)
 cube_is_reduced(s)
@@ -37,7 +53,11 @@ cube_is_reduced(s[m[["U"]]])
 
 # an inner-layer turn is not: it splits the pairs and the centres
 cube_is_reduced(s[m[["1x"]]])
+
+# a 5x5x5 works the same way
+cube_is_reduced(cube_identity(5))
 }
 \seealso{
-\code{\link{cube_solve4}}, \code{\link{cube_pieces}}
+\code{\link{cube_solve4}}, \code{\link{cube_pieces}},
+\code{\link{cube_centre_counts}}
 }

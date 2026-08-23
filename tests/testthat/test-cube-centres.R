@@ -70,3 +70,60 @@ test_that("the solver leaves the cube a valid permutation", {
   final <- res$states[[length(res$states)]]
   expect_setequal(final, 1:96)
 })
+
+test_that("centre counts work at any size", {
+  # A solved cube has every centre home, and how many that is per face follows
+  # from the size rather than being written down.
+  for (n in 2:7) {
+    cs <- cube_centre_structure(n)
+    per_face <- if (nrow(cs)) sum(cs$face == 0L) else 0L
+    expect_equal(cube_centre_counts(cube_identity(n)), rep(per_face, 6))
+  }
+  expect_equal(cube_centre_counts(cube_identity(3)), rep(1L, 6))
+  expect_equal(cube_centre_counts(cube_identity(4)), rep(4L, 6))
+  expect_equal(cube_centre_counts(cube_identity(5)), rep(9L, 6))
+})
+
+test_that("the generic count agrees with the 4x4x4 C++ it replaces", {
+  # The 4x4x4 keeps its own path, so this checks the two do not drift.
+  set.seed(11)
+  g <- cube_group(4)
+  for (trial in 1:20) {
+    s <- group_apply(g, group_identity(g),
+                     sample(cube_move_names(4), 30, replace = TRUE))
+    cs <- cube_centre_structure(4)
+    home <- (s[cs$sticker] - 1L) %/% 16L == cs$face
+    generic <- vapply(0:5, function(f) sum(home[cs$face == f]), integer(1))
+    expect_equal(cube_centre_counts(s), generic)
+  }
+})
+
+test_that("counting by orbit splits the centres a size actually has", {
+  # A 5x5x5 solves its two moving orbits and leaves the fixed six alone, so a
+  # single total would hide which of the three is finished.
+  by <- cube_centre_counts(cube_identity(5), by_orbit = TRUE)
+  expect_equal(nrow(by), 3 * 6)
+  expect_true(all(by$home == by$of))
+  expect_setequal(unique(by$of), c(4L, 1L))
+
+  # the totals agree with the flat count
+  flat <- cube_centre_counts(cube_identity(5))
+  per_face <- tapply(by$home, by$face, sum)
+  expect_equal(as.integer(per_face), flat)
+
+  # and on a scramble too
+  set.seed(5)
+  g <- cube_group(5)
+  s <- group_apply(g, group_identity(g),
+                   sample(cube_move_names(5), 40, replace = TRUE))
+  by_s <- cube_centre_counts(s, by_orbit = TRUE)
+  expect_equal(as.integer(tapply(by_s$home, by_s$face, sum)),
+               cube_centre_counts(s))
+})
+
+test_that("centre counts infer n, and reject a length that is no cube", {
+  expect_equal(cube_centre_counts(cube_identity(5), n = 5),
+               cube_centre_counts(cube_identity(5)))
+  expect_error(cube_centre_counts(1:50), "no cube")
+  expect_error(cube_centre_counts(cube_identity(5), n = 4), "stickers")
+})

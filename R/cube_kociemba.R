@@ -59,8 +59,10 @@
 #' @param node_budget Nodes a phase may visit before giving up. A search that
 #'   stops here returns nothing rather than a wrong answer; see
 #'   \code{\link{cube_kociemba_report}} for which phase it was.
-#' @return Character vector of moves, empty if no solution was found within the
-#'   limits.
+#' @return List with \code{path}, the character vector of moves, and
+#'   \code{found}, whether a solution was reached within the limits. The same
+#'   shape as \code{\link{cube_solve_cfop}} and the other 3x3x3 solvers, so the
+#'   five can be used interchangeably.
 #' @export
 #' @seealso \code{\link{cube_solve_cfop}} and \code{\link{cube_solve_lbl}} for
 #'   the methods that look at the cube, \code{\link{cube_kociemba_report}} for
@@ -69,13 +71,14 @@
 #' set.seed(42)
 #' s <- generate_state(group = cube_group(3), n_moves = 20)
 #' \donttest{
-#' path <- cube_kociemba(s)
-#' length(path)
+#' res <- cube_kociemba(s)
+#' res$found
+#' length(res$path)
 #'
 #' # it really solves it
 #' moves <- cube_moves(3)
 #' names(moves) <- cube_move_names(3)
-#' for (mv in path) s <- s[moves[[mv]]]
+#' for (mv in res$path) s <- s[moves[[mv]]]
 #' identical(s, cube_identity(3))
 #' }
 cube_kociemba <- function(state, max_depth1 = 12L, max_depth2 = 18L,
@@ -85,8 +88,12 @@ cube_kociemba <- function(state, max_depth1 = 12L, max_depth2 = 18L,
     stop("cube_kociemba: a 3x3x3 state has 54 stickers, got ",
          length(state), call. = FALSE)
   }
-  cube_kociemba_cpp(state, as.integer(max_depth1), as.integer(max_depth2),
-                    as.numeric(node_budget))
+  path <- cube_kociemba_cpp(state, as.integer(max_depth1),
+                            as.integer(max_depth2), as.numeric(node_budget))
+  # An empty word is the search reporting failure, not a solved cube: a cube
+  # that needs no moves is caught before the search runs. cube_kociemba_report()
+  # says which phase stopped.
+  list(path = path, found = length(path) > 0L || cube_is_colour_solved(state))
 }
 
 #' What the Last Kociemba Solve Did
@@ -204,8 +211,10 @@ cube_kociemba_init <- function(table1 = 4194304, depth1 = 0L,
 #' @param max_orientations Try only this many of \code{orientations}. Fewer is
 #'   faster in direct proportion; the risk is that a cube whose only workable
 #'   rotation was cut off stops reducing at all.
-#' @return Character vector of moves taking the cube to a reduced state, empty
-#'   if the search did not get there within the limits.
+#' @return List with \code{path}, the moves taking the cube to a reduced state,
+#'   and \code{found}, whether the search got there within the limits. The same
+#'   shape the package's other solvers return, so a caller can read
+#'   \code{$found} without knowing which one it called.
 #' @export
 #' @seealso \code{\link{cube_kociemba4}} for the whole solve,
 #'   \code{\link{cube_is_reduced}} for the test this aims at,
@@ -214,11 +223,12 @@ cube_kociemba_init <- function(table1 = 4194304, depth1 = 0L,
 #' set.seed(7)
 #' s <- generate_state(group = cube_group(4), n_moves = 5)
 #' \donttest{
-#' path <- cube_kociemba4_reduce(s)
+#' res <- cube_kociemba4_reduce(s)
+#' res$found
 #'
 #' m <- cube_moves(4)
 #' names(m) <- cube_move_names(4)
-#' for (mv in path) s <- s[m[[mv]]]
+#' for (mv in res$path) s <- s[m[[mv]]]
 #' cube_is_reduced(s)
 #' }
 cube_kociemba4_reduce <- function(state, max_depth1 = 10L, max_depth2 = 12L,
@@ -233,6 +243,25 @@ cube_kociemba4_reduce <- function(state, max_depth1 = 10L, max_depth2 = 12L,
     stop("cube_kociemba4_reduce: a 4x4x4 state has 96 stickers, got ",
          length(state), call. = FALSE)
   }
+
+  # The search below works in bare words throughout -- an empty one meaning it
+  # got nowhere -- and the result is wrapped once at the end. Keeping the two
+  # apart means the emptiness test stays a length test everywhere it is made,
+  # rather than each of the four exits having to build a list of its own.
+  path <- .cube4_reduce_path(state, max_depth1, max_depth2, max_depth3,
+                             node_budget, progress_every, prune_depth_bonus,
+                             orientations, stop_at_first, budget_steps,
+                             max_orientations)
+  list(path = path,
+       found = length(path) > 0L || cube_is_reduced(state))
+}
+
+## The reduction proper, returning the word and nothing else. Split out so
+## cube_kociemba4_reduce() can wrap one value instead of four.
+.cube4_reduce_path <- function(state, max_depth1, max_depth2, max_depth3,
+                               node_budget, progress_every, prune_depth_bonus,
+                               orientations, stop_at_first, budget_steps,
+                               max_orientations) {
 
   one <- function(rot, budget = node_budget) {
     if (!nzchar(rot)) {
@@ -412,16 +441,18 @@ cube_kociemba4 <- function(state, max_depth1 = 10L, max_depth2 = 12L,
          cube3 = character(0), failure = failure)
   }
 
-  red <- cube_kociemba4_reduce(state, max_depth1, max_depth2, max_depth3,
-                               node_budget, progress_every,
-                               stop_at_first = stop_at_first,
-                               budget_steps = budget_steps,
-                               max_orientations = max_orientations)
+  reduction <- cube_kociemba4_reduce(state, max_depth1, max_depth2, max_depth3,
+                                     node_budget, progress_every,
+                                     stop_at_first = stop_at_first,
+                                     budget_steps = budget_steps,
+                                     max_orientations = max_orientations)
   # An already-reduced cube gives an empty reduction, which is a success and
-  # not a failure; the two are told apart by the state, not by the path length.
-  if (!length(red) && !cube_is_reduced(state)) {
+  # not a failure. cube_kociemba4_reduce() has made that distinction already,
+  # so what is read here is its verdict rather than the length of its word.
+  if (!isTRUE(reduction$found)) {
     return(empty("reduction did not finish"))
   }
+  red <- reduction$path
 
   moves <- cube_moves(4)
   names(moves) <- cube_move_names(4)
@@ -432,14 +463,14 @@ cube_kociemba4 <- function(state, max_depth1 = 10L, max_depth2 = 12L,
   # finishes it. No parity can arrive here -- phase 3 could not have produced
   # one -- so unlike cube_solve4 there is no repair step between.
   st3 <- cube_colour_state(cube_squeeze_cpp(cur), 3)
-  p3 <- cube_kociemba(st3)
-  if (!length(p3) && !identical(st3, cube_identity(3))) {
+  res3 <- cube_kociemba(st3)
+  if (!isTRUE(res3$found)) {
     return(list(path = red, found = FALSE, reduction = red,
                 cube3 = character(0),
                 failure = "3x3x3 phase did not finish"))
   }
 
-  lifted <- cube_lift_path_cpp(p3)$path
+  lifted <- cube_lift_path_cpp(res3$path)$path
   for (mv in lifted) cur <- cur[moves[[mv]]]
 
   list(path = c(red, lifted), found = cube_is_colour_solved(cur),

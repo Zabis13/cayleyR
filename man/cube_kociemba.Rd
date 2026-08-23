@@ -18,8 +18,10 @@ stops here returns nothing rather than a wrong answer; see
 \code{\link{cube_kociemba_report}} for which phase it was.}
 }
 \value{
-Character vector of moves, empty if no solution was found within the
-limits.
+List with \code{path}, the character vector of moves, and
+\code{found}, whether a solution was reached within the limits. The same
+shape as \code{\link{cube_solve_cfop}} and the other 3x3x3 solvers, so the
+five can be used interchangeably.
 }
 \description{
 The fifth solver in the package and the only one that is not a human method.
@@ -86,13 +88,14 @@ applies to the cube as it was handed over.
 set.seed(42)
 s <- generate_state(group = cube_group(3), n_moves = 20)
 \donttest{
-path <- cube_kociemba(s)
-length(path)
+res <- cube_kociemba(s)
+res$found
+length(res$path)
 
 # it really solves it
 moves <- cube_moves(3)
 names(moves) <- cube_move_names(3)
-for (mv in path) s <- s[moves[[mv]]]
+for (mv in res$path) s <- s[moves[[mv]]]
 identical(s, cube_identity(3))
 }
 }
