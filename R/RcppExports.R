@@ -127,6 +127,10 @@ cube_slice_map_cpp <- function() {
     .Call(`_cayleyR_cube_slice_map_cpp`)
 }
 
+cube_slice_cells_cpp <- function(face) {
+    .Call(`_cayleyR_cube_slice_cells_cpp`, face)
+}
+
 cube_first_centre_cpp <- function(state, target_face) {
     .Call(`_cayleyR_cube_first_centre_cpp`, state, target_face)
 }
@@ -135,16 +139,16 @@ cube_l_slice_count_cpp <- function(state) {
     .Call(`_cayleyR_cube_l_slice_count_cpp`, state)
 }
 
-cube_centres_12_cpp <- function(state) {
-    .Call(`_cayleyR_cube_centres_12_cpp`, state)
+cube_centres_12_cpp <- function(state, target_face = 4L) {
+    .Call(`_cayleyR_cube_centres_12_cpp`, state, target_face)
 }
 
-cube_centres_cpp <- function(state) {
-    .Call(`_cayleyR_cube_centres_cpp`, state)
+cube_centres_cpp <- function(state, target_face = 4L) {
+    .Call(`_cayleyR_cube_centres_cpp`, state, target_face)
 }
 
-cube_reduce_cpp <- function(state) {
-    .Call(`_cayleyR_cube_reduce_cpp`, state)
+cube_reduce_cpp <- function(state, target_face = 4L) {
+    .Call(`_cayleyR_cube_reduce_cpp`, state, target_face)
 }
 
 cube_parity_fix_cpp <- function(state, which) {

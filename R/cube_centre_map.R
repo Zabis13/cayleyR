@@ -521,3 +521,37 @@ cube_slice_map <- function(n, move, structure = NULL) {
     stringsAsFactors = FALSE
   )
 }
+
+#' The Layer Beside a Face, as the 4x4x4 Solver Sees It
+#'
+#' The twelve centre cells of the layer lying against one face: that face's own
+#' four, together with the column each of the four faces around it presents to
+#' it. This is what step 2 of the reduction builds and what step 3 must not
+#' disturb.
+#'
+#' @section Derived from the slice table:
+#' \code{src/cube_centres.h} used to write two of these out by hand --- one for
+#' L, which step 2 builds, and one for D, where the rotation puts it. Both are
+#' read off the measured slice map instead: the layer of a face is that face
+#' plus whatever the slice lying beside it carries, and which of the two slices
+#' on the axis is the near one is settled by turning a solved cube and seeing
+#' which leaves the layer whole.
+#'
+#' The slots are numbered as \code{centre_slots_of} in the C++ numbers them,
+#' which is not the numbering \code{\link{cube_centre_structure}} uses --- that
+#' one runs along the face-turn cycle. The two tables are not comparable cell by
+#' cell.
+#'
+#' @param face Face index, 0 to 5, in the order U R F D L B.
+#' @return A \code{data.frame} of twelve rows with columns \code{face} and
+#'   \code{slot}.
+#' @seealso \code{\link{cube_reduce_cpp}}, \code{\link{cube_slice_map}}
+#' @examples
+#' # the layer beside L: all of L, and a column of each face around it
+#' cube_slice_cells_cpp(4)
+#'
+#' # every face has one, and each is twelve cells
+#' vapply(0:5, function(f) nrow(cube_slice_cells_cpp(f)), integer(1))
+#' @name cube_slice_cells_cpp
+#' @export
+NULL

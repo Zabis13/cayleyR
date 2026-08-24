@@ -317,3 +317,319 @@ cube_build_lslice <- function(state, n = NULL, max_rounds = 40L) {
   list(state = cur, path = path, count = C$score(cur), target = C$target,
        built = C$score(cur) >= C$target, rounds = rounds)
 }
+
+## ---- step 3: empty the U slice by shooting ---------------------------------
+##
+## With a layer built and turned to the bottom, the shots fire pieces off U
+## onto the side faces. Every shot leaves D exactly as it found it -- measured,
+## and the reason the stage is safe: whatever has been built and turned down
+## cannot be disturbed however many shots follow.
+##
+## Four things decide which shot, and each was arrived at by measurement after
+## a simpler rule failed:
+##
+##   aim, not improvement. The piece is named first and the shot chosen for it:
+##     a centre on U belonging to a side face, a shot firing at that face, and
+##     the U turn that brings the piece to that shot's entry slot. Asking
+##     instead for a shot that raises the count refuses the ones that work --
+##     over the stalls this replaces, every foreign piece had two shot-and-setup
+##     pairs that sent it home and none of the thirty-two raised the total. A
+##     piece going home displaces one already there, and the count recovers a
+##     shot or two later.
+##
+##   reloading. A shot is a 4-cycle: it takes a piece off U and pulls another
+##     up in exchange. Once U holds only pieces belonging to U there is nothing
+##     to place, and the way on is to spend one to bring up another. The test
+##     is the ammunition -- how many pieces on U belong to neither the top nor
+##     the bottom -- and not the count, which a reload lowers by design.
+##
+##   a target face. Ranking by the total treats every centre alike, and
+##     measured over thirty steps that took the total from 25 to 38 while the
+##     faces went 1 3 4 8 6 3 to 6 6 6 8 6 6 -- five faces at six of eight and
+##     none closed. Topping up five faces scores as much as closing one and is
+##     easier to find. So one face leads the ranking and the rest of the cube
+##     is the tie-break.
+##
+##   memory. Two pieces trading places leave every count where it was, so no
+##     arithmetic rule sees the loop; a state already visited is simply not
+##     entered again.
+##
+## What it does not do is finish. Measured over five scrambles, it takes a
+## 5x5x5 from 25 of 48 centres to about 36, and closes one face of six. The
+## last two or three pieces on U can be placed only at the cost of a side face
+## that is not finished either, and neither a slack in that guard (tried: 30.4
+## against 35.4) nor a target face (tried: 36.2 against 35.4) answers it.
+## Pochmann's remedy is the tilt, which needs three finished faces to be legal
+## and so cannot be reached from one. That is where this stops.
+
+.stage3_ctx <- function(n) {
+  C <- .lslice_ctx(n)
+  C$shots <- cube_centre_shots(n)
+  C$y <- cube_expand_move("y", n)
+  C$d_face <- 3L
+  C$movable <- is.na(C$fixed_orbit) | C$cs$orbit != C$fixed_orbit
+  C$per_face <- sum(C$movable) / 6L
+  C$u_sk <- C$cs$sticker[C$cs$face == 0L & C$movable]
+
+  C$face_full <- function(st, f) {
+    fr <- C$frame(st)
+    sk <- C$cs$sticker[C$cs$face == f & C$movable]
+    sum(C$colour_at(st, sk) == fr[f + 1L])
+  }
+  C$centres_home <- function(st) {
+    fr <- C$frame(st)
+    sum(C$colour_at(st, C$cs$sticker[C$movable]) ==
+        fr[C$cs$face[C$movable] + 1L])
+  }
+  C$ammunition <- function(st) {
+    fr <- C$frame(st)
+    cols <- C$colour_at(st, C$u_sk)
+    sum(cols != fr[1L] & cols != fr[C$d_face + 1L])
+  }
+  C$key <- function(st) paste(st[C$cs$sticker[C$movable]], collapse = ",")
+  C
+}
+
+## The fullest unfinished side face, lowest index breaking a tie so that a run
+## is repeatable. U is the working face and D holds what is built, so neither
+## is a candidate.
+.stage3_target <- function(st, C, skip = integer(0)) {
+  pick <- function(exclude) {
+    cand <- setdiff(0:5, c(0L, C$d_face, exclude))
+    if (!length(cand)) return(NA_integer_)
+    fill <- vapply(cand, function(f) C$face_full(st, f), integer(1))
+    open <- fill < C$per_face
+    if (!any(open)) return(NA_integer_)
+    cand <- cand[open]
+    cand[order(-fill[open], cand)][1]
+  }
+  t <- pick(skip)
+  if (is.na(t)) t <- pick(integer(0))   # everything set aside: grind on
+  t
+}
+
+.stage3_fire <- function(st, C, seen, target) {
+  fr <- C$frame(st)
+  col_up <- fr[1L]                 # a COLOUR: what belongs on top
+  col_down <- fr[C$d_face + 1L]    # a COLOUR: what belongs on the bottom
+
+  d_sk <- C$cs$sticker[C$cs$face == C$d_face & C$movable]
+  d_before <- st[d_sk]
+
+  side <- setdiff(0:5, c(0L, C$d_face))
+  side_sk <- C$cs$sticker[C$cs$face %in% side & C$movable]
+  side_fc <- C$cs$face[C$cs$face %in% side & C$movable]
+  side_home <- function(x) {
+    f2 <- C$frame(x)
+    sum(C$colour_at(x, side_sk) == f2[side_fc + 1L])
+  }
+  before_side <- side_home(st)
+  ammo_before <- C$ammunition(st)
+  now <- C$centres_home(st)
+  target_before <- if (is.na(target)) 0L else C$face_full(st, target)
+
+  best <- NULL
+  best_rank <- -1L
+
+  for (u in 0:3) {
+    base <- if (u) group_apply(C$g, st, rep("U", u)) else st
+    cols <- C$colour_at(base, C$u_sk)
+
+    for (k in seq_len(nrow(C$shots))) {
+      w <- strsplit(C$shots$word[k], " ", fixed = TRUE)[[1]]
+      cand <- group_apply(C$g, base, w)
+
+      if (!identical(cand[d_sk], d_before)) next
+      if (side_home(cand) < before_side) next
+      if (exists(C$key(cand), envir = seen, inherits = FALSE)) next
+
+      # Did some ammunition piece land on the face it belongs to? `to_face` is
+      # a POSITION; the piece's home is its COLOUR sent through the frame. The
+      # two are different questions, and reading one as the other counts the
+      # rotation twice.
+      placed <- FALSE
+      for (i in seq_along(C$u_sk)) {
+        col <- cols[i]
+        if (col == col_up || col == col_down) next
+        home <- which(fr == col) - 1L
+        if (!length(home) || home != C$shots$to_face[k]) next
+        j <- match(which(cand == base[C$u_sk[i]]), C$cs$sticker)
+        if (!is.na(j) && C$cs$face[j] == home) { placed <- TRUE; break }
+      }
+
+      ammo_after <- C$ammunition(cand)
+      gain <- C$centres_home(cand) - now
+      target_gain <- if (is.na(target)) 0L
+                     else C$face_full(cand, target) - target_before
+
+      if (placed) {
+        rank <- 10000L + 1000L * target_gain + 10L * gain +
+                (if (ammo_after >= ammo_before) 1L else 0L)
+      } else {
+        if (ammo_after <= ammo_before) next
+        rank <- 10L * (ammo_after - ammo_before)
+      }
+
+      if (rank > best_rank) {
+        best_rank <- rank
+        best <- list(st = cand, word = c(rep("U", u), w), placed = placed)
+      }
+    }
+  }
+  best
+}
+
+#' Empty the Top Face onto the Sides
+#'
+#' The third stage of Pochmann's centres, generalised. With a layer built by
+#' \code{\link{cube_build_lslice}} and turned to the bottom, the shots of
+#' \code{\link{cube_centre_shots}} fire pieces off U onto the side faces they
+#' belong to. Every shot leaves D untouched, so what has been built and turned
+#' down survives however many shots follow.
+#'
+#' @section How a shot is chosen:
+#' The piece is named first and the shot chosen for it, not the other way
+#' round: a centre on U belonging to a side face, a shot firing at that face,
+#' and the number of U turns that bring the piece to that shot's entry slot.
+#'
+#' Asking instead for a shot that raises the count refuses the ones that work.
+#' Measured on the positions where an earlier version stalled: every foreign
+#' piece had two shot-and-setup pairs that sent it home, and not one of the
+#' thirty-two combinations raised the total. A piece going home displaces one
+#' that was there already, and the count recovers a shot or two later.
+#'
+#' A shot has a second use as well. It is a 4-cycle --- it takes a piece off U
+#' and pulls another up in exchange --- so once U holds only pieces belonging
+#' to U, the way on is to spend one to bring up another. Such a reload lowers
+#' the count by design and is judged by the ammunition instead: how many pieces
+#' on U belong to neither the top face nor the bottom.
+#'
+#' @section What it reaches:
+#' Measured over five scrambles of a 5x5x5, it takes the cube from 25 centres
+#' home to about 36 of 48, closing one face. It does not finish: the last two
+#' or three pieces on U can be placed only at the cost of a side face that is
+#' unfinished too. Pochmann answers that with a tilt --- turning an unfinished
+#' face up to U --- but a tilt is only legal once three faces are done, and
+#' from one it cannot be reached. Widening the guard was tried and lost ground
+#' (30.4 centres against 35.4), and so was ranking by a target face (36.2).
+#'
+#' @param state Integer vector of \eqn{6n^2} stickers, with a layer already
+#'   built and turned to the bottom.
+#' @param n Side of the cube. Inferred from the length of \code{state} when
+#'   absent.
+#' @param max_shots Most shots to fire before giving up.
+#' @return List with components:
+#'   \item{state}{The cube after the moves}
+#'   \item{path}{Character vector of moves}
+#'   \item{count}{How many movable centres are home}
+#'   \item{target}{How many there are}
+#'   \item{faces}{How many faces are finished}
+#'   \item{shots}{How many shots were fired}
+#'   \item{reloads}{How many of those were reloads}
+#' @export
+#' @seealso \code{\link{cube_build_lslice}}, \code{\link{cube_centre_shots}},
+#'   \code{\link{cube_centre_counts}}
+#' @examples
+#' set.seed(1)
+#' g <- cube_group(5)
+#' s <- group_apply(g, group_identity(g),
+#'                  sample(cube_move_names(5), 40, replace = TRUE))
+#' \donttest{
+#' lay <- cube_build_lslice(s)
+#' down <- group_apply(g, lay$state, cube_expand_word("z'", 5))
+#' r <- cube_empty_u_slice(down)
+#' r$count
+#' r$faces
+#' }
+cube_empty_u_slice <- function(state, n = NULL, max_shots = 200L) {
+  state <- as.integer(state)
+
+  if (is.null(n)) {
+    n <- sqrt(length(state) / 6)
+    if (n != round(n) || n < 2)
+      stop("cube_empty_u_slice: a state of ", length(state),
+           " stickers is no cube; give n if it cannot be inferred",
+           call. = FALSE)
+    n <- as.integer(round(n))
+  }
+  n <- as.integer(n)
+  if (length(state) != 6L * n * n)
+    stop("cube_empty_u_slice: a ", n, "x", n, "x", n, " state has ",
+         6L * n * n, " stickers, got ", length(state), call. = FALSE)
+
+  C <- .stage3_ctx(n)
+  n_movable <- sum(C$movable)
+  if (!n_movable || !nrow(C$shots))
+    return(list(state = state, path = character(0), count = 0L, target = 0L,
+                faces = 0L, shots = 0L, reloads = 0L))
+
+  seen <- new.env(hash = TRUE, parent = emptyenv())
+  assign(C$key(state), TRUE, envir = seen)
+
+  path <- character(0)
+  fired <- 0L
+  reloads <- 0L
+  no_shot <- 0L
+  skip <- integer(0)
+  stuck <- 0L
+  best_count <- C$centres_home(state)
+  since_gain <- 0L
+  st <- state
+
+  # A face that will not grow for this many shots is set aside and the next
+  # fullest worked on instead; the set is cleared as soon as any face gains.
+  patience <- 6L
+  # Steps in a row without the total improving. Memory catches a loop that
+  # returns to a state; this catches one that wanders through fresh ones.
+  stall_limit <- 12L
+
+  for (guard in seq_len(max_shots)) {
+    if (C$centres_home(st) >= n_movable) break
+
+    target <- .stage3_target(st, C, skip)
+    had <- if (is.na(target)) 0L else C$face_full(st, target)
+
+    f <- .stage3_fire(st, C, seen, target)
+    if (!is.null(f)) {
+      st <- f$st
+      assign(C$key(st), TRUE, envir = seen)
+      path <- c(path, f$word)
+      fired <- fired + 1L
+      if (!isTRUE(f$placed)) reloads <- reloads + 1L
+      no_shot <- 0L
+
+      if (!is.na(target)) {
+        if (C$face_full(st, target) > had) { stuck <- 0L; skip <- integer(0) }
+        else {
+          stuck <- stuck + 1L
+          if (stuck >= patience) { skip <- c(skip, target); stuck <- 0L }
+        }
+      }
+
+      now <- C$centres_home(st)
+      if (now > best_count) { best_count <- now; since_gain <- 0L }
+      else {
+        since_gain <- since_gain + 1L
+        if (since_gain >= stall_limit) break
+      }
+      next
+    }
+
+    # Every side face has been offered every U slot and none wanted anything.
+    # Turn the cube about the vertical axis to bring a different pair into the
+    # shots' fixed roles. D is on the axis, so nothing built is at risk.
+    if (no_shot < 4L) {
+      st <- group_apply(C$g, st, C$y)
+      path <- c(path, C$y)
+      no_shot <- no_shot + 1L
+      next
+    }
+    break
+  }
+
+  list(state = st, path = path, count = C$centres_home(st),
+       target = n_movable,
+       faces = sum(vapply(0:5, function(f) C$face_full(st, f) == C$per_face,
+                          logical(1))),
+       shots = fired, reloads = reloads)
+}

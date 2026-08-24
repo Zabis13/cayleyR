@@ -11,6 +11,37 @@ test_that("a solved cube needs no moves", {
   expect_length(res$path, 0L)
 })
 
+test_that("start_face: all three settings solve, and full is never worse", {
+  set.seed(31)
+  moves <- cube_moves(4)
+  names(moves) <- cube_move_names(4)
+
+  for (i in 1:3) {
+    s <- generate_state(group = cube_group(4), n_moves = 12L)
+
+    res <- lapply(c("fixed", "reduction", "full"),
+                  function(sf) cube_solve4(s, start_face = sf))
+    names(res) <- c("fixed", "reduction", "full")
+
+    for (nm in names(res)) {
+      expect_true(res[[nm]]$found)
+      cur <- s
+      for (m in res[[nm]]$path) cur <- cur[moves[[m]]]
+      expect_true(cube_is_colour_solved(cur))
+    }
+
+    # "full" takes the shortest of six solves and the fixed face is one of the
+    # six, so it cannot come out longer. "reduction" optimises the stage rather
+    # than the answer and carries no such guarantee -- which is the reason
+    # "full" is the default.
+    expect_lte(length(res$full$path), length(res$fixed$path))
+  }
+})
+
+test_that("start_face rejects a name it does not know", {
+  expect_error(cube_solve4(cube_identity(4), start_face = "cheapest"))
+})
+
 test_that("cube_solve4 solves the cube outright", {
   set.seed(4)
   n <- 10L

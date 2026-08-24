@@ -41,6 +41,106 @@ cube_solve_centres <- function(state) {
   cube_centres_cpp(as.integer(state))
 }
 
+#' Reduce a 4x4x4, Trying Every Starting Face
+#'
+#' \code{\link{cube_reduce_cpp}} builds its first centre on one face and works
+#' from there. Which face that is was written into the pipeline as L; this runs
+#' it once per face and keeps the shortest reduction that actually reduces.
+#'
+#' @section Why the face matters:
+#' The method does not search for a short reduction, it follows a schedule --- a
+#' centre, the layer beside it, the rest shot down from the top, then the edges
+#' --- and the schedule runs whatever the cube arrived like. So the cost is
+#' decided by how the scramble happens to sit relative to the face the schedule
+#' starts on, and that is a property of the pairing, not of the cube.
+#'
+#' Measured over 200 scrambles of depth 2 to 20, six faces each, every path
+#' verified by replaying it (\code{inst/examples/} carries the survey):
+#'
+#' \itemize{
+#'   \item the default face is the best of the six on 22% of cubes;
+#'   \item the median cube reduces 26% shorter by picking the best face, and
+#'     30038 moves over the whole set become 19202 --- 64% of the default;
+#'   \item no face wins often enough to be a better default: U leads at 53 of
+#'     200 and L, the old default, still wins 28. The gain is in trying them.
+#' }
+#'
+#' The saving holds at every depth measured, from 94% at depth 2 down to about
+#' 18% at depth 20, where the default already costs some 190 moves.
+#'
+#' @section What it costs:
+#' Six reductions instead of one: about 0.32 seconds against 0.053 on the
+#' machine the survey ran on. Nothing is shared between the six --- each starts
+#' from the state as given.
+#'
+#' @param state Integer vector of 96 stickers.
+#' @param faces Which starting faces to try, 0 to 5 in the order U R F D L B.
+#'   Defaults to all six.
+#' @param verify Whether to replay each path and keep only those that leave the
+#'   cube reduced. On by default: a face that reports success without reducing
+#'   would otherwise win by being short.
+#' @return The result of \code{\link{cube_reduce_cpp}} for the best face, with
+#'   two components added: \code{face}, the face it started from, and
+#'   \code{tried}, a \code{data.frame} of every face with columns \code{face},
+#'   \code{found}, \code{n_moves} and \code{verified}. If no face reduces the
+#'   cube, the result of the first face tried is returned with \code{found}
+#'   left as it came.
+#' @export
+#' @seealso \code{\link{cube_reduce_cpp}}, \code{\link{cube_solve4}},
+#'   \code{\link{cube_is_reduced}}
+#' @examples
+#' set.seed(42)
+#' s <- generate_state(group = cube_group(4), n_moves = 12)
+#' \donttest{
+#' res <- cube_reduce_best(s)
+#' res$face
+#' res$tried
+#' length(res$path) <= length(cube_reduce_cpp(s)$path)
+#' }
+cube_reduce_best <- function(state, faces = 0:5, verify = TRUE) {
+  state <- as.integer(state)
+  faces <- as.integer(faces)
+  if (!length(faces) || any(is.na(faces)) || any(faces < 0L | faces > 5L))
+    stop("cube_reduce_best: faces must be numbers from 0 to 5", call. = FALSE)
+
+  moves <- cube_moves(4L)
+  names(moves) <- cube_move_names(4L)
+  replay <- function(s, path) {
+    for (m in path) s <- s[moves[[m]]]
+    s
+  }
+
+  runs <- lapply(faces, function(f) cube_reduce_cpp(state, f))
+
+  # A path counts only if it reduces the cube. The solver says whether it
+  # thinks it finished; replaying is what checks, and the shortest word is
+  # picked among the ones that pass -- never among what was merely reported.
+  ok <- vapply(runs, function(r) isTRUE(r$found), logical(1))
+  verified <- ok
+  if (verify) {
+    for (i in which(ok))
+      verified[i] <- isTRUE(cube_is_reduced(replay(state, runs[[i]]$path), 4L))
+  }
+
+  n_moves <- vapply(runs, function(r) length(r$path), integer(1))
+  tried <- data.frame(face = faces, found = ok, n_moves = n_moves,
+                      verified = verified, stringsAsFactors = FALSE)
+
+  usable <- which(verified)
+  if (!length(usable)) {
+    out <- runs[[1]]
+    out$face <- faces[1]
+    out$tried <- tried
+    return(out)
+  }
+
+  best <- usable[which.min(n_moves[usable])]
+  out <- runs[[best]]
+  out$face <- faces[best]
+  out$tried <- tried
+  out
+}
+
 #' Count the Centre Pieces That Are Home
 #'
 #' How many centre pieces show the colour of the face they sit on, counted per

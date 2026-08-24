@@ -140,6 +140,93 @@ DataFrame cube_slice_map_cpp() {
                            _["to_slot"] = ts, _["stringsAsFactors"] = false);
 }
 
+// ---- one pipeline, four entry points ---------------------------------------
+//
+// Four exports used to build the same centres by copy: each wrote out
+// as_state_4, a Solution, a try block and the same calls, and three of them
+// wrote the target face as the literal 4. The steps are shared here instead, so
+// that the face is a parameter of the method rather than of one caller.
+//
+// Why the face was a literal: build_l_slice wants the first centre already on
+// L, so building it anywhere else costs a rotation. That is a good reason to
+// DEFAULT to L and no reason to be unable to ask for another -- and which face
+// is cheapest depends on the cube, which is the thing being measured.
+
+// The rotation that sends a face to the bottom, where step 3's shots cannot
+// reach it. Read off the same table rotate_orient uses: the entry whose to[]
+// sends this role to 3. U is the one face no single quarter turn brings down.
+inline std::vector<std::string> rotation_to_bottom(int face) {
+  std::vector<std::string> out;
+  switch (face) {
+    case 0: out.push_back("x");  out.push_back("x");  break;  // U -> B -> D
+    case 1: out.push_back("z");  break;                       // R -> D
+    case 2: out.push_back("x'"); break;                       // F -> D
+    case 3: break;                                            // D: already there
+    case 4: out.push_back("z'"); break;                       // L -> D
+    case 5: out.push_back("x");  break;                       // B -> D
+    default: throw std::runtime_error("cube_centres: no such face");
+  }
+  return out;
+}
+
+// Step 1 and step 2: a centre on `target_face`, then the layer beside it.
+inline bool build_centre_and_slice(std::vector<int>& cur, Solution& sol,
+                                   Orient& o, int target_face) {
+  if (!build_first_centre(cur, sol, o, target_face, "first centre")) {
+    sol.failure = "could not build the first centre";
+    return false;
+  }
+  if (!build_l_slice(cur, sol, o, "l-slice", target_face)) {
+    sol.failure = "could not finish the l-slice";
+    return false;
+  }
+  return true;
+}
+
+// Steps 3 and 4, with the rotation that puts the built layer out of reach
+// first. Returns the orientation step 5 must go on with through `after`.
+inline bool finish_centres(std::vector<int>& cur, Solution& sol, Orient& o,
+                           int target_face, Orient* after) {
+  *after = o;
+  // A cube handed in with its centres built needs no moves, and the rotation
+  // below would put four in the path for nothing.
+  if (centres_built(cur, o)) return true;
+
+  // Pochmann turns the cube so the built face goes to the bottom, where the
+  // shots of step 3 cannot touch it.
+  const std::vector<std::string> rots = rotation_to_bottom(target_face);
+  for (size_t i = 0; i < rots.size(); i++) {
+    // rotation_moves spells the rotation in package moves -- the same words the
+    // rest of the file uses, rather than a second copy of the table here.
+    push_stage(sol, cur, "rotate", rots[i].c_str(),
+               parse_word(rotation_moves(rots[i]), 4));
+    o = rotate_orient(o, rots[i].c_str());
+  }
+  *after = o;
+
+  // empty_u_slice reports whether it finished, but it also turns the cube as it
+  // works, so the orientation it left off in is what the next step must use.
+  bool done = empty_u_slice(cur, sol, o, after, "u-slice");
+  // Step 3 shoots pieces down from U and is helpless once U holds nothing worth
+  // shooting -- measured, that is how it fails: a finished U, four faces done,
+  // and the last pieces swapped between two other faces. Swapping them directly
+  // is a different tool, so it is a different stage.
+  if (!done) done = settle_pairs(cur, sol, *after, "pairs");
+  if (!done) sol.failure = "could not finish the centres";
+  return done;
+}
+
+// The twelve cells of the layer beside a face, for checking the derived table
+// against the hand-measured ones it replaces.
+// [[Rcpp::export]]
+DataFrame cube_slice_cells_cpp(int face) {
+  const std::vector<SliceCell>& v = slice_cells_of(face);
+  IntegerVector f(v.size()), s(v.size());
+  for (size_t i = 0; i < v.size(); i++) { f[i] = v[i].face; s[i] = v[i].slot; }
+  return DataFrame::create(_["face"] = f, _["slot"] = s,
+                           _["stringsAsFactors"] = false);
+}
+
 // [[Rcpp::export]]
 List cube_first_centre_cpp(IntegerVector state, int target_face) {
   const std::vector<int> s = as_state_4(state);
@@ -164,18 +251,14 @@ int cube_l_slice_count_cpp(IntegerVector state) {
 }
 
 // [[Rcpp::export]]
-List cube_centres_12_cpp(IntegerVector state) {
+List cube_centres_12_cpp(IntegerVector state, int target_face = 4) {
   const std::vector<int> s = as_state_4(state);
   Solution sol;
   sol.solved = false;
   std::vector<int> cur = s;
   try {
-    // Step 1 builds a centre; build it straight onto L, which is where step 2
-    // wants it, rather than building elsewhere and turning the cube.
     Orient o;
-    if (build_first_centre(cur, sol, o, 4, "first centre")) {
-      sol.solved = build_l_slice(cur, sol, o, "l-slice");
-    }
+    sol.solved = build_centre_and_slice(cur, sol, o, target_face);
   } catch (const std::exception& e) {
     sol.solved = false;
     sol.failure = e.what();
@@ -184,47 +267,17 @@ List cube_centres_12_cpp(IntegerVector state) {
 }
 
 // [[Rcpp::export]]
-List cube_centres_cpp(IntegerVector state) {
+List cube_centres_cpp(IntegerVector state, int target_face = 4) {
   const std::vector<int> s = as_state_4(state);
   Solution sol;
   sol.solved = false;
   std::vector<int> cur = s;
   try {
     Orient o;
-    if (!build_first_centre(cur, sol, o, 4, "first centre")) {
-      sol.failure = "could not build the first centre";
+    if (!build_centre_and_slice(cur, sol, o, target_face))
       return solution_to_r_4(sol);
-    }
-    if (!build_l_slice(cur, sol, o, "l-slice")) {
-      sol.failure = "could not finish the l-slice";
-      return solution_to_r_4(sol);
-    }
-    // Already done -- a cube handed in with its centres built needs no moves,
-    // and the rotation below would put four in the path for nothing.
-    if (centres_built(cur, o)) {
-      sol.solved = true;
-      return solution_to_r_4(sol);
-    }
-
-    // Pochmann turns the cube so the built face goes to the bottom, where the
-    // shots of step 3 cannot touch it. Measured: z' is the rotation that sends
-    // L to D.
-    push_stage(sol, cur, "rotate", "z'",
-               parse_word("B 1z' 2z' F'", 4));
-    o = rotate_orient(o, "z'");
-    // empty_u_slice reports whether it finished, but it also turns the cube as
-    // it works, so the orientation it left off in is what step 4 must use. It
-    // is recomputed rather than returned: the stage only ever turns with y and
-    // the tilts, and those are recorded in the stage list.
     Orient after = o;
-    sol.solved = empty_u_slice(cur, sol, o, &after, "u-slice");
-
-    // Step 4. Step 3 shoots pieces down from U and is helpless once U holds
-    // nothing worth shooting -- measured, that is how it fails: a finished U,
-    // four faces done, and the last pieces swapped between two other faces.
-    // Swapping them directly is a different tool, so it is a different stage.
-    if (!sol.solved) sol.solved = settle_pairs(cur, sol, after, "pairs");
-    if (!sol.solved) sol.failure = "could not finish the centres";
+    sol.solved = finish_centres(cur, sol, o, target_face, &after);
   } catch (const std::exception& e) {
     sol.solved = false;
     sol.failure = e.what();
@@ -233,33 +286,19 @@ List cube_centres_cpp(IntegerVector state) {
 }
 
 // [[Rcpp::export]]
-List cube_reduce_cpp(IntegerVector state) {
+List cube_reduce_cpp(IntegerVector state, int target_face = 4) {
   const std::vector<int> s = as_state_4(state);
   Solution sol;
   sol.solved = false;
   std::vector<int> cur = s;
   try {
     Orient o;
-    if (!build_first_centre(cur, sol, o, 4, "first centre")) {
-      sol.failure = "could not build the first centre";
+    if (!build_centre_and_slice(cur, sol, o, target_face))
       return solution_to_r_4(sol);
-    }
-    if (!build_l_slice(cur, sol, o, "l-slice")) {
-      sol.failure = "could not finish the l-slice";
-      return solution_to_r_4(sol);
-    }
+
     Orient after = o;
-    if (!centres_built(cur, o)) {
-      push_stage(sol, cur, "rotate", "z'", parse_word("B 1z' 2z' F'", 4));
-      o = rotate_orient(o, "z'");
-      after = o;
-      bool done = empty_u_slice(cur, sol, o, &after, "u-slice");
-      if (!done) done = settle_pairs(cur, sol, after, "pairs");
-      if (!done) {
-        sol.failure = "could not finish the centres";
-        return solution_to_r_4(sol);
-      }
-    }
+    if (!finish_centres(cur, sol, o, target_face, &after))
+      return solution_to_r_4(sol);
 
     // Stage two: the edges. The centres are built and every algorithm below
     // was measured to leave them that way, so the guard is a check, not a

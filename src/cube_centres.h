@@ -195,26 +195,67 @@ inline int faces_finished(const std::vector<int>& state, const Orient& o) {
 // colour of the face it lies on.
 struct SliceCell { int face; int slot; };
 
-inline const std::vector<SliceCell>& l_slice_cells() {
-  static std::vector<SliceCell> v;
-  if (v.empty()) {
-    const int F_U = 0, F_F = 2, F_D = 3, F_L = 4, F_B = 5;
-    const int col13[3] = {F_U, F_F, F_D};
-    for (int k = 1; k <= 4; k++) { SliceCell c = {F_L, k}; v.push_back(c); }
-    for (int i = 0; i < 3; i++) {
-      SliceCell a = {col13[i], 1}; v.push_back(a);
-      SliceCell b = {col13[i], 3}; v.push_back(b);
-    }
-    SliceCell b2 = {F_B, 2}; v.push_back(b2);
-    SliceCell b4 = {F_B, 4}; v.push_back(b4);
+// Defined below, with the table for every face.
+inline const std::vector<SliceCell>& slice_cells_of(int face);
+
+inline const std::vector<SliceCell>& l_slice_cells() { return slice_cells_of(4); }
+
+// The layer beside a face, for every face.
+//
+// The layer of face f is what the WIDE turn of f moves -- the face together
+// with the slice lying against it. That is the definition the L table above was
+// measured from, and the same measurement answers for the other five: apply
+// Uw/Rw/Fw/Dw/Lw/Bw to a solved cube and keep the centre cells that moved.
+//
+// Measured in inst/examples/diag_layer_tables.R and checked there against both
+// hand-written tables -- face 4 reproduces l_slice_cells and face 3 reproduces
+// d_slice_cells, cell for cell. Every layer comes out twelve cells, holds all
+// four slots of its own face, spans five faces (the sixth being the one
+// opposite) and is closed under its own wide turn.
+//
+// A first attempt derived these from slice_maps() and was wrong: it picked the
+// near slice of an axis by asking whether the layer's cells still showed their
+// own colours after the slice turned, which no slice can satisfy, since turning
+// a layer carries its cells between the faces of the ring by design. Set
+// membership is the invariant, not colour -- and that does not separate the two
+// slices of an axis either. The wide turn names the layer outright instead of
+// testing for it.
+inline const std::vector<SliceCell>& slice_cells_of(int face) {
+  static std::vector<SliceCell> v[6];
+  static bool built = false;
+  if (!built) {
+    // Slots are the numbering of centre_slots_of: face*16 + {5,6,9,10}.
+    static const int table[6][12][2] = {
+      // U: U1 U2 U3 U4  R1 R2  F1 F2  L1 L2  B1 B2
+      {{0,1},{0,2},{0,3},{0,4},{1,1},{1,2},{2,1},{2,2},{4,1},{4,2},{5,1},{5,2}},
+      // R: U2 U4  R1 R2 R3 R4  F2 F4  D2 D4  B1 B3
+      {{0,2},{0,4},{1,1},{1,2},{1,3},{1,4},{2,2},{2,4},{3,2},{3,4},{5,1},{5,3}},
+      // F: U3 U4  R1 R3  F1 F2 F3 F4  D1 D2  L2 L4
+      {{0,3},{0,4},{1,1},{1,3},{2,1},{2,2},{2,3},{2,4},{3,1},{3,2},{4,2},{4,4}},
+      // D: R3 R4  F3 F4  D1 D2 D3 D4  L3 L4  B3 B4
+      {{1,3},{1,4},{2,3},{2,4},{3,1},{3,2},{3,3},{3,4},{4,3},{4,4},{5,3},{5,4}},
+      // L: U1 U3  F1 F3  D1 D3  L1 L2 L3 L4  B2 B4
+      {{0,1},{0,3},{2,1},{2,3},{3,1},{3,3},{4,1},{4,2},{4,3},{4,4},{5,2},{5,4}},
+      // B: U1 U2  R2 R4  D3 D4  L1 L3  B1 B2 B3 B4
+      {{0,1},{0,2},{1,2},{1,4},{3,3},{3,4},{4,1},{4,3},{5,1},{5,2},{5,3},{5,4}}
+    };
+    for (int f = 0; f < 6; f++)
+      for (int k = 0; k < 12; k++) {
+        SliceCell c = {table[f][k][0], table[f][k][1]};
+        v[f].push_back(c);
+      }
+    built = true;
   }
-  return v;
+  if (face < 0 || face > 5)
+    throw std::runtime_error("cube_centres: no such face");
+  return v[face];
 }
 
-// How many of the l-slice's twelve centre pieces show the colour of the face
-// they sit on.
-inline int l_slice_count(const std::vector<int>& state, const Orient& o) {
-  const std::vector<SliceCell>& cells = l_slice_cells();
+// How many of a layer's twelve centre pieces show the colour of the face they
+// sit on.
+inline int slice_count_of(const std::vector<int>& state, const Orient& o,
+                          int face) {
+  const std::vector<SliceCell>& cells = slice_cells_of(face);
   int c = 0;
   for (size_t i = 0; i < cells.size(); i++) {
     const int* sl = centre_slots_of(cells[i].face);
@@ -223,17 +264,24 @@ inline int l_slice_count(const std::vector<int>& state, const Orient& o) {
   return c;
 }
 
+inline int l_slice_count(const std::vector<int>& state, const Orient& o) {
+  return slice_count_of(state, o, 4);
+}
+
+inline bool slice_built_of(const std::vector<int>& state, const Orient& o,
+                           int face) {
+  return slice_count_of(state, o, face) == 12;
+}
+
 inline bool l_slice_built(const std::vector<int>& state, const Orient& o) {
-  return l_slice_count(state, o) == 12;
+  return slice_built_of(state, o, 4);
 }
 
 // ---- The d-slice ---------------------------------------------------------
 //
 // The same layer, after the cube has been turned so that the built face is at
-// the bottom. Rather than carry an orientation through every function, the
-// rotation is applied to the cube and the layer is named again in its new
-// place -- which is a table of twelve cells, measured by turning z' and
-// following each l-slice cell:
+// the bottom -- a table of twelve cells, measured by turning z' and following
+// each l-slice cell:
 //
 //   L1 -> D3   L2 -> D1   L3 -> D4   L4 -> D2
 //   U1 -> L3   U3 -> L4   F1 -> F3   F3 -> F4
@@ -242,18 +290,13 @@ inline bool l_slice_built(const std::vector<int>& state, const Orient& o) {
 // so the d-slice is D entire, plus slots 3 and 4 of L, F, R and B. This is
 // what step 3 must not disturb, and the shots were measured to leave D alone
 // -- which is only half of it, so the count below is what actually checks.
+//
+// This is the layer of D, and slice_cells_of knows it as such -- the wide-turn
+// measurement gives the same twelve cells, checked. Step 3 reads it because the
+// rotation before it always brings the built layer here, whichever face it was
+// built on.
 inline const std::vector<SliceCell>& d_slice_cells() {
-  static std::vector<SliceCell> v;
-  if (v.empty()) {
-    const int F_R = 1, F_F = 2, F_D = 3, F_L = 4, F_B = 5;
-    for (int k = 1; k <= 4; k++) { SliceCell c = {F_D, k}; v.push_back(c); }
-    const int sides[4] = {F_L, F_F, F_R, F_B};
-    for (int i = 0; i < 4; i++) {
-      SliceCell a = {sides[i], 3}; v.push_back(a);
-      SliceCell b = {sides[i], 4}; v.push_back(b);
-    }
-  }
-  return v;
+  return slice_cells_of(3);
 }
 
 inline int d_slice_count(const std::vector<int>& state, const Orient& o) {
@@ -991,8 +1034,8 @@ inline bool build_first_centre(std::vector<int>& state, Solution& sol,
 // and the count is read at the end, never in the middle.
 inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
                            const Orient& o,
-                           const std::string& label) {
-  const int before = l_slice_count(state, o);
+                           const std::string& label, int face = 4) {
+  const int before = slice_count_of(state, o, face);
 
   // (Ll) carries the whole l-slice away with it, so on its own it can only
   // make things worse -- measured: every one of its three turns drops the
@@ -1025,7 +1068,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
 
   for (int i = 0; direct_moves[i]; i++) {
     const std::vector<int> after = apply_word(state, parse_word(direct_moves[i], 4));
-    if (l_slice_count(after, o) > before) {
+    if (slice_count_of(after, o, face) > before) {
       push_stage(sol, state, label, "", parse_word(direct_moves[i], 4));
       return true;
     }
@@ -1042,7 +1085,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
     const std::vector<int> mid = apply_word(state, parse_word(direct_moves[i], 4));
     for (int j = 0; direct_moves[j]; j++) {
       const std::vector<int> after = apply_word(mid, parse_word(direct_moves[j], 4));
-      if (l_slice_count(after, o) > before) {
+      if (slice_count_of(after, o, face) > before) {
         const std::string word = std::string(direct_moves[i]) + " " + direct_moves[j];
         push_stage(sol, state, label, "", parse_word(word, 4));
         return true;
@@ -1059,7 +1102,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
       const std::vector<int> b = apply_word(a, parse_word(direct_moves[j], 4));
       for (int k = 0; direct_moves[k]; k++) {
         const std::vector<int> after = apply_word(b, parse_word(direct_moves[k], 4));
-        if (l_slice_count(after, o) > before) {
+        if (slice_count_of(after, o, face) > before) {
           const std::string word = std::string(direct_moves[i]) + " " +
                                    direct_moves[j] + " " + direct_moves[k];
           push_stage(sol, state, label, "", parse_word(word, 4));
@@ -1102,7 +1145,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
       };
       for (int k = 0; k < 3; k++) {
         const std::vector<int> after = apply_word(state, parse_word(words[k], 4));
-        if (l_slice_count(after, o) > before) {
+        if (slice_count_of(after, o, face) > before) {
           push_stage(sol, state, label, "", parse_word(words[k], 4));
           return true;
         }
@@ -1123,7 +1166,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
                                  free_moves[a] + " " + free_moves[b] + " " +
                                  back_moves[q];
         const std::vector<int> after = apply_word(state, parse_word(word, 4));
-        if (l_slice_count(after, o) > before) {
+        if (slice_count_of(after, o, face) > before) {
           push_stage(sol, state, label, "", parse_word(word, 4));
           return true;
         }
@@ -1137,7 +1180,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
       const std::string word = std::string(out_moves[q]) + " " +
                                free_moves[a] + " " + back_moves[q];
       const std::vector<int> after = apply_word(state, parse_word(word, 4));
-      if (l_slice_count(after, o) > before) {
+      if (slice_count_of(after, o, face) > before) {
         push_stage(sol, state, label, "", parse_word(word, 4));
         return true;
       }
@@ -1156,7 +1199,7 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
                                    free_moves[a] + " " + free_moves[b] + " " +
                                    free_moves[c] + " " + back_moves[q];
           const std::vector<int> after = apply_word(state, parse_word(word, 4));
-          if (l_slice_count(after, o) > before) {
+          if (slice_count_of(after, o, face) > before) {
             push_stage(sol, state, label, "", parse_word(word, 4));
             return true;
           }
@@ -1168,12 +1211,13 @@ inline bool l_slice_insert(std::vector<int>& state, Solution& sol,
 }
 
 inline bool build_l_slice(std::vector<int>& state, Solution& sol,
-                          const Orient& o, const std::string& label) {
+                          const Orient& o, const std::string& label,
+                          int face = 4) {
   for (int guard = 0; guard < 48; guard++) {
-    if (l_slice_built(state, o)) return true;
-    if (!l_slice_insert(state, sol, o, label)) return false;
+    if (slice_built_of(state, o, face)) return true;
+    if (!l_slice_insert(state, sol, o, label, face)) return false;
   }
-  return l_slice_built(state, o);
+  return slice_built_of(state, o, face);
 }
 
 // Turning the whole cube about the vertical axis. This is what makes the four

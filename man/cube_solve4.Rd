@@ -4,7 +4,12 @@
 \alias{cube_solve4}
 \title{Solve a 4x4x4 Cube by Reduction}
 \usage{
-cube_solve4(state, method = c("cfop", "kociemba", "lbl", "m2", "pochmann"))
+cube_solve4(
+  state,
+  method = c("cfop", "kociemba", "lbl", "m2", "pochmann"),
+  orientations = 1L,
+  start_face = c("full", "reduction", "fixed")
+)
 }
 \arguments{
 \item{state}{Integer vector of 96 stickers, a reachable cube state --- from
@@ -21,6 +26,66 @@ Parity is detected with CFOP whichever is chosen, because refusing a state
 is how the parity cases are found at all, and only CFOP knows the 57 OLL
 and 21 PLL cases well enough to refuse. The chosen solver sees the cube
 after any repair.}
+
+\item{orientations}{How many ways of holding the cube to try, keeping the
+shortest answer. One --- the default --- solves the cube as it arrives and
+is what this function has always done.
+
+The reduction works the faces in a fixed order, and a scramble leaves the
+cube in whatever orientation it leaves it in, so that order lands well or
+badly by chance. Measured over the 24 orientations of one cube, the
+reduction returned words from 139 moves to 312 --- the same cube
+throughout, since a rotation moves no piece relative to another, so the
+whole of that range is the view rather than the position.
+
+Trying a few and keeping the least is therefore not a search for a better
+answer but for a better vantage. Measured over twenty cubes, counting the
+turn and its undoing as the moves they are, and passing each result
+through \code{\link{short_path_bfs}} as a caller would:
+
+\tabular{lrrr}{
+\tab solver \tab shipped \tab seconds \cr
+1 orientation \tab 231 \tab 203 \tab 3.7 \cr
+8 \tab 205 \tab 181 \tab 4.4 \cr
+24 \tab 191 \tab 172 \tab 7.0
+}
+
+Eight is the bargain: eleven per cent shorter for a fifth more time. The
+last four per cent cost four times as much again --- the solve itself is
+cheap and it is the shortener that spends the seconds, and a shorter path
+is quicker to shorten, which pays part of the sweep back.
+
+This multiplies with \code{start_face}: each orientation tried is solved
+from whichever face that setting picks.}
+
+\item{start_face}{How to choose the face the first centre is built on.
+
+\code{"full"}, the default, solves from all six and keeps the shortest
+solution. \code{"reduction"} keeps the face that reduces shortest, which is
+cheaper but optimises the stage rather than the answer.  \code{"fixed"} is
+the single face the pipeline was written to, and what this function did
+before the choice existed.
+
+Measured over 40 scrambles of depth 2 to 20, total moves against
+\code{"fixed"}, and the seconds a cube costs:
+
+\tabular{lrrr}{
+\tab total \tab of fixed \tab seconds \cr
+fixed \tab 9794 \tab 100\\% \tab 0.06 \cr
+reduction \tab 7396 \tab 76\\% \tab 0.32 \cr
+full \tab 6064 \tab 62\\% \tab 1.70
+}
+
+\code{"full"} is never worse than \code{"fixed"} --- the fixed face is one
+of the six it compares --- while \code{"reduction"} was worse on 4 of the
+40, once by 152 moves. The two agree on about half the cubes and diverge
+most from depth 6 up, where solutions are longest.
+
+The default stays at one so that existing callers keep the time they
+expect; eight is a thing to ask for, not to be given. And the eight is
+measured on a 4x4x4 with these twenty cubes --- the shape of the curve on
+another size, or on a differently distributed set of cubes, is not known,
+and picking the number again there means measuring it again.}
 }
 \value{
 List with components:
@@ -49,6 +114,61 @@ Expect roughly 300 quarter turns. The method is layer by layer throughout
 and makes no attempt at brevity; a search-based solver reaches the same cube
 in a fraction of the moves and a great deal more time.
 }
+\section{What the reduction costs, and why}{
+
+The length is a property of the method rather than of the position, and the
+clearest case measured is this. A cube eight moves from solved --- scrambled
+by \code{R' D U U' 2z B 1x' 1z'} --- was reduced in 204 moves. Walking the
+inverse scramble back shows a reduced state four moves away: the fourth move
+of the way home already satisfies \code{\link{cube_is_reduced}}. The method
+built one in two hundred and four while one lay in four.
+
+It is not a defect of the implementation. The reduction does not look for
+the NEAREST reduced state; it builds its own by a fixed schedule --- one
+centre, then the layer beside it, then the top slice emptied, then the edge
+pairs --- and every stage runs whatever the cube arrived like. Following one
+such solution move by move, 74\\% of the moves changed neither the count of
+centres home nor the count of edges paired. The edge stage spent 107 moves
+pairing twelve edges, nine apiece, with the centres flickering between four
+and eight all the way: take them apart, pair an edge, put them back.
+
+That is also why no cheap test predicts the price. The sum of missing
+centres, their arrangement over the faces, and the number of unpaired edges
+were each measured against the length over 420 cubes, and none separates a
+cheap cube from an expensive one --- because there is little to separate.
+Only the threshold shows: while a cube is still reduced the stage does
+almost nothing (three to eight moves), and once it is not, the schedule runs
+in full at a price that barely depends on how far from solved it is.
+
+Searching for a nearby reduced state instead does not rescue this. Reduced
+is a weak condition and countless states satisfy it, but iterative deepening
+still walks the whole tree to each depth before the next, so the many goals
+buy nothing --- measured, a fourteen-move scramble did not finish inside six
+minutes at depth six. Using the gap would want a prune table over the
+distance to reduced, which is what \code{\link{cube_kociemba}} has for the
+3x3x3 and this does not.
+
+What does help is choosing where the schedule starts. If the price turns on
+how the scramble sits relative to the face the first centre is built on, then
+that face is worth picking rather than fixing, and \code{start_face} below is
+how it is picked. Measured over 200 scrambles, the face that had been written
+into the pipeline is the best of the six on 22\\% of cubes; the reduction
+stage alone falls to 64\\% of its length when all six are tried.
+
+Picking by the reduction is not the same as picking by the answer, though,
+and the difference is not small. A short reduction can leave the cube in a
+parity a longer one avoids, and the fifty moves that costs outweigh what it
+saved. Over 40 scrambles the two criteria chose differently on 48\\% of cubes,
+the reduction criterion losing 70 moves on average and 152 at worst --- and
+on four of the forty it produced a solution LONGER than the fixed face would
+have. Choosing on the finished solution cannot do that, since the fixed face
+is one of the six it compares.
+
+\code{orientations} below is the same effect reached from the other side: the
+same cube held differently reduces in anything from 139 moves to 312, and
+that range is the view rather than the position.
+}
+
 \examples{
 set.seed(42)
 s <- generate_state(group = cube_group(4), n_moves = 40)

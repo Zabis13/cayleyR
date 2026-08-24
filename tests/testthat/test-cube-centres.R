@@ -127,3 +127,65 @@ test_that("centre counts infer n, and reject a length that is no cube", {
   expect_error(cube_centre_counts(1:50), "no cube")
   expect_error(cube_centre_counts(cube_identity(5), n = 4), "stickers")
 })
+
+# ---- reducing from every face --------------------------------------------
+
+test_that("every starting face reduces the cube", {
+  # The pipeline used to build its first centre on L and nowhere else; the
+  # other five faces had no layer table and could not get past step 2. This is
+  # what says they can now -- and it replays each path rather than believing
+  # what the solver reports.
+  set.seed(3)
+  moves <- cube_moves(4)
+  names(moves) <- cube_move_names(4)
+
+  for (i in 1:3) {
+    s <- generate_state(group = cube_group(4), n_moves = 12L)
+    for (f in 0:5) {
+      res <- cube_reduce_cpp(s, f)
+      expect_true(res$found)
+
+      cur <- s
+      for (m in res$path) cur <- cur[moves[[m]]]
+      expect_true(cube_is_reduced(cur, 4L))
+    }
+  }
+})
+
+test_that("cube_reduce_best picks the shortest verified face", {
+  set.seed(19)
+  s <- generate_state(group = cube_group(4), n_moves = 12L)
+  res <- cube_reduce_best(s)
+
+  expect_true(res$found)
+  expect_true(res$face %in% 0:5)
+  expect_equal(nrow(res$tried), 6L)
+
+  # the reported best really is the shortest of the verified ones
+  ok <- res$tried$verified
+  expect_true(any(ok))
+  expect_equal(length(res$path), min(res$tried$n_moves[ok]))
+
+  # and it is no worse than the old fixed default
+  expect_lte(length(res$path), length(cube_reduce_cpp(s)$path))
+
+  # the path it returns reduces the cube when replayed
+  moves <- cube_moves(4)
+  names(moves) <- cube_move_names(4)
+  cur <- s
+  for (m in res$path) cur <- cur[moves[[m]]]
+  expect_true(cube_is_reduced(cur, 4L))
+})
+
+test_that("cube_reduce_best honours a shorter list of faces", {
+  set.seed(23)
+  s <- generate_state(group = cube_group(4), n_moves = 10L)
+  res <- cube_reduce_best(s, faces = c(4L, 0L))
+
+  expect_equal(nrow(res$tried), 2L)
+  expect_equal(sort(res$tried$face), c(0L, 4L))
+  expect_true(res$face %in% c(0L, 4L))
+
+  expect_error(cube_reduce_best(s, faces = 7L), "0 to 5")
+  expect_error(cube_reduce_best(s, faces = integer(0)), "0 to 5")
+})

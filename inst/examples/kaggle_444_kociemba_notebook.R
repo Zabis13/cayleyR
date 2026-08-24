@@ -7,29 +7,37 @@
 # edge pairs, parity -- and differ only in what finishes the cube once it is a
 # 3x3x3, so the spread between them is exactly what that choice costs.
 #
-# Measured over a hundred random cubes, seed 1, forty-move scrambles:
+# Measured over a hundred random cubes, seed 1, forty-move scrambles. These
+# numbers predate two changes and are kept for the comparison between the two
+# 3x3x3 stages, which is what they were taken for; the absolute figures are
+# stale. The reduction now tries all six starting faces and keeps the shortest
+# (cube_reduce_best), which took the stage to 64% of its fixed-face length over
+# 200 scrambles at six times the reduction time; and the CFOP fallback below is
+# gone, so a cube Kociemba cannot finish is now a failed row rather than a
+# longer one.
 #
 #     red+cfop        315.2 moves, 0.08 s per cube, 100 of 100 solved
 #     red+kociemba    251.1 moves, 0.38 s per cube, 100 of 100 solved
 #
 # Twenty per cent shorter, on every one of the hundred -- not on average with
-# exceptions, but on all of them, the gain running from ten to twenty-eight per
-# cent. The cost is a third of a second per cube, which is nothing beside the
-# twenty-five seconds a cascade spends learning that a cube will not reduce.
+# exceptions, but on all of them, the gain running from ten to twenty-eight
+# per cent.
+#
+# The shortener does not eat that gain, which is the thing worth checking
+# before choosing: a shorter path might have had less slack to take out. On
+# ten cubes at depth 3 it removed 17.1% from CFOP and 17.4% from Kociemba --
+# the same proportion, so the two gains compound rather than overlap:
+#
+#     red+cfop        331.0 -> 274.4 moves, 4.56 s per cube
+#     red+kociemba    266.2 -> 219.8 moves, 3.94 s per cube
+#
+# Kociemba is the faster of the two overall despite the slower solve, because
+# the shortener has less path to work through.
 #
 # This notebook was worth writing only after cube_solve4(method = "kociemba")
 # was repaired: it used to fail on every cube, because cube_kociemba() returned
 # a bare word where the other four solvers returned a list, and reading $found
 # off a character vector is an error rather than FALSE.
-#
-# ---- the shortener ---------------------------------------------------------
-#
-# short_position() is TopSpin's and does nothing to a cube path: it collapses
-# runs of the shift operators, which cube notation does not have. The one that
-# works here is short_path_bfs(), which replays the path and looks for a
-# shorter way between states it passes through, out to a depth. Measured on
-# these paths, depth 3 is where the gain per second stops improving -- depth 4
-# searches 24 times as many windows for a fraction more.
 # ---------------------------------------------------------------------------
 
 library(cayleyR)
@@ -44,7 +52,6 @@ cat("puzzles:", nrow(test), "\n")
 
 g  <- cube_group(4)
 mv <- cube_moves(4); names(mv) <- cube_move_names(4)
-mn <- names(mv)
 
 replay <- function(state, path) {
   for (m in path) state <- state[mv[[m]]]
@@ -74,21 +81,13 @@ for (i in seq_len(nrow(test))) {
 
   res <- try(cube_solve4(state, method = "kociemba"), silent = TRUE)
 
-  # A cube the two-phase search cannot finish is still a cube CFOP will: the
-  # reduction is identical and only the last stage differs, so falling back
-  # costs length rather than the row.
   if (inherits(res, "try-error") || !isTRUE(res$found)) {
-    res <- try(cube_solve4(state, method = "cfop"), silent = TRUE)
-    if (inherits(res, "try-error") || !isTRUE(res$found)) {
-      paths[i]  <- ""
-      status[i] <- "failed"
-      secs[i]   <- proc.time()[["elapsed"]] - t0
-      next
-    }
-    status[i] <- "cfop"
-  } else {
-    status[i] <- "kociemba"
+    paths[i]  <- ""
+    status[i] <- "failed"
+    secs[i]   <- proc.time()[["elapsed"]] - t0
+    next
   }
+  status[i] <- "kociemba"
   n_raw[i] <- length(res$path)
   best <- res$path
 
