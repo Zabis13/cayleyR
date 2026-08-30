@@ -8,9 +8,13 @@ cube_adi_model(
   group,
   embed_dim = 32L,
   hidden = c(1024L, 512L),
-  arch = c("mlp", "resnet", "lstm", "gru"),
+  arch = c("mlp", "resnet", "lstm", "gru", "transformer"),
   rnn_units = 256L,
   n_blocks = 4L,
+  d_model = 64L,
+  n_heads = 4L,
+  ff_dim = NULL,
+  encoding = c("sticker", "piece"),
   backend = "auto"
 )
 }
@@ -28,13 +32,33 @@ same input under residual blocks, which is the shape DeepCubeA uses.
 position at a time. A cube state is a set, not a sequence -- position 5
 does not come before position 6 in any sense the moves respect -- so the
 recurrent variants are here to be measured, not because the shape of the
-data asks for them; measured, they diverge.}
+data asks for them; measured, they diverge. \code{"transformer"} reads the
+pieces as a sequence and attends over them --- a set, which is what
+attention takes, rather than the order the recurrent variants impose. It
+requires \code{encoding = "piece"}.}
 
 \item{rnn_units}{Width of the recurrent layer (\code{"lstm"}/\code{"gru"})}
 
-\item{n_blocks}{Number of residual blocks (\code{arch = "resnet"} only).
-Every block is \code{hidden[1]} wide, since a skip connection has to add
-tensors of the same shape.}
+\item{n_blocks}{Number of blocks: residual blocks under
+\code{arch = "resnet"}, encoder blocks under \code{"transformer"}. For
+the resnet every block is \code{hidden[1]} wide, since a skip connection
+has to add tensors of the same shape.}
+
+\item{d_model}{Model width (\code{arch = "transformer"} only). Must divide
+by \code{n_heads}.}
+
+\item{n_heads}{Attention heads (\code{arch = "transformer"} only)}
+
+\item{ff_dim}{Width of each block's feed-forward hidden layer
+(\code{arch = "transformer"} only). \code{NULL}, the default, means
+\code{4 * d_model}, the usual ratio.}
+
+\item{encoding}{How a state reaches the network. \code{"sticker"} (default)
+reads it as 54 sticker positions through an embedding. \code{"piece"} reads
+it as DeepCubeA does --- one one-hot per piece slot, saying which piece is
+in it and how it is turned --- using \code{\link{cube_piece_layout}}, which
+also drops the pieces no move disturbs. It takes no embedding, being
+one-hot already, so \code{embed_dim} is ignored under it.}
 
 \item{backend}{\code{"auto"}, \code{"cpu"} or \code{"vulkan"}}
 }
@@ -46,10 +70,4 @@ Two models over the same input: 96 sticker positions read as tokens through
 a shared-in-shape, separate-in-weights embedding, then a stack of dense
 layers. The value network ends in one linear unit (a distance), the policy
 network in one softmax unit per move.
-}
-\examples{
-\donttest{
-g   <- cube_group(4)
-net <- cube_adi_model(g, embed_dim = 16L, hidden = c(512L, 512L))
-}
 }

@@ -80,6 +80,66 @@ cube_adi_children <- function(group, states) {
     .Call(`_cayleyR_cube_adi_children`, group, states)
 }
 
+#' Hash a Batch of States to Keys
+#'
+#' A search has to recognise a state it has already reached, and the obvious
+#' way to do that from R -- \code{paste(state, collapse = ",")} per row -- costs
+#' more than the network forward pass once the open list runs to hundreds of
+#' thousands of nodes. This does the same job in one pass over the matrix.
+#'
+#' The keys are 64-bit FNV-1a hashes returned as doubles. A double carries 53
+#' bits exactly, so the hash is folded down to 53 bits rather than truncated:
+#' the alternative is silently rounding two distinct hashes onto the same
+#' double. Collisions are still possible in principle -- at 2^53 keys and a
+#' search of 10^6 nodes the chance is around 10^-4 -- and the caller that
+#' cannot afford one has to compare the states themselves.
+#'
+#' @param states Integer matrix, one state per row
+#' @return Numeric vector of keys, one per row
+#' @keywords internal
+cube_adi_keys <- function(states) {
+    .Call(`_cayleyR_cube_adi_keys`, states)
+}
+
+#' One-Hot Encoding of States by Piece
+#'
+#' The piece encoding of \code{cube_adi_model(encoding = "piece")}, built here
+#' rather than in R because it runs on every batch of every iteration. The R
+#' version allocates a \code{n x P x P*W} array and fills it with a loop per
+#' piece, which on a batch of a few thousand costs more than the training step
+#' it feeds.
+#'
+#' Each of the \code{P} piece slots gets \code{P * W} bits, one per (piece,
+#' turning) pair, and exactly one of them is set: which piece is sitting in
+#' that slot, and which way round. The piece is read off the slot's first
+#' sticker, since every sticker of a slot comes from one piece.
+#'
+#' @param states Integer matrix, one state per row
+#' @param first_slot Integer vector, the first sticker position of each slot
+#' @param home Integer vector, the piece each sticker belongs to (1-based)
+#' @param turn Integer vector, which of its piece's slots each sticker is
+#' @param n_piece Number of pieces
+#' @param width Slots per piece
+#'
+#' The result is a flat \code{n x (n_piece * n_piece * width)} matrix rather
+#' than an \code{n x n_piece x (n_piece * width)} array, because the network
+#' runs about twenty-five times faster per state on a flat input than on a
+#' two-dimensional one with a flatten over it.
+#'
+#' Flat here means exactly what R's own flattening of that array means: the
+#' array is column-major, so its \code{(i, p, d)} lands at column
+#' \code{d * n_piece + p}, with the slots adjacent and the bits strided. That
+#' is not the order one would choose writing this from scratch -- slot-major
+#' would be the natural one -- but it is the order every other view of this
+#' data already has, and having two orders in play is how the encoding and the
+#' test that checks it come to disagree while both look right.
+#'
+#' @return Numeric matrix \code{n x (n_piece * n_piece * width)}
+#' @keywords internal
+cube_adi_encode_pieces <- function(states, first_slot, home, turn, n_piece, width) {
+    .Call(`_cayleyR_cube_adi_encode_pieces`, states, first_slot, home, turn, n_piece, width)
+}
+
 #' ADI Targets From Children Values
 #'
 #' The value target of a state is \code{min_a (1 + v(child_a))} and its policy
@@ -245,6 +305,57 @@ cube_solve_m2_cpp <- function(state) {
 
 cycle_shortcut_cpp <- function(start_state, path, group, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose) {
     .Call(`_cayleyR_cycle_shortcut_cpp`, start_state, path, group, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose)
+}
+
+#' Random Walks From the Solved State, With the Moves They Took
+#'
+#' Walks away from the identity and reports the word it walked, which is what
+#' separates this from \code{\link{generate_state}} and from the ADI
+#' scrambler. Knowing the word means knowing a way home --- inverting it solves
+#' the state --- and anything that measures a solver against a reference path
+#' needs exactly that.
+#'
+#' Two switches cover what the callers want, because the two uses pull opposite
+#' ways:
+#'
+#' \describe{
+#'   \item{\code{exact}}{\code{TRUE} walks \code{n_moves} every time.
+#'     \code{FALSE} draws a length uniformly from 1 to \code{n_moves}, which is
+#'     the sampling training asks for: it spreads accuracy outward from the
+#'     goal without any weighting in the loss. Measurement wants the opposite
+#'     --- a fixed depth, so that a result is about that depth and not about a
+#'     mixture dominated by states a move or two from solved.}
+#'   \item{\code{no_undo}}{\code{TRUE} refuses a move that undoes the one
+#'     before it. Such a pair returns the state to where it was and makes the
+#'     walk shorter than its label. Longer cycles are left alone: on the cube
+#'     four quarter turns of one face also come home, and refusing every way
+#'     back would mean searching the group rather than walking it.}
+#' }
+#'
+#' Even with \code{no_undo} the length is an upper bound on the distance to
+#' solved, never a promise. Callers comparing a solver against the returned
+#' word should read it as "no worse than this", which is the safe direction:
+#' the solver is never credited with a shortcut the reference did not have.
+#'
+#' The walk is uniform over the alphabet, so a group given generators without
+#' their inverses is walked with what it has; \code{no_undo} then has nothing
+#' to refuse at those steps and allows them.
+#'
+#' @param group External pointer to a \code{perm_group}
+#' @param n Number of walks to generate
+#' @param n_moves Length of each walk, or the longest one when
+#'   \code{exact = FALSE}
+#' @param exact Walk \code{n_moves} exactly (default), or draw the length
+#'   uniformly from 1 to \code{n_moves}
+#' @param no_undo Refuse a move that immediately undoes the previous one
+#'   (default \code{TRUE})
+#' @return List with \code{states} (n x state_len integer matrix, one walk
+#'   endpoint per row), \code{depth} (integer vector, the length of each walk)
+#'   and \code{moves} (n x n_moves integer matrix of 1-based move indices, the
+#'   word each row walked, padded with \code{NA} past that row's depth)
+#' @keywords internal
+generate_walk_cpp <- function(group, n, n_moves, exact = TRUE, no_undo = TRUE) {
+    .Call(`_cayleyR_generate_walk_cpp`, group, n, n_moves, exact, no_undo)
 }
 
 cayley_bfs_full_cpp <- function(start_state, group, moves) {

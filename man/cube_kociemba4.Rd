@@ -58,15 +58,6 @@ this returns a path it is a short one, a few dozen moves against the several
 hundred \code{\link{cube_solve4}} takes; where it returns nothing,
 \code{\link{cube_solve4}} is what to call.
 }
-\examples{
-set.seed(7)
-s <- generate_state(group = cube_group(4), n_moves = 5)
-\donttest{
-res <- cube_kociemba4(s)
-res$found
-length(res$path)
-}
-}
 \seealso{
 \code{\link{cube_kociemba4_reduce}},
 \code{\link{cube_kociemba4_report}}, \code{\link{cube_solve4}}

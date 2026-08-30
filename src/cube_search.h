@@ -79,16 +79,17 @@ struct CubeN {
 // 294 entries and there is no reason to build it twice; a map keeps each size
 // for as long as the process lives.
 inline const CubeN& cube_n(int n) {
-  static std::map<int, CubeN*> cache;
-  std::map<int, CubeN*>::iterator it = cache.find(n);
-  if (it != cache.end()) return *it->second;
+  // Held by value rather than by pointer: the cache lives for the process, and
+  // a new'd entry is never deleted, which valgrind reports as a definite leak.
+  // std::map does not move its mapped values, so the reference stays good.
+  static std::map<int, CubeN> cache;
+  std::map<int, CubeN>::iterator it = cache.find(n);
+  if (it != cache.end()) return it->second;
   if (n < 2) {
     throw std::runtime_error("cube: a cube has side 2 or more, got " +
                              std::to_string(n));
   }
-  CubeN* c = new CubeN(n);
-  cache[n] = c;
-  return *c;
+  return cache.insert(std::make_pair(n, CubeN(n))).first->second;
 }
 
 // The 3x3x3, which is what every method in the package solves today. Kept as

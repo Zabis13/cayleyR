@@ -161,6 +161,33 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// cube_adi_keys
+NumericVector cube_adi_keys(IntegerMatrix states);
+RcppExport SEXP _cayleyR_cube_adi_keys(SEXP statesSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type states(statesSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_adi_keys(states));
+    return rcpp_result_gen;
+END_RCPP
+}
+// cube_adi_encode_pieces
+NumericVector cube_adi_encode_pieces(IntegerMatrix states, IntegerVector first_slot, IntegerVector home, IntegerVector turn, int n_piece, int width);
+RcppExport SEXP _cayleyR_cube_adi_encode_pieces(SEXP statesSEXP, SEXP first_slotSEXP, SEXP homeSEXP, SEXP turnSEXP, SEXP n_pieceSEXP, SEXP widthSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< IntegerMatrix >::type states(statesSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type first_slot(first_slotSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type home(homeSEXP);
+    Rcpp::traits::input_parameter< IntegerVector >::type turn(turnSEXP);
+    Rcpp::traits::input_parameter< int >::type n_piece(n_pieceSEXP);
+    Rcpp::traits::input_parameter< int >::type width(widthSEXP);
+    rcpp_result_gen = Rcpp::wrap(cube_adi_encode_pieces(states, first_slot, home, turn, n_piece, width));
+    return rcpp_result_gen;
+END_RCPP
+}
 // cube_adi_targets
 List cube_adi_targets(NumericVector child_values, LogicalVector child_solved, int n_moves);
 RcppExport SEXP _cayleyR_cube_adi_targets(SEXP child_valuesSEXP, SEXP child_solvedSEXP, SEXP n_movesSEXP) {
@@ -594,6 +621,21 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
     Rcpp::traits::input_parameter< bool >::type verbose(verboseSEXP);
     rcpp_result_gen = Rcpp::wrap(cycle_shortcut_cpp(start_state, path, group, points, moves, combo_length, n_samples, n_top, sort_by, max_cycle_len, n_threads, verbose));
+    return rcpp_result_gen;
+END_RCPP
+}
+// generate_walk_cpp
+List generate_walk_cpp(SEXP group, int n, int n_moves, bool exact, bool no_undo);
+RcppExport SEXP _cayleyR_generate_walk_cpp(SEXP groupSEXP, SEXP nSEXP, SEXP n_movesSEXP, SEXP exactSEXP, SEXP no_undoSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type group(groupSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    Rcpp::traits::input_parameter< int >::type n_moves(n_movesSEXP);
+    Rcpp::traits::input_parameter< bool >::type exact(exactSEXP);
+    Rcpp::traits::input_parameter< bool >::type no_undo(no_undoSEXP);
+    rcpp_result_gen = Rcpp::wrap(generate_walk_cpp(group, n, n_moves, exact, no_undo));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1452,6 +1494,8 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_apply_operations", (DL_FUNC) &_cayleyR_apply_operations, 5},
     {"_cayleyR_cube_adi_scramble", (DL_FUNC) &_cayleyR_cube_adi_scramble, 3},
     {"_cayleyR_cube_adi_children", (DL_FUNC) &_cayleyR_cube_adi_children, 2},
+    {"_cayleyR_cube_adi_keys", (DL_FUNC) &_cayleyR_cube_adi_keys, 1},
+    {"_cayleyR_cube_adi_encode_pieces", (DL_FUNC) &_cayleyR_cube_adi_encode_pieces, 6},
     {"_cayleyR_cube_adi_targets", (DL_FUNC) &_cayleyR_cube_adi_targets, 3},
     {"_cayleyR_cube_centres_shoot_cpp", (DL_FUNC) &_cayleyR_cube_centres_shoot_cpp, 1},
     {"_cayleyR_cube_centre_counts_cpp", (DL_FUNC) &_cayleyR_cube_centre_counts_cpp, 1},
@@ -1489,6 +1533,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_cube_solve_old_pochmann_cpp", (DL_FUNC) &_cayleyR_cube_solve_old_pochmann_cpp, 1},
     {"_cayleyR_cube_solve_m2_cpp", (DL_FUNC) &_cayleyR_cube_solve_m2_cpp, 1},
     {"_cayleyR_cycle_shortcut_cpp", (DL_FUNC) &_cayleyR_cycle_shortcut_cpp, 12},
+    {"_cayleyR_generate_walk_cpp", (DL_FUNC) &_cayleyR_generate_walk_cpp, 5},
     {"_cayleyR_cayley_bfs_full_cpp", (DL_FUNC) &_cayleyR_cayley_bfs_full_cpp, 3},
     {"_cayleyR_cayley_graph_diameter_cpp", (DL_FUNC) &_cayleyR_cayley_graph_diameter_cpp, 6},
     {"_cayleyR_human_table_probe_cpp", (DL_FUNC) &_cayleyR_human_table_probe_cpp, 2},

@@ -80,7 +80,7 @@ eight are not. In practice only reachable ones are ever wanted, which
 set.seed(1)
 g <- cube_group(4)
 s <- group_apply(g, group_identity(g),
-                 sample(cube_move_names(4), 40, replace = TRUE))
+                 sample(cube_move_names(4), 6, replace = TRUE))
 \donttest{
 r <- cube_build_lslice(s)
 r$built

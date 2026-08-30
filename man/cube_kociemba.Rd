@@ -86,7 +86,7 @@ applies to the cube as it was handed over.
 
 \examples{
 set.seed(42)
-s <- generate_state(group = cube_group(3), n_moves = 20)
+s <- generate_state(group = cube_group(3), n_moves = 10)
 \donttest{
 res <- cube_kociemba(s)
 res$found

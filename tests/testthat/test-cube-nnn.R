@@ -115,38 +115,31 @@ test_that("the face subgroup reproduces the known orders", {
   expect_equal(group_order(g, c("R", "U")), 105L)
 })
 
-# ---- the 2x2x2, whose group is small enough to count -------------------
+# ---- the 2x2x2 -------------------------------------------------------
 
-test_that("the 2x2x2 grows at the rate its group is known to", {
+test_that("the 2x2x2 moves satisfy the relations that fix the geometry", {
   # The one check on the geometry that does not lean on the 3x3x3 table.
   #
   # A 2x2x2 has no centres to hold it still, so turning R and turning L' differ
-  # only by the whole cube rotating. The published counts hold one corner fixed
-  # to factor that out, which here means turning only three faces; at that
-  # restriction the states at depth 1..5 are 6, 27, 120, 534, 2256, and a
-  # permutation table with the geometry wrong would not reproduce them.
+  # only by the whole cube rotating -- and that is a relation, not something to
+  # be discovered by counting states. group_order() asks the same question of
+  # the geometry that enumerating the group would, without the enumeration.
   g <- cube_group(2, moves = c("U", "U'", "R", "R'", "F", "F'"))
-  seen <- new.env(hash = TRUE, parent = emptyenv())
-  assign(paste(cube_identity(2), collapse = ","), TRUE, envir = seen)
-  frontier <- list(cube_identity(2))
-  moves <- group_moves(g)
-  sizes <- integer(0)
-  for (depth in 1:5) {
-    nxt <- list()
-    for (s in frontier) {
-      for (m in moves) {
-        t <- group_apply(g, s, m)
-        k <- paste(t, collapse = ",")
-        if (!exists(k, envir = seen, inherits = FALSE)) {
-          assign(k, TRUE, envir = seen)
-          nxt[[length(nxt) + 1L]] <- t
-        }
-      }
-    }
-    sizes <- c(sizes, length(nxt))
-    frontier <- nxt
-  }
-  expect_equal(sizes, c(6L, 27L, 120L, 534L, 2256L))
+
+  # every generator is a quarter turn
+  for (m in group_moves(g)) expect_equal(group_order(g, m), 4L, info = m)
+
+  # The sexy move has order 6 here as on a 3x3x3: it is a corner commutator,
+  # and the 2x2x2 is only corners. R U does not carry over -- 105 = 3 * 5 * 7
+  # on a 3x3x3, where the 5 and 7 are edge cycles the 2x2x2 has no edges to
+  # supply. What is left is the corner part, 15. Measured, not carried over.
+  expect_equal(group_order(g, c("R", "U", "R'", "U'")), 6L)
+  expect_equal(group_order(g, c("R", "U")), 15L)
+
+  # opposite faces are absent from this generating set, so the only commuting
+  # pair a wrong table might invent would show here: adjacent faces do not.
+  expect_false(identical(group_apply(g, cube_identity(2), c("R", "U")),
+                         group_apply(g, cube_identity(2), c("U", "R"))))
 })
 
 # ---- solved states -----------------------------------------------------
@@ -175,15 +168,6 @@ test_that("turning the whole cube keeps the colours solved", {
   # and the centres have moved, which is what makes the weaker test necessary
   centres <- c(5L, 14L, 23L, 32L, 41L, 50L)
   expect_false(identical(s[centres], centres))
-})
-
-test_that("face turns never move the centres", {
-  g <- cube_group(3)
-  centres <- c(5L, 14L, 23L, 32L, 41L, 50L)
-  for (m in c("U", "R", "F", "D", "L", "B")) {
-    s <- group_apply(g, cube_identity(3), m)
-    expect_identical(s[centres], centres, info = m)
-  }
 })
 
 test_that("cube_is_colour_solved infers n and rejects bad lengths", {

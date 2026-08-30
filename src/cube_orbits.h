@@ -289,12 +289,13 @@ inline Orbits build_orbits(int n) {
 // One set of orbits per size, built on first use. Building them walks every
 // sticker of the cube, which is worth doing once and not once per call.
 inline const Orbits& orbits_of(int n) {
-  static std::map<int, Orbits*> cache;
-  std::map<int, Orbits*>::iterator it = cache.find(n);
-  if (it != cache.end()) return *it->second;
-  Orbits* o = new Orbits(build_orbits(n));
-  cache[n] = o;
-  return *o;
+  // Held by value rather than by pointer: the cache lives for the process, and
+  // a new'd entry is never deleted, which valgrind reports as a definite leak.
+  // std::map does not move its mapped values, so the reference stays good.
+  static std::map<int, Orbits> cache;
+  std::map<int, Orbits>::iterator it = cache.find(n);
+  if (it != cache.end()) return it->second;
+  return cache.insert(std::make_pair(n, build_orbits(n))).first->second;
 }
 
 // ---- Reading a state in terms of pieces ---------------------------------

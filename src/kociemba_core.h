@@ -499,9 +499,11 @@ struct PruneTable {
   uint64_t mask;
   uint8_t built_depth;
 
+  // Order follows the declarations below, which is the order the members are
+  // actually initialised in; any other order is a -Wreorder warning.
   PruneTable() : mask(0), built_depth(0), min_size(0), max_size(0),
-                 n_grows(0), n_writes(0), n_collisions(0), n_visits(0),
-                 loaded(false) {}
+                 loaded(false), n_grows(0),
+                 n_writes(0), n_collisions(0), n_visits(0) {}
 
   size_t min_size, max_size;
 

@@ -69,7 +69,7 @@
 #'   what the last solve did
 #' @examples
 #' set.seed(42)
-#' s <- generate_state(group = cube_group(3), n_moves = 20)
+#' s <- generate_state(group = cube_group(3), n_moves = 10)
 #' \donttest{
 #' res <- cube_kociemba(s)
 #' res$found
@@ -111,7 +111,7 @@ cube_kociemba <- function(state, max_depth1 = 12L, max_depth2 = 18L,
 #' @examples
 #' \donttest{
 #' set.seed(42)
-#' s <- generate_state(group = cube_group(3), n_moves = 20)
+#' s <- generate_state(group = cube_group(3), n_moves = 10)
 #' cube_kociemba(s)
 #' cube_kociemba_report()
 #' }
@@ -219,18 +219,6 @@ cube_kociemba_init <- function(table1 = 4194304, depth1 = 0L,
 #' @seealso \code{\link{cube_kociemba4}} for the whole solve,
 #'   \code{\link{cube_is_reduced}} for the test this aims at,
 #'   \code{\link{cube_solve4}} for the solver that always finishes
-#' @examples
-#' set.seed(7)
-#' s <- generate_state(group = cube_group(4), n_moves = 5)
-#' \donttest{
-#' res <- cube_kociemba4_reduce(s)
-#' res$found
-#'
-#' m <- cube_moves(4)
-#' names(m) <- cube_move_names(4)
-#' for (mv in res$path) s <- s[m[[mv]]]
-#' cube_is_reduced(s)
-#' }
 cube_kociemba4_reduce <- function(state, max_depth1 = 10L, max_depth2 = 12L,
                                   max_depth3 = 14L, node_budget = 5e7,
                                   progress_every = 0, prune_depth_bonus = 0L,
@@ -417,14 +405,6 @@ cube_kociemba4_reduce <- function(state, max_depth1 = 10L, max_depth2 = 12L,
 #' @export
 #' @seealso \code{\link{cube_kociemba4_reduce}},
 #'   \code{\link{cube_kociemba4_report}}, \code{\link{cube_solve4}}
-#' @examples
-#' set.seed(7)
-#' s <- generate_state(group = cube_group(4), n_moves = 5)
-#' \donttest{
-#' res <- cube_kociemba4(s)
-#' res$found
-#' length(res$path)
-#' }
 cube_kociemba4 <- function(state, max_depth1 = 10L, max_depth2 = 12L,
                            max_depth3 = 14L, node_budget = 5e7,
                            progress_every = 0, stop_at_first = TRUE,
@@ -493,13 +473,6 @@ cube_kociemba4 <- function(state, max_depth1 = 10L, max_depth2 = 12L,
 #'   \code{phase1_nodes}, \code{phase2_nodes}, \code{phase3_nodes}.
 #' @export
 #' @seealso \code{\link{cube_kociemba4_reduce}}, \code{\link{cube_kociemba4}}
-#' @examples
-#' \donttest{
-#' set.seed(7)
-#' s <- generate_state(group = cube_group(4), n_moves = 5)
-#' cube_kociemba4_reduce(s)
-#' cube_kociemba4_report()
-#' }
 cube_kociemba4_report <- function() {
   cube_kociemba4_last_cpp()
 }

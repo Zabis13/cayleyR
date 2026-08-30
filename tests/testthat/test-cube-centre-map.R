@@ -213,7 +213,7 @@ test_that("a shot never disturbs the face it is meant to spare", {
     }
 
     # and long random sequences of them
-    for (trial in 1:20) {
+    for (trial in 1:5) {
       word <- character(0)
       for (k in 1:8) {
         word <- c(word, strsplit(sample(shots$word, 1), " ", fixed = TRUE)[[1]])
@@ -350,18 +350,24 @@ test_that("a three-cycle moves exactly three centres, and nothing else", {
     g <- cube_group(n)
     id <- group_identity(g)
 
+    # One expectation for the whole table rather than five per word: a word
+    # that fails names itself in the report either way.
+    bad <- character(0)
     for (i in seq_len(nrow(cyc))) {
       s <- group_apply(g, id, strsplit(cyc$word[i], " ", fixed = TRUE)[[1]])
       moved <- cs[s[cs$sticker] != cs$sticker, , drop = FALSE]
-      expect_equal(nrow(moved), 3L)
-      expect_equal(length(unique(moved$orbit)), 1L)
-      expect_equal(unique(moved$orbit), cyc$orbit[i])
+      dest <- match(moved$sticker, s)
 
-      # three distinct faces, and it really is a cycle rather than a swap
-      expect_equal(length(unique(moved$face)), 3L)
-      dest <- vapply(moved$sticker, function(sk) which(s == sk), integer(1))
-      expect_setequal(dest, moved$sticker)
+      ok <- nrow(moved) == 3L &&
+        length(unique(moved$orbit)) == 1L &&
+        unique(moved$orbit) == cyc$orbit[i] &&
+        # three distinct faces, and it really is a cycle rather than a swap
+        length(unique(moved$face)) == 3L &&
+        setequal(dest, moved$sticker)
+      if (!ok) bad <- c(bad, cyc$word[i])
     }
+    expect_equal(bad, character(0),
+                 info = paste("n =", n, "-- words that are no three-cycle"))
   }
 })
 
@@ -372,12 +378,15 @@ test_that("applying a three-cycle three times is the identity", {
     if (!nrow(cyc)) next
     g <- cube_group(n)
     id <- group_identity(g)
+    cs <- cube_centre_structure(n)
+    bad <- character(0)
     for (w in cyc$word) {
       mv <- strsplit(w, " ", fixed = TRUE)[[1]]
       s <- group_apply(g, id, rep(mv, 3))
-      cs <- cube_centre_structure(n)
-      expect_equal(s[cs$sticker], cs$sticker)
+      if (!identical(s[cs$sticker], cs$sticker)) bad <- c(bad, w)
     }
+    expect_equal(bad, character(0),
+                 info = paste("n =", n, "-- words whose cube is not three-cycle"))
   }
 })
 

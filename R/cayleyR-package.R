@@ -53,7 +53,7 @@
 #'
 #' @useDynLib cayleyR, .registration = TRUE
 #' @importFrom Rcpp sourceCpp
-#' @importFrom utils flush.console write.table
+#' @importFrom utils flush.console write.table packageVersion
 #'
 #' @author Yuri Baramykov <lbsbmsu@mail.ru>
 #'

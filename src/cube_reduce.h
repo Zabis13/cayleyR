@@ -97,12 +97,18 @@ inline const char* pll_parity_word() {
 // With E lifted as a single layer the full solve finished 6 of 30; with both
 // layers, 100 of 100.
 inline const char* lift_move(const std::string& m) {
-  if (m == "U")  return "U";    if (m == "U'") return "U'";
-  if (m == "R")  return "R";    if (m == "R'") return "R'";
-  if (m == "F")  return "F";    if (m == "F'") return "F'";
-  if (m == "D")  return "D";    if (m == "D'") return "D'";
-  if (m == "L")  return "L";    if (m == "L'") return "L'";
-  if (m == "B")  return "B";    if (m == "B'") return "B'";
+  if (m == "U")  return "U";
+  if (m == "U'") return "U'";
+  if (m == "R")  return "R";
+  if (m == "R'") return "R'";
+  if (m == "F")  return "F";
+  if (m == "F'") return "F'";
+  if (m == "D")  return "D";
+  if (m == "D'") return "D'";
+  if (m == "L")  return "L";
+  if (m == "L'") return "L'";
+  if (m == "B")  return "B";
+  if (m == "B'") return "B'";
   if (m == "E")  return "1y' 2y'";
   if (m == "E'") return "1y 2y";
   if (m == "M")  return "1x' 2x'";

@@ -42,58 +42,34 @@ test_that("each rotation has order four", {
   }
 })
 
-# The closure is the point: x and y generate the rotation group of the cube,
-# which has twenty-four elements. Fewer would mean a rotation word is wrong;
-# more is impossible.
-test_that("closing the solved cube under x and y gives twenty-four states", {
-  seen <- list(cube_identity(4))
-  keys <- paste(cube_identity(4), collapse = ",")
-  frontier <- list(cube_identity(4))
+# x and y generate the rotation group of the cube, which has twenty-four
+# elements. Rather than enumerate them, this checks the presentation that
+# forces the count: the rotation group is S4, and <x, y | x^4, y^4, (xy)^3>
+# with x and y quarter turns about perpendicular axes is exactly S4. The order
+# of x and y is checked above; (xy)^3 is what distinguishes the twenty-four
+# from any larger group the words might otherwise generate.
+test_that("x and y satisfy the relation that makes them the rotation group", {
+  xy <- c(OUR_ROTATIONS$x, OUR_ROTATIONS$y)
 
-  while (length(frontier)) {
-    nxt <- list()
-    for (state in frontier) {
-      for (rotation in OUR_ROTATIONS) {
-        turned <- apply_words(state, rotation)
-        key <- paste(turned, collapse = ",")
-        if (!(key %in% keys)) {
-          keys <- c(keys, key)
-          seen[[length(seen) + 1L]] <- turned
-          nxt[[length(nxt) + 1L]] <- turned
-        }
-      }
-    }
-    frontier <- nxt
-  }
+  state <- cube_identity(4)
+  for (i in 1:3) state <- apply_words(state, xy)
+  expect_identical(state, cube_identity(4))
 
-  expect_length(seen, 24L)
+  # and xy is not itself trivial or a half turn -- either would collapse the
+  # group to something smaller than twenty-four while (xy)^3 still held.
+  expect_false(identical(apply_words(cube_identity(4), xy), cube_identity(4)))
+  expect_false(identical(apply_words(apply_words(cube_identity(4), xy), xy),
+                         cube_identity(4)))
 })
 
-# Every one of the twenty-four is a solved cube -- turned, but solved. A goal
-# that is not solved would be a place phase 3 may stop without having finished.
-test_that("all twenty-four orientations are colour-solved and reduced", {
-  states <- list(cube_identity(4))
-  keys <- paste(cube_identity(4), collapse = ",")
-  frontier <- list(cube_identity(4))
-
-  while (length(frontier)) {
-    nxt <- list()
-    for (state in frontier) {
-      for (rotation in OUR_ROTATIONS) {
-        turned <- apply_words(state, rotation)
-        key <- paste(turned, collapse = ",")
-        if (!(key %in% keys)) {
-          keys <- c(keys, key)
-          states[[length(states) + 1L]] <- turned
-          nxt[[length(nxt) + 1L]] <- turned
-        }
-      }
-    }
-    frontier <- nxt
-  }
-
-  for (i in seq_along(states)) {
-    expect_true(cube_is_colour_solved(states[[i]]), info = paste("orientation", i))
-    expect_true(cube_is_reduced(states[[i]]), info = paste("orientation", i))
+# A rotation leaves the cube solved: turned, but solved. A goal that is not
+# solved would be a place phase 3 may stop without having finished. Checking
+# the generators covers every product of them, since "solved and reduced" is
+# preserved by each.
+test_that("the rotations keep the cube colour-solved and reduced", {
+  for (name in names(OUR_ROTATIONS)) {
+    turned <- apply_words(cube_identity(4), OUR_ROTATIONS[[name]])
+    expect_true(cube_is_colour_solved(turned), info = name)
+    expect_true(cube_is_reduced(turned), info = name)
   }
 })

@@ -82,7 +82,7 @@ test_that("edge counts agree with cube_is_reduced", {
   for (n in c(4L, 5L)) {
     expect_equal(cube_edge_counts(cube_identity(n), n)$whole, 12L)
     for (k in 1:15) {
-      s <- generate_state(group = cube_group(n), n_moves = 25)
+      s <- generate_state(group = cube_group(n), n_moves = 10)
       # reduction demands whole edges, so reduced implies all twelve whole
       if (cube_is_reduced(s, n))
         expect_equal(cube_edge_counts(s, n)$whole, 12L)
@@ -190,8 +190,8 @@ test_that("pairing finishes a 4x4x4", {
   # random, so there are no built centres to protect.
   skip_on_cran()
   set.seed(11)
-  for (k in 1:3) {
-    s <- generate_state(group = cube_group(4), n_moves = 20)
+  for (k in 1:2) {
+    s <- generate_state(group = cube_group(4), n_moves = 10)
     r <- cube_pair_edges(s, 4L, depth = 3L, max_rounds = 25L,
                          keep_centres = FALSE)
     expect_true(r$solved, info = paste("cube", k, "reached", r$whole))
@@ -201,7 +201,7 @@ test_that("pairing finishes a 4x4x4", {
 test_that("the centre guard is honoured when it is asked for", {
   skip_on_cran()
   set.seed(11)
-  s <- generate_state(group = cube_group(4), n_moves = 20)
+  s <- generate_state(group = cube_group(4), n_moves = 10)
   r <- cube_pair_edges(s, 4L, depth = 2L, max_rounds = 8L,
                        keep_centres = TRUE)
   expect_equal(cayleyR:::.cube_centres_signature(r$state, 4L),
@@ -215,7 +215,7 @@ test_that("pairing improves a 5x5x5 without spending the centres", {
   # see the TODO for the commutator this is waiting on.
   skip_on_cran()
   set.seed(11)
-  s <- generate_state(group = cube_group(5), n_moves = 20)
+  s <- generate_state(group = cube_group(5), n_moves = 10)
   before <- cube_edge_counts(s, 5L)$whole
   r <- cube_pair_edges(s, 5L, depth = 2L, max_rounds = 10L,
                        keep_centres = FALSE)

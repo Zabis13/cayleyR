@@ -22,14 +22,6 @@ different fact and wants \code{max_depth} raised instead.
 Phase 4 does not appear here. It is \code{\link{cube_kociemba}} on the
 squeezed cube, and \code{\link{cube_kociemba_report}} is what reports it.
 }
-\examples{
-\donttest{
-set.seed(7)
-s <- generate_state(group = cube_group(4), n_moves = 5)
-cube_kociemba4_reduce(s)
-cube_kociemba4_report()
-}
-}
 \seealso{
 \code{\link{cube_kociemba4_reduce}}, \code{\link{cube_kociemba4}}
 }

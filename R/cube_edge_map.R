@@ -352,7 +352,7 @@ cube_edge_counts <- function(state, n = NULL, structure = NULL) {
 #'
 #' @section Why this is measured:
 #' \code{src/cube_edges.h} carries the expansions as constants:
-#' \code{Dw -> D 1y'}, \code{Uw -> U 2y}, \code{Rw -> R 2x}. Two things in
+#' \code{Dw -> D 1y\'}, \code{Uw -> U 2y}, \code{Rw -> R 2x}. Two things in
 #' those are 4x4x4 facts --- which numbered slice lies behind a face, and
 #' nothing else. Measured across \code{n = 4, 5, 6}: a slice \code{k<axis>}
 #' turns layer \code{k}, and the faces sit at layers \code{0} and \code{n - 1},
@@ -378,7 +378,7 @@ cube_edge_counts <- function(state, n = NULL, structure = NULL) {
 #' @examples
 #' cube_wide_turn(4, "R")        # R 2x  -- the Rw of the sources
 #' cube_wide_turn(5, "R")        # R 3x  -- the same turn on a bigger cube
-#' cube_wide_turn(4, "D")        # D 1y' -- low faces take the slice inverted
+#' cube_wide_turn(4, "D")        # D 1y\' -- low faces take the slice inverted
 cube_wide_turn <- function(n, face, prime = FALSE) {
   n <- as.integer(n)
   if (is.na(n) || n < 3L)

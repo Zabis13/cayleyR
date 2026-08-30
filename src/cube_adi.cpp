@@ -114,6 +114,117 @@ List cube_adi_children(SEXP group, IntegerMatrix states) {
   return List::create(_["children"] = out, _["solved"] = solved);
 }
 
+//' Hash a Batch of States to Keys
+//'
+//' A search has to recognise a state it has already reached, and the obvious
+//' way to do that from R -- \code{paste(state, collapse = ",")} per row -- costs
+//' more than the network forward pass once the open list runs to hundreds of
+//' thousands of nodes. This does the same job in one pass over the matrix.
+//'
+//' The keys are 64-bit FNV-1a hashes returned as doubles. A double carries 53
+//' bits exactly, so the hash is folded down to 53 bits rather than truncated:
+//' the alternative is silently rounding two distinct hashes onto the same
+//' double. Collisions are still possible in principle -- at 2^53 keys and a
+//' search of 10^6 nodes the chance is around 10^-4 -- and the caller that
+//' cannot afford one has to compare the states themselves.
+//'
+//' @param states Integer matrix, one state per row
+//' @return Numeric vector of keys, one per row
+//' @keywords internal
+// [[Rcpp::export]]
+NumericVector cube_adi_keys(IntegerMatrix states) {
+  const int n = states.nrow();
+  const int m = states.ncol();
+  NumericVector out(n);
+  // Reading down a column at a time follows R's column-major storage; the
+  // hash is order-dependent, so the loop carries one accumulator per row.
+  std::vector<uint64_t> h((size_t)n, 1469598103934665603ULL);
+  for (int j = 0; j < m; ++j) {
+    const int* col = &states[(R_xlen_t)j * n];
+    for (int i = 0; i < n; ++i) {
+      h[i] ^= (uint64_t)(uint32_t)col[i];
+      h[i] *= 1099511628211ULL;
+    }
+  }
+  for (int i = 0; i < n; ++i) {
+    // Fold the top bits into the bottom 53 so nothing is lost to rounding.
+    const uint64_t v = (h[i] ^ (h[i] >> 53)) & ((1ULL << 53) - 1ULL);
+    out[i] = (double)v;
+  }
+  return out;
+}
+
+//' One-Hot Encoding of States by Piece
+//'
+//' The piece encoding of \code{cube_adi_model(encoding = "piece")}, built here
+//' rather than in R because it runs on every batch of every iteration. The R
+//' version allocates a \code{n x P x P*W} array and fills it with a loop per
+//' piece, which on a batch of a few thousand costs more than the training step
+//' it feeds.
+//'
+//' Each of the \code{P} piece slots gets \code{P * W} bits, one per (piece,
+//' turning) pair, and exactly one of them is set: which piece is sitting in
+//' that slot, and which way round. The piece is read off the slot's first
+//' sticker, since every sticker of a slot comes from one piece.
+//'
+//' @param states Integer matrix, one state per row
+//' @param first_slot Integer vector, the first sticker position of each slot
+//' @param home Integer vector, the piece each sticker belongs to (1-based)
+//' @param turn Integer vector, which of its piece's slots each sticker is
+//' @param n_piece Number of pieces
+//' @param width Slots per piece
+//'
+//' The result is a flat \code{n x (n_piece * n_piece * width)} matrix rather
+//' than an \code{n x n_piece x (n_piece * width)} array, because the network
+//' runs about twenty-five times faster per state on a flat input than on a
+//' two-dimensional one with a flatten over it.
+//'
+//' Flat here means exactly what R's own flattening of that array means: the
+//' array is column-major, so its \code{(i, p, d)} lands at column
+//' \code{d * n_piece + p}, with the slots adjacent and the bits strided. That
+//' is not the order one would choose writing this from scratch -- slot-major
+//' would be the natural one -- but it is the order every other view of this
+//' data already has, and having two orders in play is how the encoding and the
+//' test that checks it come to disagree while both look right.
+//'
+//' @return Numeric matrix \code{n x (n_piece * n_piece * width)}
+//' @keywords internal
+// [[Rcpp::export]]
+NumericVector cube_adi_encode_pieces(IntegerMatrix states,
+                                     IntegerVector first_slot,
+                                     IntegerVector home, IntegerVector turn,
+                                     int n_piece, int width) {
+  const int n = states.nrow();
+  if (first_slot.size() != n_piece)
+    stop("first_slot has %d entries but there are %d pieces",
+         (int)first_slot.size(), n_piece);
+  const int depth = n_piece * width;
+
+  // Laid out as the [n, n_piece, depth] array flattens: column-major, so
+  // (i, p, d) sits at i + n * (d * n_piece + p). Writing it slot-major instead
+  // -- p * depth + d -- holds the same ones in different columns, which no
+  // shape check catches and which trains a network on scrambled inputs.
+  NumericVector out((R_xlen_t)n * n_piece * depth);
+  out.attr("dim") = IntegerVector::create(n, n_piece * depth);
+
+  for (int p = 0; p < n_piece; ++p) {
+    const int slot = first_slot[p];          // 1-based sticker position
+    if (slot < 1 || slot > states.ncol())
+      stop("slot %d is outside a state of %d positions", slot,
+           (int)states.ncol());
+    for (int i = 0; i < n; ++i) {
+      const int here = states(i, slot - 1);  // sticker now in this slot
+      if (here < 1 || here > home.size())
+        stop("state holds position %d, outside 1..%d", here,
+             (int)home.size());
+      // (piece, turning) -> one index into the slot's bits
+      const int d = (home[here - 1] - 1) * width + (turn[here - 1] - 1);
+      out[(R_xlen_t)i + (R_xlen_t)n * ((R_xlen_t)d * n_piece + p)] = 1.0;
+    }
+  }
+  return out;
+}
+
 //' ADI Targets From Children Values
 //'
 //' The value target of a state is \code{min_a (1 + v(child_a))} and its policy
@@ -154,7 +265,14 @@ List cube_adi_targets(NumericVector child_values, LogicalVector child_solved,
     for (int a = 0; a < n_moves; ++a) {
       const R_xlen_t k = i * n_moves + a;
       // A solved child is worth 0 by definition, whatever the network thinks.
-      const double v = child_solved[k] ? 0.0 : child_values[k];
+      // Every other child is a distance, so it is worth at least 0 too. The
+      // value head is linear and starts out emitting negatives; without this
+      // floor min_a picks whichever child the untrained net happens to score
+      // most negative, the target goes below zero, and the frozen copy learns
+      // from it next round. The solved-child anchor alone cannot hold, since
+      // any negative beats the 1 it contributes.
+      double v = child_solved[k] ? 0.0 : child_values[k];
+      if (!(v > 0.0)) v = 0.0;      // also sends NaN to 0
       const double cand = 1.0 + v;
       if (cand < best) { best = cand; best_a = a + 1; }
     }

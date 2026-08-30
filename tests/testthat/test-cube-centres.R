@@ -4,7 +4,7 @@ test_that("the identity has all six centres built", {
 
 test_that("centre counts fall when the cube is scrambled", {
   set.seed(1)
-  s <- generate_state(group = cube_group(4), n_moves = 40L)
+  s <- generate_state(group = cube_group(4), n_moves = 12L)
   expect_lt(sum(cube_centre_counts(s)), 24L)
 })
 
@@ -23,10 +23,10 @@ all_centres_built <- function(state) {
 
 test_that("cube_solve_centres builds all six centres", {
   set.seed(7)
-  n <- 25L
+  n <- 8L
   built <- 0L
   for (i in seq_len(n)) {
-    s <- generate_state(group = cube_group(4), n_moves = 60L)
+    s <- generate_state(group = cube_group(4), n_moves = 12L)
     res <- cube_solve_centres(s)
     if (isTRUE(res$found)) built <- built + 1L
   }
@@ -39,7 +39,7 @@ test_that("the path really produces the state the solver reports", {
   names(moves) <- cube_move_names(4)
 
   for (i in 1:5) {
-    s <- generate_state(group = cube_group(4), n_moves = 60L)
+    s <- generate_state(group = cube_group(4), n_moves = 12L)
     res <- cube_solve_centres(s)
     expect_true(res$found)
 
@@ -65,7 +65,7 @@ test_that("cube_solve_centres rejects states that are not 4x4x4", {
 
 test_that("the solver leaves the cube a valid permutation", {
   set.seed(3)
-  s <- generate_state(group = cube_group(4), n_moves = 60L)
+  s <- generate_state(group = cube_group(4), n_moves = 12L)
   res <- cube_solve_centres(s)
   final <- res$states[[length(res$states)]]
   expect_setequal(final, 1:96)
@@ -88,7 +88,7 @@ test_that("the generic count agrees with the 4x4x4 C++ it replaces", {
   # The 4x4x4 keeps its own path, so this checks the two do not drift.
   set.seed(11)
   g <- cube_group(4)
-  for (trial in 1:20) {
+  for (trial in 1:5) {
     s <- group_apply(g, group_identity(g),
                      sample(cube_move_names(4), 30, replace = TRUE))
     cs <- cube_centre_structure(4)

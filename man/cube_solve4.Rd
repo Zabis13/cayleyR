@@ -71,9 +71,9 @@ Measured over 40 scrambles of depth 2 to 20, total moves against
 
 \tabular{lrrr}{
 \tab total \tab of fixed \tab seconds \cr
-fixed \tab 9794 \tab 100\\% \tab 0.06 \cr
-reduction \tab 7396 \tab 76\\% \tab 0.32 \cr
-full \tab 6064 \tab 62\\% \tab 1.70
+fixed \tab 9794 \tab 100\% \tab 0.06 \cr
+reduction \tab 7396 \tab 76\% \tab 0.32 \cr
+full \tab 6064 \tab 62\% \tab 1.70
 }
 
 \code{"full"} is never worse than \code{"fixed"} --- the fixed face is one
@@ -127,7 +127,7 @@ It is not a defect of the implementation. The reduction does not look for
 the NEAREST reduced state; it builds its own by a fixed schedule --- one
 centre, then the layer beside it, then the top slice emptied, then the edge
 pairs --- and every stage runs whatever the cube arrived like. Following one
-such solution move by move, 74\\% of the moves changed neither the count of
+such solution move by move, 74\% of the moves changed neither the count of
 centres home nor the count of edges paired. The edge stage spent 107 moves
 pairing twelve edges, nine apiece, with the centres flickering between four
 and eight all the way: take them apart, pair an edge, put them back.
@@ -152,13 +152,13 @@ What does help is choosing where the schedule starts. If the price turns on
 how the scramble sits relative to the face the first centre is built on, then
 that face is worth picking rather than fixing, and \code{start_face} below is
 how it is picked. Measured over 200 scrambles, the face that had been written
-into the pipeline is the best of the six on 22\\% of cubes; the reduction
-stage alone falls to 64\\% of its length when all six are tried.
+into the pipeline is the best of the six on 22\% of cubes; the reduction
+stage alone falls to 64\% of its length when all six are tried.
 
 Picking by the reduction is not the same as picking by the answer, though,
 and the difference is not small. A short reduction can leave the cube in a
 parity a longer one avoids, and the fifty moves that costs outweigh what it
-saved. Over 40 scrambles the two criteria chose differently on 48\\% of cubes,
+saved. Over 40 scrambles the two criteria chose differently on 48\% of cubes,
 the reduction criterion losing 70 moves on average and 152 at worst --- and
 on four of the forty it produced a solution LONGER than the fixed face would
 have. Choosing on the finished solution cannot do that, since the fixed face

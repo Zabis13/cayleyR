@@ -20,7 +20,7 @@ recent \code{\link{cube_kociemba}} call, and how many nodes it visited.
 \examples{
 \donttest{
 set.seed(42)
-s <- generate_state(group = cube_group(3), n_moves = 20)
+s <- generate_state(group = cube_group(3), n_moves = 10)
 cube_kociemba(s)
 cube_kociemba_report()
 }

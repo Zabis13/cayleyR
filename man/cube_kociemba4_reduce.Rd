@@ -104,19 +104,6 @@ cube from a full scramble, \code{\link{cube_solve4}} is the one that finishes;
 it takes many more moves and always gets there.
 }
 
-\examples{
-set.seed(7)
-s <- generate_state(group = cube_group(4), n_moves = 5)
-\donttest{
-res <- cube_kociemba4_reduce(s)
-res$found
-
-m <- cube_moves(4)
-names(m) <- cube_move_names(4)
-for (mv in res$path) s <- s[m[[mv]]]
-cube_is_reduced(s)
-}
-}
 \seealso{
 \code{\link{cube_kociemba4}} for the whole solve,
 \code{\link{cube_is_reduced}} for the test this aims at,

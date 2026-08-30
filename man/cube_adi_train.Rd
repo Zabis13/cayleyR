@@ -12,6 +12,7 @@ cube_adi_train(
   epochs = 1L,
   batch_size = 256L,
   loss_thresh = 0.5,
+  refresh_every = NULL,
   verbose = TRUE
 )
 }
@@ -33,7 +34,18 @@ falls below this. Set it too low and the copy never refreshes: the targets
 stay pinned to an untrained network, every state looks one move from
 solved, and the mean target sticks near 1 while the value loss looks
 healthy. If the reported mean target stops rising, this is the first thing
-to raise.}
+to raise. Ignored when \code{refresh_every} is given.}
+
+\item{refresh_every}{Refresh the frozen copy every this many iterations,
+instead of whenever the loss drops below \code{loss_thresh}. A threshold is
+awkward to set because it is compared against a loss whose scale changes as
+training proceeds: too low and the copy never refreshes, too high and it
+refreshes every iteration, which is worse. A copy refreshed every iteration
+is not frozen at all --- the targets are then computed from the same weights
+that are being fitted to them, the network converges on agreeing with
+itself, and the mean target stops moving while the loss looks fine. A fixed
+interval sidesteps the question: the copy is genuinely held for that many
+iterations whatever the loss happens to be doing.}
 
 \item{verbose}{\code{TRUE} to report each iteration}
 }
@@ -42,11 +54,4 @@ The network, with \code{$history} recording loss per iteration
 }
 \description{
 Train Value and Policy by Autodidactic Iteration
-}
-\examples{
-\donttest{
-g   <- cube_group(4)
-net <- cube_adi_model(g)
-net <- cube_adi_train(net, iterations = 50L, batch_states = 5000L)
-}
 }

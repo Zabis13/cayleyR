@@ -2,9 +2,11 @@ test_that("a build returns the moves that produced the state", {
   # The one thing a solver must never get wrong: the word it hands back has to
   # take the cube it was given to the cube it claims. Short scrambles, because
   # a full build costs about ten seconds and what is being checked here is the
-  # bookkeeping, not the method.
+  # bookkeeping, not the method. One size for the same reason: the bookkeeping
+  # is the same code whatever n is, and the odd/even difference is what the
+  # fixed-centre test below is for.
   set.seed(3)
-  for (n in c(4, 5)) {
+  for (n in c(4)) {
     g <- cube_group(n)
     id <- group_identity(g)
     s <- group_apply(g, id, sample(cube_move_names(n), 5, replace = TRUE))
@@ -20,7 +22,8 @@ test_that("a build returns the moves that produced the state", {
 })
 
 test_that("a solved cube is already built and needs no moves", {
-  for (n in c(2, 3, 4, 5, 6)) {
+  # 6 is dropped: it is the even case that 4 already is, and costs 1.4s of it.
+  for (n in c(2, 3, 4, 5)) {
     lay <- cube_build_lslice(cube_identity(n))
     expect_true(lay$built)
     expect_equal(lay$count, lay$target)
@@ -102,12 +105,16 @@ test_that("max_rounds bounds the cycles", {
 })
 
 test_that("both stages infer n and reject a bad length", {
-  s <- cube_identity(5)
-  expect_equal(cube_build_lslice(s)$target, cube_build_lslice(s, n = 5)$target)
-  expect_error(cube_build_lslice(s, n = 4), "stickers")
+  # A 4x4x4 rather than a 5x5x5: what is checked is that n is read off the
+  # length and that a wrong n is refused, which is argument handling and the
+  # same code at every size. The 5x5x5 build this used to call costs 3s and
+  # settles nothing extra.
+  s <- cube_identity(4)
+  expect_equal(cube_build_lslice(s)$target, cube_build_lslice(s, n = 4)$target)
+  expect_error(cube_build_lslice(s, n = 5), "stickers")
   expect_error(cube_build_lslice(1:50), "no cube")
 
-  expect_equal(cube_empty_u_slice(s)$target, cube_empty_u_slice(s, n = 5)$target)
-  expect_error(cube_empty_u_slice(s, n = 4), "stickers")
+  expect_equal(cube_empty_u_slice(s)$target, cube_empty_u_slice(s, n = 4)$target)
+  expect_error(cube_empty_u_slice(s, n = 5), "stickers")
   expect_error(cube_empty_u_slice(1:50), "no cube")
 })

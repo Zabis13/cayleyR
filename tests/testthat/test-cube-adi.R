@@ -35,13 +35,18 @@ test_that("children match cube_moves order exactly", {
   # Row (i-1)*24 + a must be child a of state i, in the move order R sees.
   # Everything downstream reads the targets back by this arithmetic, so a
   # transposed layout here would train the policy on the wrong labels while
-  # every loss curve still looked healthy.
-  for (i in 1:5) {
-    for (a in 1:24) {
-      expect_identical(as.integer(ch$children[(i - 1L) * 24L + a, ]),
-                       as.integer(sc$states[i, ][m[[a]]]))
-    }
-  }
+  # every loss curve still looked healthy. Built as one matrix and compared
+  # once: a single wrong row fails the comparison just as an element-by-element
+  # walk would, without paying for 120 separate expectations.
+  expected <- do.call(rbind, lapply(1:5, function(i)
+    do.call(rbind, lapply(1:24, function(a) as.integer(sc$states[i, ][m[[a]]])))))
+  storage.mode(expected) <- "integer"
+
+  got <- ch$children
+  storage.mode(got) <- "integer"
+  dimnames(got) <- NULL
+
+  expect_identical(got, expected)
 })
 
 test_that("a state one move from solved has exactly one solved child", {
