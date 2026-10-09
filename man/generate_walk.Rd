@@ -4,7 +4,15 @@
 \alias{generate_walk}
 \title{Random Walks From the Solved State, With the Moves They Took}
 \usage{
-generate_walk(group, n = 1L, n_moves = 10L, exact = TRUE, no_undo = TRUE)
+generate_walk(
+  group,
+  n = 1L,
+  n_moves = 10L,
+  exact = TRUE,
+  no_undo = TRUE,
+  pivot = FALSE,
+  k_min = 2L
+)
 }
 \arguments{
 \item{group}{A \code{\link{perm_group}} to walk in}
@@ -19,18 +27,30 @@ length uniformly from 1 to \code{n_moves}}
 
 \item{no_undo}{Refuse a move that immediately undoes the previous one
 (default \code{TRUE})}
+
+\item{pivot}{Report a point partway along each walk rather than its end
+(default \code{FALSE})}
+
+\item{k_min}{Shallowest cut to draw when \code{pivot = TRUE} (default 2).
+A cut of 1 puts the pivot one move from solved, where every method is
+right and the row says nothing.}
 }
 \value{
 A list with
 \describe{
 \item{\code{states}}{integer matrix, \code{n} rows, one walk endpoint
-per row}
-\item{\code{depth}}{integer vector, the length of each walk}
+per row --- or the pivot point when \code{pivot = TRUE}}
+\item{\code{depth}}{integer vector, the length of each walk --- or the
+pivot's distance label when \code{pivot = TRUE}}
 \item{\code{moves}}{list of \code{n} character vectors, the word each
 walk took}
 \item{\code{solution}}{list of \code{n} character vectors, each the
 inverse of the corresponding word --- a path from that state to
-solved}
+solved. \code{NULL} when \code{pivot = TRUE}, where the word describes
+the whole walk and not the reported state.}
+\item{\code{prev_move}, \code{next_move}}{character vectors, present only
+when \code{pivot = TRUE}: the move back toward the identity and the
+move away from it}
 }
 }
 \description{
@@ -62,6 +82,15 @@ two moves and travels nowhere. Refusing them makes the label mean more.
 Longer cycles are left alone: four quarter turns of one face also come
 home, and refusing every way back would mean searching the group rather
 than walking it.}
+\item{\code{pivot}}{\code{TRUE} reports a point partway along each walk
+instead of its end, with the two moves that meet there. A cut is drawn
+uniformly from \code{k_min} to \code{n_moves - 1} --- before the walk, so
+that every depth is equally represented --- and \code{states} then holds
+that point, \code{depth} its distance label, and \code{prev_move} /
+\code{next_move} name the move back toward the identity and the move the
+walk went on to make. Those two are the only moves whose value is known
+at that state --- \code{depth - 1} and \code{depth + 1} --- which is what
+a Q-model is trained on. Default \code{FALSE}.}
 }
 
 Even with \code{no_undo} the length stays an upper bound on the true distance
@@ -82,6 +111,10 @@ identical(s, group_identity(g))
 # for training: a spread of depths rather than one
 w <- generate_walk(g, n = 5, n_moves = 10, exact = FALSE)
 w$depth
+
+# for a Q-model: a midpoint and the two moves whose value is known there
+p <- generate_walk(g, n = 3, n_moves = 8, exact = FALSE, pivot = TRUE)
+data.frame(depth = p$depth, back = p$prev_move, away = p$next_move)
 }
 \seealso{
 \code{\link{generate_state}} when the route is not needed,

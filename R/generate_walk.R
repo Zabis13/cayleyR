@@ -27,6 +27,15 @@
 #'     Longer cycles are left alone: four quarter turns of one face also come
 #'     home, and refusing every way back would mean searching the group rather
 #'     than walking it.}
+#'   \item{\code{pivot}}{\code{TRUE} reports a point partway along each walk
+#'     instead of its end, with the two moves that meet there. A cut is drawn
+#'     uniformly from \code{k_min} to \code{n_moves - 1} --- before the walk, so
+#'     that every depth is equally represented --- and \code{states} then holds
+#'     that point, \code{depth} its distance label, and \code{prev_move} /
+#'     \code{next_move} name the move back toward the identity and the move the
+#'     walk went on to make. Those two are the only moves whose value is known
+#'     at that state --- \code{depth - 1} and \code{depth + 1} --- which is what
+#'     a Q-model is trained on. Default \code{FALSE}.}
 #' }
 #'
 #' Even with \code{no_undo} the length stays an upper bound on the true distance
@@ -42,16 +51,26 @@
 #'   length uniformly from 1 to \code{n_moves}
 #' @param no_undo Refuse a move that immediately undoes the previous one
 #'   (default \code{TRUE})
+#' @param pivot Report a point partway along each walk rather than its end
+#'   (default \code{FALSE})
+#' @param k_min Shallowest cut to draw when \code{pivot = TRUE} (default 2).
+#'   A cut of 1 puts the pivot one move from solved, where every method is
+#'   right and the row says nothing.
 #' @return A list with
 #'   \describe{
 #'     \item{\code{states}}{integer matrix, \code{n} rows, one walk endpoint
-#'       per row}
-#'     \item{\code{depth}}{integer vector, the length of each walk}
+#'       per row --- or the pivot point when \code{pivot = TRUE}}
+#'     \item{\code{depth}}{integer vector, the length of each walk --- or the
+#'       pivot's distance label when \code{pivot = TRUE}}
 #'     \item{\code{moves}}{list of \code{n} character vectors, the word each
 #'       walk took}
 #'     \item{\code{solution}}{list of \code{n} character vectors, each the
 #'       inverse of the corresponding word --- a path from that state to
-#'       solved}
+#'       solved. \code{NULL} when \code{pivot = TRUE}, where the word describes
+#'       the whole walk and not the reported state.}
+#'     \item{\code{prev_move}, \code{next_move}}{character vectors, present only
+#'       when \code{pivot = TRUE}: the move back toward the identity and the
+#'       move away from it}
 #'   }
 #' @export
 #' @seealso \code{\link{generate_state}} when the route is not needed,
@@ -69,8 +88,13 @@
 #' # for training: a spread of depths rather than one
 #' w <- generate_walk(g, n = 5, n_moves = 10, exact = FALSE)
 #' w$depth
+#'
+#' # for a Q-model: a midpoint and the two moves whose value is known there
+#' p <- generate_walk(g, n = 3, n_moves = 8, exact = FALSE, pivot = TRUE)
+#' data.frame(depth = p$depth, back = p$prev_move, away = p$next_move)
 generate_walk <- function(group, n = 1L, n_moves = 10L,
-                          exact = TRUE, no_undo = TRUE) {
+                          exact = TRUE, no_undo = TRUE, pivot = FALSE,
+                          k_min = 2L) {
   if (!is_perm_group(group)) stop("generate_walk: group must be a perm_group")
 
   n       <- as.integer(n)
@@ -79,19 +103,35 @@ generate_walk <- function(group, n = 1L, n_moves = 10L,
   if (is.na(n_moves) || n_moves < 1L)
     stop("generate_walk: n_moves must be a positive integer")
 
+  pivot <- isTRUE(pivot)
   w <- generate_walk_cpp(group$ptr, n, n_moves,
-                         isTRUE(exact), isTRUE(no_undo))
+                         isTRUE(exact), isTRUE(no_undo), pivot,
+                         as.integer(k_min))
 
   # C++ returns the words as one padded matrix of move indices, which is the
   # cheap shape to hand across. R wants them as names, and ragged when the
   # depths differ, so the padding is dropped here rather than there.
+  #
+  # With pivot = TRUE the row's word is longer than its label: `depth` is where
+  # the cut fell, not how far the walk went, so the word is trimmed by counting
+  # its non-NA entries instead.
   words <- lapply(seq_len(n), function(i) {
-    idx <- w$moves[i, seq_len(w$depth[[i]])]
-    group$moves[idx]
+    row <- w$moves[i, ]
+    group$moves[row[!is.na(row)]]
   })
 
-  list(states   = w$states,
-       depth    = w$depth,
-       moves    = words,
-       solution = lapply(words, invert_path, group = group))
+  out <- list(states = w$states,
+              depth  = w$depth,
+              moves  = words)
+
+  if (pivot) {
+    # No `solution`: the word walks to the walk's end, while `states` holds the
+    # cut point, so inverting the word would not solve the state reported. The
+    # one-move way home from there is prev_move, and it is given directly.
+    out$prev_move <- group$moves[w$prev_move]
+    out$next_move <- group$moves[w$next_move]
+  } else {
+    out$solution <- lapply(words, invert_path, group = group)
+  }
+  out
 }

@@ -104,37 +104,22 @@ cat("scrambles:", if (opt$fixed > 0L) sprintf("exactly %d moves", opt$depth)
 # Data
 # ---------------------------------------------------------------------------
 
-# cube_adi_scramble() walks away from the solved state in C++ and reports the
-# depth it used, which is exactly the label wanted here. It draws uniformly from
-# 1..max_depth, so a fixed length is had by asking for that one depth and
-# keeping only the rows that came back with it -- the walk itself is the same.
+# generate_walk() walks away from the solved state and reports the depth it
+# used, which is exactly the label wanted here. Its two switches are the two
+# modes this script offers: exact = FALSE draws each length uniformly from
+# 1..n_moves, exact = TRUE walks n_moves every time, so a fixed depth needs no
+# filtering -- the walk returns what was asked for.
 #
-# It also refuses to undo its own last move. That trims the crudest way a label
-# can overstate the distance (a move followed by its inverse) without touching
-# longer returns, which are rarer and are what the collision count below
-# measures.
+# no_undo refuses a move that undoes the one before it. That trims the crudest
+# way a label can overstate the distance (a move followed by its inverse)
+# without touching longer returns, which are rarer and are what the collision
+# count below measures.
 make_data <- function(n, note) {
-  if (opt$fixed > 0L) {
-    states <- matrix(0L, n, g$n)
-    got    <- 0L
-    while (got < n) {
-      sc   <- cayleyR:::cube_adi_scramble(g$ptr, (n - got) * 2L, opt$depth)
-      keep <- which(sc$depth == opt$depth)
-      if (length(keep) == 0L) next
-      keep <- keep[seq_len(min(length(keep), n - got))]
-      states[(got + 1L):(got + length(keep)), ] <- sc$states[keep, , drop = FALSE]
-      got <- got + length(keep)
-      cat(sprintf("\r  %s %5.0f%%", note, 100 * got / n)); flush(stdout())
-    }
-    y <- rep(opt$depth, n)
-  } else {
-    sc     <- cayleyR:::cube_adi_scramble(g$ptr, n, opt$depth)
-    states <- sc$states
-    y      <- as.integer(sc$depth)
-    cat(sprintf("\r  %s  100%%", note))
-  }
+  w <- generate_walk(g, n = n, n_moves = opt$depth,
+                     exact = opt$fixed > 0L, no_undo = TRUE)
+  cat(sprintf("\r  %s  100%%", note))
   cat("\r", strrep(" ", 30), "\r", sep = "")
-  list(states = states, y = y)
+  list(states = w$states, y = as.integer(w$depth))
 }
 
 cat("building data\n"); flush(stdout())

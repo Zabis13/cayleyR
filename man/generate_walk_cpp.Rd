@@ -4,7 +4,15 @@
 \alias{generate_walk_cpp}
 \title{Random Walks From the Solved State, With the Moves They Took}
 \usage{
-generate_walk_cpp(group, n, n_moves, exact = TRUE, no_undo = TRUE)
+generate_walk_cpp(
+  group,
+  n,
+  n_moves,
+  exact = TRUE,
+  no_undo = TRUE,
+  pivot = FALSE,
+  k_min = 2L
+)
 }
 \arguments{
 \item{group}{External pointer to a \code{perm_group}}
@@ -19,12 +27,21 @@ uniformly from 1 to \code{n_moves}}
 
 \item{no_undo}{Refuse a move that immediately undoes the previous one
 (default \code{TRUE})}
+
+\item{pivot}{Report a point partway along each walk instead of its end
+(default \code{FALSE}). See Details.}
+
+\item{k_min}{Shallowest cut to draw when \code{pivot = TRUE} (default 2)}
 }
 \value{
 List with \code{states} (n x state_len integer matrix, one walk
 endpoint per row), \code{depth} (integer vector, the length of each walk)
 and \code{moves} (n x n_moves integer matrix of 1-based move indices, the
-word each row walked, padded with \code{NA} past that row's depth)
+word each row walked, padded with \code{NA} past that row's depth). With
+\code{pivot = TRUE} it also carries \code{prev_move} and \code{next_move}
+(integer vectors of 1-based move indices) and \code{states} holds the
+pivot point rather than the endpoint, with \code{depth} its distance
+label.
 }
 \description{
 Walks away from the identity and reports the word it walked, which is what
@@ -59,5 +76,33 @@ the solver is never credited with a shortcut the reference did not have.
 The walk is uniform over the alphabet, so a group given generators without
 their inverses is walked with what it has; \code{no_undo} then has nothing
 to refuse at those steps and allows them.
+
+\code{pivot = TRUE} changes what is reported without changing how a walk is
+taken. A cut is drawn uniformly from \code{k_min} to \code{n_moves - 1} and
+the state at that point is returned instead of the endpoint, together with
+the two moves that meet there: the inverse of the move that arrived
+(\code{prev_move}, a step back toward the identity) and the move the walk
+went on to make (\code{next_move}, a step further away). \code{depth} then
+reports the cut, which is that point's distance label.
+
+The cut is drawn BEFORE the walk, and the walk is then made long enough to
+contain it. Walking first and cutting inside afterwards is the obvious
+order, but it leans the labels hard on the shallow end --- a cut of 1 can
+come out of every walk, a deep cut only out of the longest --- and the deep
+end ends up too thin to read while the shallow end, where the task is
+trivial, dominates the averages. Cutting first gives every depth equal
+weight, which is what the depth scripts sample and what a by-depth table has
+to have to be comparable between runs.
+
+This is what a Q-model is trained on. Of the whole alphabet only those two
+moves have a known label at that state --- \code{depth - 1} and
+\code{depth + 1} --- and both come out of the walk itself, with no prefix
+replayed and no distance guessed. \code{next_move} is the move the walk
+really took, not one drawn afresh, so it is a genuine step of a random walk
+rather than an arbitrary neighbour. \code{k_min} defaults to 2 because a cut
+of 1 puts the pivot one move from solved, where every method is right and
+the row says nothing. \code{no_undo} keeps \code{next_move} from being the
+inverse of the arriving move, which would otherwise carry both labels at
+once.
 }
 \keyword{internal}

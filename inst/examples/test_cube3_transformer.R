@@ -1,29 +1,28 @@
 #!/usr/bin/env Rscript
 # The transformer against the classical methods on the 3x3x3.
 #
-# Loads the network trained by train_cube3_transformer.R and measures it on the
-# same states as Kociemba and CFOP: a hundred random scrambles of ten moves,
-# each solved three ways, compared on solution length and time.
+# Loads the network trained by train_cube3_transformer.R and measures it against
+# CFOP: a hundred random scrambles of ten moves, each solved several ways,
+# compared on solution length and time.
 #
 # The comparison is uneven by construction, which is worth knowing up front:
 #
-#   KociembaMod  two-phase search. Solves any state, and its length barely
-#                depends on how scrambled that state was.
-#   CFOP         layer by layer. Also solves any state, but its length is set
-#                by the method's own structure, not by the distance to solved.
+#   CFOP         layer by layer. Solves any state, but its length is set by the
+#                method's own structure, not by the distance to solved.
 #   adi          a greedy descent on a learned distance. Solves only what falls
 #                within the horizon it was trained on, but on close states it
-#                can beat both -- it walks towards the goal rather than
+#                can beat CFOP -- it walks towards the goal rather than
 #                executing a program.
-#   adi_beam     the ADI estimator again, searched rather than descended: a
-#                beam of `beam` candidates instead of a single best child.
-#                Added with beam=N; omitted at 0.
 #   depth        the same descent on an estimator trained the other way round:
 #                labelled by scramble length instead of by its own opinion of a
 #                state's children. Added with dnet=; omitted when that is empty.
+#   depth_beam   that estimator searched rather than descended: a beam of
+#                `beam` candidates instead of a single best child. Added with
+#                beam=N; omitted at 0.
 #
-# The two learned methods share the descent exactly, so what separates them in
-# the table is their estimators and nothing else.
+# adi and depth share the descent exactly, so what separates them in the table
+# is their estimators and nothing else; depth and depth_beam share the estimator,
+# so what separates those two is the search.
 #
 # So on a ten-move scramble the honest question is not "who is shorter" in
 # general, but "does the network reach solved at all, and in how many moves".
@@ -40,7 +39,7 @@
 #   states=100               how many states
 #   depth=10                 scramble length
 #   budget=50                move ceiling for the greedy descent
-#   backend=auto seed=2026 shorten=2
+#   backend=auto seed=2026
 
 library(cayleyR)
 
@@ -55,7 +54,6 @@ defaults <- list(
   depth   = 10L,
   budget  = 50L,
   batch   = 128L,
-  shorten = 2L,      # BFS shortener depth; see the note below
   backend = "auto",
   seed    = 2026L
 )
@@ -181,11 +179,6 @@ cat(if (spread < 0.5)
 # search and the network have no stages and return the word alone, so they are
 # dressed in the same shape here rather than given their own branch in the
 # measuring loop below.
-kociemba_as_method <- function(state) {
-  path <- cube_kociemba(state)$path
-  list(path = path, found = length(path) > 0L)
-}
-
 transformer_as_method <- function(state) {
   r <- cube_adi_solve(net, state, budget = opt$budget, batch_size = opt$batch)
   list(path = r$path, found = isTRUE(r$solved))
@@ -322,42 +315,31 @@ if (nzchar(opt$dnet)) {
   }
 }
 
-# Timed through to the end of the shortener: the figure is what a short word
-# costs, not what the solver alone took.
-#
-# Depth 2 rather than the default 5: the cube's alphabet is 18 moves against
-# TopSpin's 3, so the neighbourhood grows as 18^d. Measured on one solve, depth 2
-# took 0.06s and saved 14 moves, depth 3 took 0.78s for 16, and depth 4 took 14s
-# for the same 16.
+# The figure is what the solver alone took: the path is reported as it comes
+# back, unshortened.
 solve_once <- function(method, state) {
   t0 <- proc.time()[["elapsed"]]
   r  <- try(method(state), silent = TRUE)
 
   if (inherits(r, "try-error")) {
-    return(list(status = "error", moves = NA_integer_, short = NA_integer_,
+    return(list(status = "error", moves = NA_integer_,
                 seconds = proc.time()[["elapsed"]] - t0))
   }
   if (!isTRUE(r$found)) {
-    return(list(status = "unsolved", moves = NA_integer_, short = NA_integer_,
+    return(list(status = "unsolved", moves = NA_integer_,
                 seconds = proc.time()[["elapsed"]] - t0))
   }
 
-  sh <- short_path_bfs(r$path, state, depth = opt$shorten, group = g)
-  list(status = "solved", moves = length(r$path), short = sh$new_length,
+  list(status = "solved", moves = length(r$path),
        seconds = proc.time()[["elapsed"]] - t0)
 }
 
-methods <- list(KociembaMod = kociemba_as_method,
-                CFOP        = cube_solve_cfop,
-                adi         = transformer_as_method)
+methods <- list(CFOP = cube_solve_cfop,
+                adi  = transformer_as_method)
 
-# Greedy and beam for each estimator that is present, so the table separates the
-# two things being compared: the estimators against each other under one search,
-# and the search against itself under one estimator.
-if (opt$beam > 0L) {
-  methods$adi_beam <- make_beam(function(kids)
-    cayleyR:::adi_value_of(net$value, kids, opt$batch, net$arch, net$layout))
-}
+# The depth estimator gets both searches, so the table separates the two things
+# being compared: the estimators against each other under the greedy descent,
+# and the beam against that descent under one estimator.
 if (!is.null(depth_solver)) {
   methods$depth <- depth_solver
   if (opt$beam > 0L) methods$depth_beam <- make_beam(depth_score)
@@ -394,7 +376,7 @@ for (i in seq_len(opt$states)) {
     r <- solve_once(methods[[nm]], state)
     rows[[length(rows) + 1L]] <- data.frame(
       state = i, method = nm, status = r$status,
-      moves = r$moves, short = r$short, seconds = r$seconds,
+      moves = r$moves, seconds = r$seconds,
       stringsAsFactors = FALSE)
   }
 
@@ -418,7 +400,6 @@ summary_row <- function(nm) {
     method     = nm,
     solved     = sprintf("%d/%d", sum(ok), nrow(d)),
     mean_moves = if (any(ok)) round(mean(d$moves[ok]), 1) else NA_real_,
-    mean_short = if (any(ok)) round(mean(d$short[ok]), 1) else NA_real_,
     mean_sec   = if (any(ok)) round(mean(d$seconds[ok]), 2) else NA_real_,
     errors     = sum(d$status == "error"),
     stringsAsFactors = FALSE)
@@ -435,8 +416,7 @@ print(do.call(rbind, lapply(names(methods), summary_row)), row.names = FALSE)
 # move score lowest of the eighteen, every step of the way -- ten steps at even
 # 60% a step is under one run in a hundred, which is why a better estimator can
 # move these numbers far less than its error suggests.
-for (nm in intersect(c("adi", "adi_beam", "depth", "depth_beam"),
-                     names(methods))) {
+for (nm in intersect(c("adi", "depth", "depth_beam"), names(methods))) {
   tr <- res[res$method == nm, ]
   cat(sprintf("\n%s: solved %d of %d (%.0f%%)\n", nm,
               sum(tr$status == "solved"), nrow(tr),
@@ -446,9 +426,9 @@ for (nm in intersect(c("adi", "adi_beam", "depth", "depth_beam"),
     both <- tr$state[tr$status == "solved"]
     mean_on <- function(m) {
       d <- res[res$method == m & res$state %in% both & res$status == "solved", ]
-      if (nrow(d) == 0L) NA_real_ else mean(d$short)
+      if (nrow(d) == 0L) NA_real_ else mean(d$moves)
     }
-    cat("  on those states, moves after shortening:\n")
+    cat("  on those states, moves:\n")
     for (m in names(methods)) {
       cat(sprintf("    %-12s %5.1f\n", m, mean_on(m)))
     }

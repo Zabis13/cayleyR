@@ -57,6 +57,34 @@ using namespace Rcpp;
 //' their inverses is walked with what it has; \code{no_undo} then has nothing
 //' to refuse at those steps and allows them.
 //'
+//' \code{pivot = TRUE} changes what is reported without changing how a walk is
+//' taken. A cut is drawn uniformly from \code{k_min} to \code{n_moves - 1} and
+//' the state at that point is returned instead of the endpoint, together with
+//' the two moves that meet there: the inverse of the move that arrived
+//' (\code{prev_move}, a step back toward the identity) and the move the walk
+//' went on to make (\code{next_move}, a step further away). \code{depth} then
+//' reports the cut, which is that point's distance label.
+//'
+//' The cut is drawn BEFORE the walk, and the walk is then made long enough to
+//' contain it. Walking first and cutting inside afterwards is the obvious
+//' order, but it leans the labels hard on the shallow end --- a cut of 1 can
+//' come out of every walk, a deep cut only out of the longest --- and the deep
+//' end ends up too thin to read while the shallow end, where the task is
+//' trivial, dominates the averages. Cutting first gives every depth equal
+//' weight, which is what the depth scripts sample and what a by-depth table has
+//' to have to be comparable between runs.
+//'
+//' This is what a Q-model is trained on. Of the whole alphabet only those two
+//' moves have a known label at that state --- \code{depth - 1} and
+//' \code{depth + 1} --- and both come out of the walk itself, with no prefix
+//' replayed and no distance guessed. \code{next_move} is the move the walk
+//' really took, not one drawn afresh, so it is a genuine step of a random walk
+//' rather than an arbitrary neighbour. \code{k_min} defaults to 2 because a cut
+//' of 1 puts the pivot one move from solved, where every method is right and
+//' the row says nothing. \code{no_undo} keeps \code{next_move} from being the
+//' inverse of the arriving move, which would otherwise carry both labels at
+//' once.
+//'
 //' @param group External pointer to a \code{perm_group}
 //' @param n Number of walks to generate
 //' @param n_moves Length of each walk, or the longest one when
@@ -65,21 +93,37 @@ using namespace Rcpp;
 //'   uniformly from 1 to \code{n_moves}
 //' @param no_undo Refuse a move that immediately undoes the previous one
 //'   (default \code{TRUE})
+//' @param pivot Report a point partway along each walk instead of its end
+//'   (default \code{FALSE}). See Details.
+//' @param k_min Shallowest cut to draw when \code{pivot = TRUE} (default 2)
 //' @return List with \code{states} (n x state_len integer matrix, one walk
 //'   endpoint per row), \code{depth} (integer vector, the length of each walk)
 //'   and \code{moves} (n x n_moves integer matrix of 1-based move indices, the
-//'   word each row walked, padded with \code{NA} past that row's depth)
+//'   word each row walked, padded with \code{NA} past that row's depth). With
+//'   \code{pivot = TRUE} it also carries \code{prev_move} and \code{next_move}
+//'   (integer vectors of 1-based move indices) and \code{states} holds the
+//'   pivot point rather than the endpoint, with \code{depth} its distance
+//'   label.
 //' @keywords internal
 // [[Rcpp::export]]
 List generate_walk_cpp(SEXP group, int n, int n_moves,
-                       bool exact = true, bool no_undo = true) {
+                       bool exact = true, bool no_undo = true,
+                       bool pivot = false, int k_min = 2) {
   XPtr<PermGroup> g(group);
   if (n <= 0) stop("n must be positive");
   if (n_moves <= 0) stop("n_moves must be positive");
+  if (pivot && n_moves < 2)
+    stop("pivot needs n_moves >= 2: a midpoint must have a step on each side");
+  if (pivot && k_min < 1)
+    stop("k_min must be at least 1: the pivot is a step from the identity");
+  if (pivot && k_min > n_moves - 1)
+    stop("k_min must leave a move beyond the pivot: need k_min <= n_moves - 1");
 
   const int state_len = g->state_length();
   const int n_alpha   = g->n_moves();
   if (n_alpha <= 0) stop("group has no moves");
+  if (pivot && n_alpha < 2)
+    stop("pivot needs at least two moves to tell previous from next");
 
   IntegerMatrix states(n, state_len);
   IntegerVector depth(n);
@@ -89,17 +133,50 @@ List generate_walk_cpp(SEXP group, int n, int n_moves,
   IntegerMatrix words(n, n_moves);
   std::fill(words.begin(), words.end(), NA_INTEGER);
 
-  std::vector<int> cur;
+  // Only filled when pivot = TRUE; length 0 otherwise so the unused case costs
+  // nothing and the R side can test for their presence.
+  IntegerVector prev_move(pivot ? n : 0);
+  IntegerVector next_move(pivot ? n : 0);
+
+  std::vector<int> cur, at_pivot;
 
   for (int i = 0; i < n; ++i) {
     cur = g->identity();
 
     int d = n_moves;
-    if (!exact) {
-      d = (int)(unif_rand() * n_moves) + 1;
-      if (d > n_moves) d = n_moves;          // guards unif_rand() == 1
-    }
+    int cut = -1;
 
+    if (pivot) {
+      // Draw the CUT first, uniformly over k_min..n_moves-1, then the walk
+      // long enough to contain it. Drawing the walk first and cutting inside
+      // it -- which is the obvious order, and the one cayleypy-training-core
+      // uses -- makes the label distribution lean hard on the shallow end: a
+      // cut of 1 can come out of every walk, a cut of 9 only out of the
+      // longest. Measured on 1000 draws over 1..10 that gave 411 states at
+      // depth 1 and 16 at depth 9, so the deep end was too thin to read and
+      // the shallow end, where the task is trivial, dominated the averages.
+      //
+      // Cutting first makes every depth equally represented, which is what the
+      // by-depth table has to have to be comparable across runs, and matches
+      // how the depth scripts sample.
+      const int span = n_moves - k_min;          // cut in k_min .. n_moves-1
+      cut = k_min + (int)(unif_rand() * (span));
+      if (cut > n_moves - 1) cut = n_moves - 1;  // guards unif_rand() == 1
+
+      // The walk must go at least one move past the cut; beyond that its
+      // length does not matter, since only the cut point is reported. exact
+      // walks the full n_moves, otherwise the tail is drawn.
+      if (exact) {
+        d = n_moves;
+      } else {
+        const int tail = n_moves - cut;          // at least 1
+        d = cut + 1 + (int)(unif_rand() * tail);
+        if (d > n_moves) d = n_moves;
+      }
+    } else if (!exact) {
+      d = (int)(unif_rand() * n_moves) + 1;
+      if (d > n_moves) d = n_moves;              // guards unif_rand() == 1
+    }
     int last = -1;
     for (int step = 0; step < d; ++step) {
       int a;
@@ -113,15 +190,35 @@ List generate_walk_cpp(SEXP group, int n, int n_moves,
         a = (int)(unif_rand() * n_alpha);
         if (a >= n_alpha) a = n_alpha - 1;
       } while (banned >= 0 && a == banned);
+
+      // The cut is taken BEFORE the move is applied, so `cur` is the pivot
+      // point, the move about to be made leads away from the goal, and the
+      // inverse of the move that arrived here leads back. Both labels come out
+      // of the walk itself -- nothing is replayed and nothing is guessed.
+      if (pivot && step == cut) {
+        at_pivot = cur;
+        prev_move[i] = g->inverse_move(last) + 1;   // 1-based, steps homeward
+        next_move[i] = a + 1;                       // 1-based, steps away
+      }
+
       g->apply(cur, a);
       words(i, step) = a + 1;                // 1-based, to index g$moves in R
       last = a;
     }
 
-    for (int j = 0; j < state_len; ++j) states(i, j) = cur[j];
-    depth[i] = d;
+    if (pivot) {
+      for (int j = 0; j < state_len; ++j) states(i, j) = at_pivot[j];
+      depth[i] = cut;                        // the pivot's distance label
+    } else {
+      for (int j = 0; j < state_len; ++j) states(i, j) = cur[j];
+      depth[i] = d;
+    }
   }
 
+  if (pivot)
+    return List::create(_["states"] = states, _["depth"] = depth,
+                        _["moves"]  = words,
+                        _["prev_move"] = prev_move, _["next_move"] = next_move);
   return List::create(_["states"] = states, _["depth"] = depth,
                       _["moves"]  = words);
 }
