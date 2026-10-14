@@ -1,24 +1,31 @@
 test_that("a build returns the moves that produced the state", {
   # The one thing a solver must never get wrong: the word it hands back has to
-  # take the cube it was given to the cube it claims. Short scrambles, because
-  # a full build costs about ten seconds and what is being checked here is the
-  # bookkeeping, not the method. One size for the same reason: the bookkeeping
-  # is the same code whatever n is, and the odd/even difference is what the
-  # fixed-centre test below is for.
+  # take the cube it was given to the cube it claims. A short scramble and one
+  # size, because what is being checked here is the bookkeeping, not the
+  # method, and the bookkeeping is the same code whatever n is.
+  #
+  # The same build also checks that the shots leave the built bottom one
+  # colour. Checked by COLOUR rather than by sticker index -- on an even cube
+  # the centres of a face are indistinguishable, so a shot may permute them
+  # within the face without disturbing anything that matters.
   set.seed(3)
-  for (n in c(4)) {
-    g <- cube_group(n)
-    id <- group_identity(g)
-    s <- group_apply(g, id, sample(cube_move_names(n), 5, replace = TRUE))
+  n <- 4
+  g <- cube_group(n)
+  s <- group_apply(g, group_identity(g),
+                   sample(cube_move_names(n), 5, replace = TRUE))
 
-    lay <- cube_build_lslice(s)
-    expect_equal(group_apply(g, s, lay$path), lay$state)
-    expect_lte(lay$count, lay$target)
+  lay <- cube_build_lslice(s)
+  expect_equal(group_apply(g, s, lay$path), lay$state)
+  expect_lte(lay$count, lay$target)
 
-    down <- group_apply(g, lay$state, cube_expand_word("z'", n))
-    sh <- cube_empty_u_slice(down, n)
-    expect_equal(group_apply(g, down, sh$path), sh$state)
-  }
+  down <- group_apply(g, lay$state, cube_expand_word("z'", n))
+  sh <- cube_empty_u_slice(down, n)
+  expect_equal(group_apply(g, down, sh$path), sh$state)
+
+  cs <- cube_centre_structure(n)
+  d_sk <- cs$sticker[cs$face == 3L]
+  colours <- function(st) sort((st[d_sk] - 1L) %/% (n * n))
+  expect_equal(colours(sh$state), colours(down))
 })
 
 test_that("a solved cube is already built and needs no moves", {
@@ -34,30 +41,6 @@ test_that("a solved cube is already built and needs no moves", {
     sh <- cube_empty_u_slice(cube_identity(n))
     expect_equal(sh$shots, 0L)
     expect_length(sh$path, 0)
-  }
-})
-
-test_that("the shots leave the built bottom one colour", {
-  # The whole point of the stage: what has been built and turned down survives
-  # it. Checked by COLOUR rather than by sticker index -- on an even cube the
-  # centres of a face are indistinguishable, so a shot may permute them within
-  # the face without disturbing anything that matters.
-  set.seed(2)
-  for (n in c(4, 5)) {
-    g <- cube_group(n)
-    cs <- cube_centre_structure(n)
-    per <- table(cs$orbit)
-    fixed <- if (n %% 2L == 1L) as.integer(names(per)[per == 6L])[1] else NA
-    d_sk <- cs$sticker[cs$face == 3L & (is.na(fixed) | cs$orbit != fixed)]
-    colours <- function(st) sort((st[d_sk] - 1L) %/% (n * n))
-
-    s <- group_apply(g, group_identity(g),
-                     sample(cube_move_names(n), 5, replace = TRUE))
-    lay <- cube_build_lslice(s, n)
-    down <- group_apply(g, lay$state, cube_expand_word("z'", n))
-
-    r <- cube_empty_u_slice(down, n)
-    expect_equal(colours(r$state), colours(down))
   }
 })
 

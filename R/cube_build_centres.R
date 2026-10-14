@@ -281,9 +281,12 @@ cube_build_lslice <- function(state, n = NULL, max_rounds = 40L) {
     return(list(state = state, path = character(0), count = 0L, target = 0L,
                 built = TRUE, rounds = 0L))
 
+  # A cube already built needs nothing else computed.
+  if (C$score(state) >= C$target)
+    return(list(state = state, path = character(0), count = C$target,
+                target = C$target, built = TRUE, rounds = 0L))
+
   alphabet <- cube_move_names(n)
-  cycles <- cube_centre_cycles(n)
-  rotations <- if (nrow(cycles)) .lslice_rotations(C) else list()
 
   # Ladder to exhaustion, then a cycle, then the ladder again -- the cycle
   # opens positions the ladder can go on from, so alternating gets further than
@@ -298,6 +301,12 @@ cube_build_lslice <- function(state, n = NULL, max_rounds = 40L) {
     cur <- s$st
     path <- c(path, s$word)
   }
+
+  # The three-cycles are only needed once the ladder has stalled short of the
+  # target.
+  cycles <- if (C$score(cur) < C$target && max_rounds > 0L)
+    cube_centre_cycles(n) else data.frame()
+  rotations <- if (nrow(cycles)) .lslice_rotations(C) else list()
 
   while (C$score(cur) < C$target && rounds < max_rounds && nrow(cycles)) {
     cy <- .lslice_cycle_step(cur, C, cycles, rotations)

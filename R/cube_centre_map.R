@@ -194,6 +194,19 @@ cube_centre_structure <- function(n) {
 #' unique(cyc5$orbit)
 cube_centre_cycles <- function(n, all = FALSE) {
   n <- as.integer(n)
+  key <- paste0(n, if (isTRUE(all)) "all" else "")
+  hit <- .cube_cycles_env[[key]]
+  if (!is.null(hit)) return(hit)
+  out <- .cube_centre_cycles_search(n, isTRUE(all))
+  .cube_cycles_env[[key]] <- out
+  out
+}
+
+## The search depends on n alone, and on a 5x5x5 it costs over a second, so
+## each size is searched once per session.
+.cube_cycles_env <- new.env(parent = emptyenv())
+
+.cube_centre_cycles_search <- function(n, all) {
   cs <- cube_centre_structure(n)
   empty <- data.frame(word = character(0), orbit = integer(0),
                       faces = character(0), slots = character(0),

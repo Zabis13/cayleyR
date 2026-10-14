@@ -32,10 +32,22 @@
 # a neighbour drawn at random, and `prev_move` is the inverse of the move that
 # arrived. Those are the only two moves whose value is known at that state.
 #
+# Training goes through ggmlR::ggml_trainer(), one context for the whole run.
+# An earlier version called ggml_fit() once per batch, and that was wrong twice
+# over: every call built a fresh optimizer context, so each step was Adam's
+# first (roughly lr * sign(g)) and the run plateaued early; and the functional
+# ggml_fit() dropped `sample_weight` without a word, so the mask was never
+# applied and all eighteen outputs were pulled towards the fill value.
+#
+# The learning rate follows `sched`: "cosine" warms up linearly over `warmup`
+# steps and then decays to `lr_min`; "const" keeps `lr` throughout, for
+# comparing the two.
+#
 # Run with:  Rscript inst/examples/train_cube3_q_online.R [name=value ...]
 #
 #   depth=20 steps=20000 batch=512 report=250
 #   d_model=64 heads=4 blocks=3 ff=256 backend=auto seed=42
+#   lr=0.001 lr_min=0.00001 warmup=500 sched=cosine
 #
 # `steps` x `batch` is the number of states the run will see; nothing is
 # repeated, so raising `steps` is how this run is made longer, not `epochs`.
@@ -60,6 +72,10 @@ defaults <- list(
   depth   = 20L,     # longest walk; the cut falls inside it
   k_min   = 2L,      # shallowest pivot; 1 is one move from solved
   report  = 250L,    # steps between progress lines
+  lr      = 1e-3,    # peak learning rate
+  lr_min  = 1e-5,    # where the cosine ends
+  warmup  = 500L,    # linear warm-up steps
+  sched   = "cosine",  # "cosine" or "const"
   seed    = 42L,
   out     = "/mnt/Data2/DS_projects/333",
   name    = ""
@@ -82,6 +98,14 @@ for (a in commandArgs(trailingOnly = TRUE)) {
 }
 
 if (opt$depth < 2L) stop("depth must be at least 2: a pivot needs a step each side")
+if (!opt$sched %in% c("cosine", "const")) stop("sched must be cosine or const")
+
+lr_at <- function(step) {
+  if (opt$sched == "const") return(opt$lr)
+  if (step <= opt$warmup) return(opt$lr * step / opt$warmup)
+  t <- (step - opt$warmup) / max(1, opt$steps - opt$warmup)
+  opt$lr_min + 0.5 * (opt$lr - opt$lr_min) * (1 + cos(pi * t))
+}
 
 set.seed(opt$seed)
 
@@ -183,8 +207,8 @@ build_net <- function() {
 # asks -- of two moves whose order is known, did the net put the better one
 # lower -- and top1 is its harder form, where the helping move has to beat all
 # seventeen others. MAE is reported too but it is not what decides a search.
-score <- function(model, d) {
-  vp <- ggmlR::ggml_predict(model, d$x) * y_sd + y_mu
+score <- function(predict_fn, d) {
+  vp <- predict_fn(d$x) * y_sd + y_mu
   rows <- seq_len(nrow(vp))
   q_prev <- vp[cbind(rows, d$prev_a)]
   q_next <- vp[cbind(rows, d$next_a)]
@@ -196,14 +220,15 @@ score <- function(model, d) {
 }
 
 cat(sprintf("training %d steps of %d\n\n", opt$steps, opt$batch))
-cat("    step        seen   pair    top1   MAE(prev)   gen_s   fit_s\n")
+cat("    step        seen   pair    top1   MAE(prev)       lr   gen_s   fit_s\n")
 flush(stdout())
 
-model <- build_net()
+# One trainer for the whole run: weights, Adam moments and the graph live
+# across every step. loss_mask = n_a makes the loss a per-output weighted MSE,
+# so b$mask leaves the sixteen unlabelled outputs out of it.
+tr <- ggmlR::ggml_trainer(build_net(), batch_size = opt$batch,
+                          loss_mask = n_a)
 
-# One ggml_fit per batch, one epoch each. ggml_fit RETURNS the trained model
-# rather than training in place, and it carries the optimizer state forward, so
-# calling it in a loop continues one training run rather than restarting it.
 t_start <- proc.time()[["elapsed"]]
 gen_secs <- 0; fit_secs <- 0
 history <- list()
@@ -212,26 +237,30 @@ for (step in seq_len(opt$steps)) {
   t0 <- proc.time()[["elapsed"]]
   b  <- make_batch(opt$batch)
   t1 <- proc.time()[["elapsed"]]
-  model <- ggmlR::ggml_fit(model, b$x, b$y, epochs = 1L,
-                           batch_size = opt$batch,
-                           sample_weight = b$mask, verbose = 0L)
+  lr <- lr_at(step)
+  tr$set_lr(lr)
+  tr$step(b$x, b$y, b$mask)
   t2 <- proc.time()[["elapsed"]]
   gen_secs <- gen_secs + (t1 - t0)
   fit_secs <- fit_secs + (t2 - t1)
 
   if (step %% opt$report == 0L || step == opt$steps) {
-    s <- score(model, va)
+    s <- score(tr$predict, va)
     history[[length(history) + 1L]] <- data.frame(
-      step = step, seen = as.numeric(step) * opt$batch,
+      step = step, seen = as.numeric(step) * opt$batch, lr = lr,
       pair = s$pair, top1 = s$top1, mae_prev = s$mae_prev)
-    cat(sprintf("  %6d  %10s  %5.1f%%  %5.1f%%   %7.2f   %6.0f  %6.0f\n",
+    cat(sprintf("  %6d  %10s  %5.1f%%  %5.1f%%   %7.2f   %.1e  %6.0f  %6.0f\n",
                 step,
                 format(as.numeric(step) * opt$batch, big.mark = ",",
                        scientific = FALSE),
-                100 * s$pair, 100 * s$top1, s$mae_prev, gen_secs, fit_secs))
+                100 * s$pair, 100 * s$top1, s$mae_prev, lr,
+                gen_secs, fit_secs))
     flush(stdout())
   }
 }
+
+model <- tr$model()
+tr$free()
 
 train_secs <- proc.time()[["elapsed"]] - t_start
 cat(sprintf("\ntrained in %.0f s  (generating %.0f s, fitting %.0f s)\n\n",
@@ -241,7 +270,7 @@ cat(sprintf("\ntrained in %.0f s  (generating %.0f s, fitting %.0f s)\n\n",
 # What it learnt
 # ---------------------------------------------------------------------------
 
-s <- score(model, va)
+s <- score(function(x) ggmlR::ggml_predict(model, x, batch_size = opt$batch), va)
 
 cat("== the Q-model ==========================================\n\n")
 cat(sprintf("  states seen      %s (none twice)\n",
@@ -290,6 +319,8 @@ saveRDS(list(version = 1L, kind = "q_online", y_mu = y_mu, y_sd = y_sd,
              d_model = opt$d_model, heads = opt$heads, blocks = opt$blocks,
              ff = opt$ff, steps = opt$steps, batch = opt$batch,
              states_seen = as.numeric(opt$steps) * opt$batch,
+             lr = opt$lr, lr_min = opt$lr_min, warmup = opt$warmup,
+             sched = opt$sched,
              seed = opt$seed,
              mae_prev = s$mae_prev, mae_next = s$mae_next,
              pair_accuracy = s$pair, top1_accuracy = s$top1,

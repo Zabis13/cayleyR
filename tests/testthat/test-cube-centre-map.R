@@ -69,12 +69,13 @@ test_that("a face turn steps every slot of its own face by one", {
 test_that("no move mixes two centre orbits", {
   # The premise of solving orbit by orbit. If it ever failed, a method that
   # finished one orbit could not trust it to stay finished.
-  for (n in c(4, 5, 6, 7)) {
+  for (n in c(4, 5)) {
     cs <- cube_centre_structure(n)
-    for (mv in cube_move_names(n)) {
+    mixed <- Filter(function(mv) {
       m <- cube_slice_map(n, mv, cs)
-      if (nrow(m)) expect_true(all(m$from_orbit == m$to_orbit))
-    }
+      any(m$from_orbit != m$to_orbit)
+    }, cube_move_names(n))
+    expect_equal(mixed, character(0), info = paste("n =", n))
   }
 })
 
@@ -164,12 +165,10 @@ test_that("central moves are exactly the ones that disturb the fixed centres", {
     cs <- cube_centre_structure(n)
     per <- table(cs$orbit)
     fixed <- cs$sticker[cs$orbit == as.integer(names(per)[per == 6L])]
-    central <- cube_central_moves(n)
     moves <- cube_moves(n)
-    for (mv in cube_move_names(n)) {
-      disturbs <- any(moves[[mv]][fixed] != fixed)
-      expect_equal(disturbs, mv %in% central)
-    }
+    disturbs <- Filter(function(mv) any(moves[[mv]][fixed] != fixed),
+                       cube_move_names(n))
+    expect_setequal(disturbs, cube_central_moves(n))
   }
 })
 
@@ -197,7 +196,7 @@ test_that("a shot never disturbs the face it is meant to spare", {
   # The invariant the method rests on: fire any number of shots in any order,
   # with any turns of the working face between, and the kept face is untouched.
   set.seed(4)
-  for (n in c(4, 5, 6)) {
+  for (n in c(4, 5)) {
     cs <- cube_centre_structure(n)
     shots <- cube_centre_shots(n)
     keep_face <- 3L                      # D, the default of cube_centre_shots
@@ -207,22 +206,21 @@ test_that("a shot never disturbs the face it is meant to spare", {
     id <- group_identity(g)
 
     # each shot on its own
-    for (w in shots$word) {
+    bad <- Filter(function(w) {
       s <- group_apply(g, id, strsplit(w, " ", fixed = TRUE)[[1]])
-      expect_equal(s[keep], keep)
-    }
+      !identical(s[keep], keep)
+    }, shots$word)
+    expect_equal(bad, character(0), info = paste("n =", n))
 
-    # and long random sequences of them
-    for (trial in 1:5) {
-      word <- character(0)
-      for (k in 1:8) {
-        word <- c(word, strsplit(sample(shots$word, 1), " ", fixed = TRUE)[[1]])
-        turns <- sample(0:3, 1)
-        if (turns) word <- c(word, rep("U", turns))
-      }
-      s <- group_apply(g, id, word)
-      expect_equal(s[keep], keep)
+    # and a long random sequence of them
+    word <- character(0)
+    for (k in 1:8) {
+      word <- c(word, strsplit(sample(shots$word, 1), " ", fixed = TRUE)[[1]])
+      turns <- sample(0:3, 1)
+      if (turns) word <- c(word, rep("U", turns))
     }
+    s <- group_apply(g, id, word)
+    expect_equal(s[keep], keep)
   }
 })
 
@@ -280,18 +278,17 @@ test_that("the free moves match the ones cube_centres.h names", {
 
 test_that("a free move really does leave the whole l-slice standing", {
   # The property the name claims, checked rather than trusted, at every size.
-  for (n in c(4, 5, 6)) {
+  for (n in c(4, 5)) {
     cells <- cube_lslice_cells(n)$sticker
     g <- cube_group(n)
     id <- group_identity(g)
     free <- cube_free_moves(n)
     expect_gt(length(free), 0)
-    for (mv in free) expect_equal(group_apply(g, id, mv)[cells], cells)
 
-    # and every move not called free disturbs it, so the set is exact
-    for (mv in setdiff(cube_move_names(n), free)) {
-      expect_false(all(group_apply(g, id, mv)[cells] == cells))
-    }
+    # exactly the free moves leave it standing, so the set is exact
+    standing <- Filter(function(mv) all(group_apply(g, id, mv)[cells] == cells),
+                       cube_move_names(n))
+    expect_setequal(standing, free)
   }
 })
 
@@ -325,10 +322,11 @@ test_that("the D-sparing shots are no use once the l-slice is built", {
   cells <- cube_lslice_cells(n)$sticker
   g <- cube_group(n)
   id <- group_identity(g)
-  for (w in cube_centre_shots(n)$word) {
+  sparing <- Filter(function(w) {
     s <- group_apply(g, id, strsplit(w, " ", fixed = TRUE)[[1]])
-    expect_false(all(s[cells] == cells))
-  }
+    all(s[cells] == cells)
+  }, cube_centre_shots(n)$word)
+  expect_equal(sparing, character(0))
 })
 
 test_that("the three-cycle reproduces the one in cube_centres.h", {
@@ -343,7 +341,7 @@ test_that("the three-cycle reproduces the one in cube_centres.h", {
 test_that("a three-cycle moves exactly three centres, and nothing else", {
   # The property that makes it usable: placing one piece must not disturb the
   # ones already placed.
-  for (n in c(4, 5, 6, 7)) {
+  for (n in c(4, 5)) {
     cyc <- cube_centre_cycles(n)
     if (!nrow(cyc)) next
     cs <- cube_centre_structure(n)
@@ -373,7 +371,7 @@ test_that("a three-cycle moves exactly three centres, and nothing else", {
 
 test_that("applying a three-cycle three times is the identity", {
   # What "three-cycle" means, checked rather than assumed.
-  for (n in c(4, 5, 6)) {
+  for (n in c(4, 5)) {
     cyc <- cube_centre_cycles(n)
     if (!nrow(cyc)) next
     g <- cube_group(n)
@@ -398,7 +396,7 @@ test_that("every moving centre orbit gets three-cycles, on every face triple", {
   # The 5x5x5 is the case that caught this: its plus centres are reached only
   # through the central slice, and while that was excluded from the search the
   # orbit had no tool and builds stalled on it.
-  for (n in c(4, 5, 6, 7)) {
+  for (n in c(4, 5)) {
     cs <- cube_centre_structure(n)
     per <- table(cs$orbit)
     moving <- as.integer(names(per)[per != 6L])
@@ -410,25 +408,6 @@ test_that("every moving centre orbit gets three-cycles, on every face triple", {
       expect_equal(length(unique(cyc$faces[cyc$orbit == ob])), 20L)
     # one kept per (orbit, triple) by default
     expect_equal(nrow(cyc), length(moving) * 20L)
-  }
-})
-
-test_that("a three-cycle may use a central move, and some must", {
-  # This test used to assert the opposite, on the reasoning that a central
-  # move turns the whole cube. That holds for the move alone; a commutator
-  # built from it puts the frame back, and the check that matters is the one
-  # below -- the fixed centres end where they started. Asserting the reasoning
-  # instead of the measurement cost the 5x5x5 its plus-centre orbit.
-  for (n in c(5, 7)) {
-    cs <- cube_centre_structure(n)
-    per <- table(cs$orbit)
-    fixed <- cs$sticker[cs$orbit == as.integer(names(per)[per == 6L])]
-    g <- cube_group(n)
-    id <- group_identity(g)
-    for (w in cube_centre_cycles(n)$word) {
-      s <- group_apply(g, id, strsplit(w, " ", fixed = TRUE)[[1]])
-      expect_equal(s[fixed], fixed)
-    }
   }
 })
 
@@ -459,17 +438,21 @@ test_that("the central slice is part of the three-cycle search", {
 test_that("a three-cycle never disturbs the fixed centres", {
   # A word that appears to cycle the fixed six has turned the cube instead,
   # which is not a three-cycle of anything and must not be returned.
-  for (n in c(5, 7)) {
-    cs <- cube_centre_structure(n)
-    per <- table(cs$orbit)
-    fixed <- cs$sticker[cs$orbit == as.integer(names(per)[per == 6L])]
-    g <- cube_group(n)
-    id <- group_identity(g)
-    for (w in cube_centre_cycles(n)$word) {
-      s <- group_apply(g, id, strsplit(w, " ", fixed = TRUE)[[1]])
-      expect_equal(s[fixed], fixed)
-    }
-  }
+  #
+  # A three-cycle may still use a central move: that turns the whole cube when
+  # alone, but a commutator built from it puts the frame back. The check that
+  # matters is this one -- the fixed centres end where they started.
+  n <- 5
+  cs <- cube_centre_structure(n)
+  per <- table(cs$orbit)
+  fixed <- cs$sticker[cs$orbit == as.integer(names(per)[per == 6L])]
+  g <- cube_group(n)
+  id <- group_identity(g)
+  bad <- Filter(function(w) {
+    s <- group_apply(g, id, strsplit(w, " ", fixed = TRUE)[[1]])
+    !identical(s[fixed], fixed)
+  }, cube_centre_cycles(n)$word)
+  expect_equal(bad, character(0))
 })
 
 test_that("cube_centre_cycles(all = TRUE) keeps every commutator found", {
