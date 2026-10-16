@@ -11,7 +11,8 @@ generate_walk_cpp(
   exact = TRUE,
   no_undo = TRUE,
   pivot = FALSE,
-  k_min = 2L
+  k_min = 2L,
+  no_cancel = FALSE
 )
 }
 \arguments{
@@ -32,6 +33,10 @@ uniformly from 1 to \code{n_moves}}
 (default \code{FALSE}). See Details.}
 
 \item{k_min}{Shallowest cut to draw when \code{pivot = TRUE} (default 2)}
+
+\item{no_cancel}{Refuse a move that cancels against the tail of the walk
+through moves it commutes with (default \code{FALSE}). See Details of
+\code{\link{generate_walk}}.}
 }
 \value{
 List with \code{states} (n x state_len integer matrix, one walk

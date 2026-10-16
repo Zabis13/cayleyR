@@ -625,8 +625,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // generate_walk_cpp
-List generate_walk_cpp(SEXP group, int n, int n_moves, bool exact, bool no_undo, bool pivot, int k_min);
-RcppExport SEXP _cayleyR_generate_walk_cpp(SEXP groupSEXP, SEXP nSEXP, SEXP n_movesSEXP, SEXP exactSEXP, SEXP no_undoSEXP, SEXP pivotSEXP, SEXP k_minSEXP) {
+List generate_walk_cpp(SEXP group, int n, int n_moves, bool exact, bool no_undo, bool pivot, int k_min, bool no_cancel);
+RcppExport SEXP _cayleyR_generate_walk_cpp(SEXP groupSEXP, SEXP nSEXP, SEXP n_movesSEXP, SEXP exactSEXP, SEXP no_undoSEXP, SEXP pivotSEXP, SEXP k_minSEXP, SEXP no_cancelSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -637,7 +637,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< bool >::type no_undo(no_undoSEXP);
     Rcpp::traits::input_parameter< bool >::type pivot(pivotSEXP);
     Rcpp::traits::input_parameter< int >::type k_min(k_minSEXP);
-    rcpp_result_gen = Rcpp::wrap(generate_walk_cpp(group, n, n_moves, exact, no_undo, pivot, k_min));
+    Rcpp::traits::input_parameter< bool >::type no_cancel(no_cancelSEXP);
+    rcpp_result_gen = Rcpp::wrap(generate_walk_cpp(group, n, n_moves, exact, no_undo, pivot, k_min, no_cancel));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -1535,7 +1536,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_cayleyR_cube_solve_old_pochmann_cpp", (DL_FUNC) &_cayleyR_cube_solve_old_pochmann_cpp, 1},
     {"_cayleyR_cube_solve_m2_cpp", (DL_FUNC) &_cayleyR_cube_solve_m2_cpp, 1},
     {"_cayleyR_cycle_shortcut_cpp", (DL_FUNC) &_cayleyR_cycle_shortcut_cpp, 12},
-    {"_cayleyR_generate_walk_cpp", (DL_FUNC) &_cayleyR_generate_walk_cpp, 7},
+    {"_cayleyR_generate_walk_cpp", (DL_FUNC) &_cayleyR_generate_walk_cpp, 8},
     {"_cayleyR_cayley_bfs_full_cpp", (DL_FUNC) &_cayleyR_cayley_bfs_full_cpp, 3},
     {"_cayleyR_cayley_graph_diameter_cpp", (DL_FUNC) &_cayleyR_cayley_graph_diameter_cpp, 6},
     {"_cayleyR_human_table_probe_cpp", (DL_FUNC) &_cayleyR_human_table_probe_cpp, 2},

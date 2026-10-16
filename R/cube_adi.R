@@ -425,7 +425,7 @@ print.cube_adi_net <- function(x, ...) {
 # 24 children rather than the 256 it trained on, runs out of context memory.
 # So the batch is always the same size: short inputs are padded out with
 # repeats of their first row and the padding is dropped from the answer.
-adi_predict_padded <- function(model, x, batch_size, n_out) {
+adi_predict_padded <- function(model, x, batch_size, n_out, matmul_precision = NULL) {
   n <- dim(x)[1L]
   if (n < batch_size) {
     idx <- c(seq_len(n), rep(1L, batch_size - n))
@@ -435,7 +435,8 @@ adi_predict_padded <- function(model, x, batch_size, n_out) {
     x <- if (length(dim(x)) == 3L) x[idx, , , drop = FALSE]
          else x[idx, , drop = FALSE]
   }
-  out <- ggmlR::ggml_predict(model, x, batch_size = batch_size)
+  out <- ggmlR::ggml_predict(model, x, batch_size = batch_size,
+                             matmul_precision = matmul_precision)
   out <- matrix(as.numeric(out), ncol = n_out)
   out[seq_len(n), , drop = FALSE]
 }

@@ -5,6 +5,17 @@
   than shortest: phase 1 takes the first way it finds into the subgroup instead
   of hunting for the one that leaves phase 2 cheapest.
 
+* **4x4x4** — `cube_solve4()`: reduction (centres, edge pairing) and then a
+  3x3x3 finish.
+
+* **Neural solvers** (needs ggmlR) — train a network to solve the cube
+  without showing it a solution (autodidactic iteration, as in DeepCubeA),
+  save it, and later load it and train it further. The trained network then
+  solves on its own or guides an A* search. The example
+  `inst/examples/train_cube3_q_online.R` trains a Q-model online and takes
+  `init=` to train on from a saved model or `resume=` to continue an
+  interrupted run from its checkpoint.
+
 
 # cayleyR 0.2.9
 
@@ -12,18 +23,16 @@
   blindfolded methods, so the 3x3x3 now has four solvers. Both place one piece
   at a time by conjugation and never look at the cube after the start.
 
+* **Santa format** — `cube_santa_*()` read and write states and paths in the
+  Kaggle Santa notation. Wide turns: `cube_wide_move()`.
+
 
 # cayleyR 0.2.8
 
-* **The whole `cube3_*` module is removed** — `cube_group(3)` and
-  `cube_moves(3)` replace it, and the generated alphabet is the only one the
-  package now has. `cube3_group()`, `cube3_moves`, `cube3_move_codes`,
-  `cube3_apply()`, `cube3_identity()`, `cube3_is_solved()`, `cube3_cycle()`,
-  `cube3_scramble()`, `cube3_print()`, `cube3_parse_moves()`,
-  `cube3_move_names()` and `cube3_inverse_move()` are gone, along with the
-  numeric move codes 1--18. Half turns went with them: the metric is
-  quarter-turn throughout, so `"U2"` is no longer a move name and is rejected
-  rather than read as `"U U"`.
+* **Permutation groups** — `perm_group()` and `group_apply()` treat TopSpin and
+  the cube alike; path search takes a `group` argument.
+
+* **`cube_solve_lbl()`** and **`cube_solve_cfop()`** — the first 3x3x3 solvers.
 
 * **Cubes of any size** — `cube_group(n)`, with moves generated from the
   geometry as a turn of one layer about one axis. A cube of side `n` has `6n^2`
@@ -41,10 +50,7 @@
   it. Passing `n = 54` alone used to give a permutation of 54 stickers that no
   cube can reach.
 
-* `cube3_apply_seq()`, `cube3_compose()`, `cube3_order()` and
-  `cube3_inverse_seq()` are **removed** — `group_apply()`, `group_compose()`,
-  `group_order()` and `group_inverse_seq()` already did the same. The remaining
-  `cube3_*` functions now compute in C++.
+* The `cube3_*` functions are replaced by the general `cube_group(3)` and `group_*()`.
 
 
 # cayleyR 0.2.7

@@ -1,0 +1,190 @@
+---
+title: "Neural Solvers"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Neural Solvers}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(cayleyR)
+```
+
+A neural network can learn to solve the cube without ever being shown a
+solution. It learns the **distance to solved**: how many moves a state
+needs. A solver then picks, at every step, the move that brings the
+cube closest to solved.
+
+The networks need the **ggmlR** package. They run on the CPU, or on a
+GPU through Vulkan when one is available. Training takes from minutes
+to hours, so most of the code below is shown but not run.
+
+## Training data: `generate_walk()`
+
+Every example starts with random walks away from the solved cube.
+`generate_walk()` returns each walk together with the moves it took, so
+the way back is known in advance. That makes it useful both for training
+and for checking a solver against a known answer.
+
+```{r}
+g <- cube_group(3)
+set.seed(1)
+w <- generate_walk(g, n = 3, n_moves = 6)
+w$moves[[1]]
+w$solution[[1]]
+
+# the solution really does solve the state
+identical(group_apply(g, w$states[1, ], w$solution[[1]]), group_identity(g))
+```
+
+A walk's length is only an upper bound on the true distance, because a
+shorter way back may exist. Two options make the bound tighter:
+`no_undo` (on by default) refuses a move that undoes the one before, and
+`no_cancel` also refuses moves like `U D U'`, which walk three moves and
+travel one.
+
+For training, `exact = FALSE` draws walk lengths uniformly, so every
+depth is equally represented:
+
+```{r}
+generate_walk(g, n = 8, n_moves = 10, exact = FALSE)$depth
+```
+
+## Learning without labels: autodidactic iteration
+
+The obvious label for a scrambled state is the length of the scramble.
+That label is wrong, because a scramble of 15 moves may be solvable in
+12. Autodidactic iteration (ADI, from DeepCubeA) avoids the problem.
+The target of a state is
+
+    1 + the smallest value the network gives to any of its children
+
+and a solved child counts as exactly 0. States one move from solved get
+exact targets right away, their neighbours learn from them, and
+correctness spreads outward as training goes on.
+
+### Build the networks
+
+`cube_adi_model()` builds two networks over the same input. The
+**value** network estimates the distance; the **policy** network
+estimates which move is best.
+
+```{r, eval = FALSE}
+net <- cube_adi_model(g, arch = "resnet", encoding = "piece")
+net
+```
+
+The main choices are:
+
+- `arch`: `"mlp"` (the default), `"resnet"` (the shape DeepCubeA uses),
+  `"transformer"` (needs ggmlR 0.8.5 or newer), and `"lstm"` / `"gru"`
+  for comparison.
+- `encoding`: `"sticker"` reads the 54 stickers; `"piece"` reads which
+  piece sits in each slot and how it is turned, as DeepCubeA does.
+- `backend`: `"auto"`, `"cpu"` or `"vulkan"`.
+
+### Train
+
+```{r, eval = FALSE}
+net <- cube_adi_train(net, iterations = 200, batch_states = 10000,
+                      max_depth = 20)
+tail(net$history)
+```
+
+Each iteration draws fresh scrambles, computes their targets with a
+frozen copy of the value network, and fits both networks. The copy is
+refreshed when the loss falls below `loss_thresh`, or every
+`refresh_every` iterations if you set that.
+
+In the printed log, watch the **mean target**: it should rise as
+correctness spreads. If it stalls near 1, the frozen copy is not being
+refreshed. Raise `loss_thresh` or set `refresh_every`.
+
+### Save, load, train further
+
+A trained network is saved to a directory and loaded back with
+everything it needs, including its group. A loaded network can be
+trained further: `cube_adi_train()` simply continues from its weights.
+
+```{r, eval = FALSE}
+cube_adi_save(net, "adi_cube3")
+
+net <- cube_adi_load("adi_cube3", backend = "cpu")
+net <- cube_adi_train(net, iterations = 100)   # carries on training
+cube_adi_save(net, "adi_cube3")
+```
+
+## Solving
+
+There are two ways to use a trained network.
+
+**Greedy:** `cube_adi_solve()` takes the best-looking move at every
+step. It never revisits a state, but it never reconsiders a choice
+either. It is fast, and works well near solved, where the network is
+accurate.
+
+**A\* search:** `cube_adi_astar()` keeps the moves it passed over and
+returns to them when the chosen branch stops paying. A wrong estimate
+then costs time rather than the solve.
+
+```{r, eval = FALSE}
+set.seed(7)
+s <- generate_walk(g, n = 1, n_moves = 15)$states[1, ]
+
+greedy <- cube_adi_solve(net, s, budget = 200)
+greedy$solved
+length(greedy$path)
+
+astar <- cube_adi_astar(net, s, weight = 0.6, batch = 1000)
+astar$solved
+astar$length
+astar$nodes      # states expanded
+```
+
+A* orders states by `weight * moves_so_far + estimated_distance`.
+
+- `weight = 1` is classic A*: shorter paths, much slower.
+- `weight = 0` is pure greedy best-first.
+- 0.6 is DeepCubeA's choice and the default.
+
+`batch` expands that many states per step and scores all their
+children in one call. This keeps a GPU busy, but a very large batch can
+make solutions longer.
+
+## Measuring a solver
+
+Because `generate_walk()` knows the way back, it is easy to see how a
+solver behaves as the scramble gets deeper:
+
+```{r, eval = FALSE}
+depths <- 4:16
+rate <- sapply(depths, function(d) {
+  w <- generate_walk(g, n = 50, n_moves = d, no_cancel = TRUE)
+  mean(apply(w$states, 1, function(s) cube_adi_solve(net, s)$solved))
+})
+data.frame(depth = depths, solved = rate)
+```
+
+## Q-models: the example scripts
+
+The package also ships scripts for a different kind of network, a
+**Q-model**. A Q-model scores all 18 moves of a state at once instead
+of one distance per state. It is trained on `generate_walk(pivot =
+TRUE)`: a point in the middle of a walk, plus the two moves whose value
+is known there, the move back and the move forward.
+
+- `inst/examples/train_cube3_q_online.R` trains a transformer Q-model
+  on fresh walks at every step, so no state is seen twice. It saves
+  checkpoints with `ckpt=`, continues an interrupted run with
+  `resume=`, and trains a saved model further with `init=`:
+
+  ```
+  Rscript inst/examples/train_cube3_q_online.R steps=20000 ckpt=1000
+  Rscript inst/examples/train_cube3_q_online.R init=<model dir> depth=16 steps=8000 lr=5e-4
+  ```
+
+- `inst/examples/diag_cube3_q.R` takes a model and solves scrambles of
+  falling depth, greedily and by beam search side by side. That shows
+  at which depth the model starts to fail.

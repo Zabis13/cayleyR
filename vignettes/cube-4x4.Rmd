@@ -1,0 +1,143 @@
+---
+title: "The 4x4x4 Cube"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The 4x4x4 Cube}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(cayleyR)
+```
+
+The 4x4x4 is built by the same rules as the 3x3x3 (see
+`vignette("rubiks-cube")`): 96 stickers, 24 quarter turns. Two things
+are new. The cube has no fixed centres, and each edge is made of two
+separate pieces, called wings. That is why it is solved by
+**reduction**.
+
+## Moves
+
+```{r}
+cg4 <- cube_group(4)
+cg4
+```
+
+The outer layers keep their usual letters. The two inner layers of each
+axis have no standard names, so they are written as layer index and
+axis: `"2x"` is layer 2 along x.
+
+## Reduction
+
+A cube is **reduced** when:
+
+- the four centres of every face are the same colour, so each face acts
+  as one;
+- the two wings of every edge are together, so each edge acts as one.
+
+A reduced 4x4x4 is a 3x3x3 with fat pieces, and any 3x3x3 method can
+finish it. `cube_is_reduced()` checks the first part only, not where
+the pieces are. A solved cube turned by `U` is still reduced:
+
+```{r}
+cube_is_reduced(cube_identity(4))
+cube_is_reduced(group_apply(cg4, cube_identity(4), "U"))
+cube_is_reduced(group_apply(cg4, cube_identity(4), "2x"))
+```
+
+## `cube_solve4()`: always finishes
+
+This solver builds the centres, pairs the edges, and finishes the cube
+with a 3x3x3 method. There is no search, so it always gets there, but
+the solutions are long: a few hundred quarter turns.
+
+```{r}
+set.seed(42)
+scramble <- generate_state(group = cg4, n_moves = 40)
+
+res <- cube_solve4(scramble)
+res$found
+length(res$path)
+res$stages
+```
+
+Two things can happen on a 4x4x4 that are impossible on a 3x3x3: OLL
+and PLL **parity**. After reduction the last layer can be in a state no
+3x3x3 can reach. The solver repairs it with algorithms that turn the
+inner layers, and the repair shows up as its own stage.
+
+Some options make the solution shorter:
+
+- `method` picks the 3x3x3 solver for the end: `"cfop"` (the default),
+  `"kociemba"`, `"lbl"`, `"m2"`, `"pochmann"`. `"kociemba"` gives the
+  shortest finish.
+- `orientations` tries several ways of holding the cube and keeps the
+  shortest answer. Eight is a good trade: about 11% shorter for a fifth
+  more time.
+
+```{r}
+res_k <- cube_solve4(scramble, method = "kociemba")
+length(res_k$path)
+cube_is_colour_solved(group_apply(cg4, scramble, res_k$path))
+```
+
+## `cube_kociemba4()`: short, but not always
+
+A four-phase search after Kociemba. Phases 1–3 search for a reduction,
+and phase 4 hands the reduced cube to `cube_kociemba()`. The solutions
+are a few dozen moves long instead of a few hundred.
+
+The catch is phase 3: its search grows about fifteen-fold per level.
+Scrambles of five moves reduce reliably; from seven moves on, the
+search usually runs out of budget. In that case `found` is `FALSE`, and
+`cube_kociemba4_report()` tells you which phase stopped.
+
+```{r}
+set.seed(1)
+short <- generate_state(group = cg4, n_moves = 5)
+
+res4 <- cube_kociemba4(short)
+res4$found
+length(res4$reduction)   # moves to the reduced cube
+length(res4$cube3)       # moves to finish it as a 3x3x3
+```
+
+## `cube_solve4_cascade()`: the best of both
+
+The cascade tries the search first and falls back to `cube_solve4()`
+when the search does not pay off. It tries several orientations of the
+cube at a small node budget, then a larger one. If nothing reduces the
+cube, `cube_solve4()` finishes it. You always get an answer: short when
+the search succeeds, long otherwise.
+
+```{r, eval = FALSE}
+r <- cube_solve4_cascade(scramble)
+r$method      # "reduce" if the search won, "solve4" if it fell back
+r$n_moves
+r$ops         # every step it took, with the time spent on each
+```
+
+This one takes seconds to minutes per cube, so it is not run here.
+
+## Santa 2023 notation
+
+The Kaggle Santa 2023 puzzles write cube moves as `f0`, `r1`, `-d2`: an
+axis letter, a layer index, and a minus sign for the inverse. This is
+the same alphabet as the package's, under different names.
+`cube_santa_path()` and `cube_santa_path_out()` convert paths between
+the two notations, and `cube_santa_state()` and
+`cube_santa_state_out()` convert states:
+
+```{r}
+cube_santa_path("f0.-d3.r1", n = 4)
+cube_santa_path_out(c("F", "U", "2x"), n = 4)
+```
+
+So a solution from any solver here can be written out in Santa's
+format:
+
+```{r}
+substr(cube_santa_path_out(res_k$path, n = 4), 1, 60)
+```

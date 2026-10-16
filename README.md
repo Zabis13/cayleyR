@@ -20,7 +20,7 @@ search. It is described in the accompanying paper:
 ## Features
 
 - **Basic permutation operations** (C++): cyclic left/right shifts, prefix reversal
-- **Rubik's cubes of any size** (C++): moves generated from the geometry, so the 3x3x3 slice turns and the inner layers of a 4x4x4 follow from the same rule as the faces; scrambling, inversion, cycle unrolling and a console net for the 3x3x3
+- **Rubik's cubes of any size** (C++): moves generated from the geometry, so the 3x3x3 slice turns and the inner layers of a 4x4x4 follow from the same rule as the faces; scrambling, inversion and the order of a word
 - **Five solving methods for the 3x3x3** (C++): four human ones -- CFOP and layer by layer, which solve by looking, and the blindfolded Old Pochmann and M2, which place one piece at a time by conjugation and never look at the cube after the start -- plus a two-phase search after Kociemba, which is not a human method at all and reaches the same cube in a quarter of the moves
 - **Cycle analysis**: find cycles in Cayley graphs with detailed state information
 - **Sequence optimization**: search for operation sequences with flexible sorting criteria
@@ -44,6 +44,20 @@ search. It is described in the accompanying paper:
 # From GitHub:
 devtools::install_github("Zabis13/cayleyR")
 ```
+
+## Vignettes
+
+| Vignette | What it covers |
+|----------|----------------|
+| `vignette("functions")` | Function reference |
+| `vignette("human-algorithm")` | Solving TopSpin by hand, step by step |
+| `vignette("landmark-geometry")` | Landmark states and the solid they span |
+| `vignette("permutation-groups")` | One group object for TopSpin, the cube, or a puzzle of your own |
+| `vignette("rubiks-cube")` | Stickers, moves, colours, and the five 3x3x3 solvers |
+| `vignette("cube-4x4")` | Reduction, parity, the 4x4x4 solvers, Santa 2023 notation |
+| `vignette("neural-solvers")` | Training a network to solve the cube, and Q-model scripts (needs ggmlR) |
+
+Install with `build_vignettes = TRUE` to have them available locally.
 
 ## Quick start
 
@@ -108,8 +122,8 @@ human_algorithm(state, final_state = c(2:20, 1), k = 4)
 A cube state is an integer vector of length 54, one entry per sticker, and a
 move permutes it — the same shape of object the TopSpin side works with.
 Stickers are numbered face by face (`U` 1–9, `R` 10–18, `F` 19–27, `D` 28–36,
-`L` 37–45, `B` 46–54), so the solved cube is `1:54`. The six centres never
-move.
+`L` 37–45, `B` 46–54), so the solved cube is `1:54`. Face turns leave the six
+centres in place; slice turns move them.
 
 ```r
 # the eighteen moves: twelve face turns and three slices
@@ -150,20 +164,21 @@ identical(cube_layer_move(3, axis = 1, layer = 2, turns = 1),
 #> TRUE
 ```
 
-Codes group by face in threes — clockwise, anticlockwise, half turn — so
-`(code - 1) %/% 3` is the face and `(code - 1) %% 3` the kind of turn, which
-makes inverting a move arithmetic rather than string work.
-
-`cube3_cycle()` is the cube counterpart of the cycle expansion the ICI solver
-is built on: it spins a word round and round from a starting state, collecting
-every state it passes through, until the state returns to where it began. A
-short word reaches states far from its start without a BFS frontier having to
-hold them.
+Spinning a word round and round is the cube counterpart of the cycle expansion
+the ICI solver is built on. `group_compose()` multiplies the word out into one
+permutation, so each repetition is a single indexing step, and a short word
+reaches states far from its start without a BFS frontier having to hold them.
 
 ```r
-cyc <- cube3_cycle(cube3_identity(), "R U")
-cyc$order          # 105 repetitions to close
-dim(cyc$states)    # 105 x 54, every state on the loop
+p <- group_compose(g, "R U")
+s <- cube_identity(3)
+loop <- list()
+repeat {
+  s <- s[p]
+  loop[[length(loop) + 1]] <- s
+  if (identical(s, cube_identity(3))) break
+}
+length(loop)       # 105 repetitions to close, every state on the loop
 ```
 
 ## Cubes of any size
@@ -188,8 +203,7 @@ rule as `R` and `L`. Inner layers of larger cubes have no standard letter and
 are written axis-and-index, `"1x"` being layer 1 along x.
 
 Half turns are words rather than letters here — `U2` is `"U U"`. This is the
-quarter-turn metric, and it is what a shortest path gets counted in; the
-`cube3_*` functions above keep half turns as single moves instead.
+quarter-turn metric, and it is what a shortest path gets counted in.
 
 Once slices are in play the centres move, and a cube turned bodily in space is
 solved without its stickers being back where they started:
@@ -444,16 +458,12 @@ manhattan_distance_matrix_gpu(states1, states2)
 - `reverse_prefix()` / `reverse_prefix_simple()` — reverse first k elements
 - `apply_operations()` — apply sequence of operations
 
-**3x3x3 cube (pure R):**
-- `cube3_moves` — the eighteen face turns as sticker permutations
-- `cube3_move_codes` / `cube3_move_names()` — the 1–18 numbering, and back to names
-- `cube3_identity()` / `cube3_is_solved()` — the solved state, and the test for it
-- `cube3_apply()` — apply a single move
-- `cube3_parse_moves()` — read either spelling, return codes
-- `cube3_inverse_move()` — invert a move
-- `cube3_scramble()` — random scramble, never the same face twice running
-- `cube3_cycle()` — unroll a word until it closes
-- `cube3_print()` — unfolded net for the console
+**3x3x3 cube:**
+- `cube_group(3)` — the cube as a group: 54 stickers, 18 quarter turns
+- `cube_moves(3)` / `cube_move_names(3)` — the moves as sticker permutations, and their names
+- `cube_identity(3)` / `cube_is_colour_solved()` — the solved state, and the test for it
+- `generate_state(group = cube_group(3))` — a random reachable state
+- `cube_colours()` — what the cube looks like from outside, sticker by sticker
 
 Sequences are handled by the group API — `group_apply()`, `group_compose()`,
 `group_order()`, `group_inverse_seq()` — which works on any group in the
@@ -643,6 +653,116 @@ Cutting across cycles pays off on small rings and thins out as the state space
 grows: a random cycle leaving the path rarely meets it again when there is that
 much room to wander. See TODO for what this needs.
 
+### Q-model on the 3x3x3 (`inst/examples/train_cube3_q_online.R`)
+
+A transformer with eighteen outputs, one per move, trained on fresh midpoint
+walks (`generate_walk(pivot = TRUE)`, depth 11, batch 512, nothing repeated),
+through one `ggmlR::ggml_trainer` for the whole run. Same seed, model 512 /
+8 heads / 4 blocks / ff 1024, RX 9070 over Vulkan, about 0.24 s a step.
+
+| run | steps | pair | top1 | MAE |
+|---|---|---|---|---|
+| `sched=const`, lr 1e-3 throughout | stopped at 7700 | 84–85% | 43–45% | ~0.95 |
+| `sched=cosine`, 500 warm-up, down to 1e-5 | 8000 | **92.8%** | **62.1%** | **0.74** |
+| `sched=const`, model 256 / ff 512 | 4000 | 85.8%* | 45.0%* | 0.99 |
+
+\* scored on 2000 held-out states rather than 4000.
+
+- The cosine schedule wins clearly. The two curves match up to step ~2000 and
+  part once the learning rate falls below ~8e-4; from there every drop in the
+  rate buys pair and top1.
+- The constant run did not reach the model's limit. At 1e-3 it kept shaking
+  around a plateau from step ~4500 on: the plateau was the schedule's, not the
+  model's.
+- Under the constant schedule the 512 model was no better than the 256 one.
+
+By depth, for the cosine run (q(prev) should be depth − 1):
+
+| depth | 2 | 4 | 6 | 7 | 8 | 9 | 10 |
+|---|---|---|---|---|---|---|---|
+| top1 | 86.8% | 78.8% | 62.6% | 54.2% | 48.1% | 38.5% | 31.5% |
+| q(prev) | 1.16 | 3.37 | 5.85 | 6.80 | 7.42 | 8.08 | 8.49 |
+
+q rises by about one a step up to depth 7 and saturates from 8. Part of that is
+the labels: a walk refusing only an immediate undo still lets `U D U'` and
+`U U U` through, so the deep labels overstate the distance. `no_cancel = TRUE`
+in `generate_walk()` refuses those; the runs above were made without it.
+
+In search (`inst/examples/diag_cube3_q.R`, beam 32, 20 walks per depth):
+
+| depth | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17–20 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 256 const, budget 60 | 90% | 75% | 55% | 35% | 30% | 15% | 5% | 5% | 5% | 0–5% |
+| 512 cosine, budget 25 | **100%** | 95% | 85% | 80% | 70% | 55% | 40% | 40% | 30% | 10–15% |
+| 512 cosine, init, depth 16, `no_cancel`, budget 3x depth | 100% | 95% | 90% | 90% | 85% | 75% | 75% | 35% | 35% | 25–40% |
+
+Both solve every cube up to depth 7. The cosine model moves that edge to 8 and
+does not fall to zero past its training depth of 11: 55% at 13, 40% at 15, with
+less than half the move budget. Read the deep end with care: these runs drew
+their walks with `no_undo` only (`diag_cube3_q.R` now uses `no_cancel = 1` by
+default), so their depths are overstated too ---
+the mean solution is 13.2 moves at depth 14 and 14.7 at depth 16. At 17 the mean
+solution (20.3) is longer than the walk: the beam found a way round, not back.
+
+The third row is the cosine model trained on from `qon_cosine8k` for 8000 more
+steps at depth 16 with `no_cancel = TRUE` (pair 89.0%, top1 53.5% on its own
+held-out set), searched on `no_cancel` walks, so its depths are not overstated.
+It holds 75% up to depth 14 and drops to 35% at 15, inside its training depth:
+there q(prev) is already flat (11.95, 12.30, 12.53 at 13, 14, 15). From depth 12
+the solutions are longer than the walk (18.4 moves at 14, 27–31 at 17–18). A
+solve takes under 0.55 s up to depth 14 and about 0.9 s beyond, where the
+failures run to the move cap. The cap is 3x the depth rather than 25, which
+likely accounts for some of the 25–40% at 17–20.
+
+On Vulkan the default multiplies keep f16 tiles, so every q carries a little
+noise. Measured with `diag_cube3_q.R cmp=1` on this model (20 walks, depths
+1–16): q moves by at most 0.004 moves between default and f32 precision, and
+the best move of a frontier state changes in at most 0.08% of states. The
+search therefore runs at the default precision; the training reports and the
+final score use `matmul_precision = "f32"`, so that runs and resumed runs are
+scored on the same numbers. The edge at depth 15 is the model's, not the
+arithmetic's.
+
+A greedy argmin descent falls to 50% by depth 5, mostly by stepping back and
+forth between two states, so it is no longer reported.
+
+#### Continuing from a saved model
+
+`init=<model directory>` loads `model.ggml` and `meta.rds` from an earlier run
+and trains on from there with the same `ggml_trainer`:
+
+```
+Rscript inst/examples/train_cube3_q_online.R init=/mnt/Data2/DS_projects/333/qon_cosine8k \
+  depth=16 steps=8000 warmup=500 lr=5e-4 report=100 sched=cosine
+```
+
+- The architecture (`d_model`, `heads`, `blocks`, `ff`) is taken from the saved
+  model; the same options on the command line are ignored.
+- The target scaling (`y_mu`, `y_sd`) is kept from the saved model too, not
+  re-derived from the new `depth`: the weights were learnt on that scale.
+- The move set in `meta.rds` must match the cube's, or the run stops.
+- `depth`, `lr`, `sched`, `warmup`, `no_cancel` and the rest are the new run's
+  own.
+- The output directory gets an `_init` suffix and `meta.rds` records the path
+  of the model it started from.
+
+`init=` starts a new run with its own schedule. To carry on a run that was cut
+short, save checkpoints with `ckpt=N` (the model and `meta.rds` every N steps,
+with the step reached and the random state) and restart it with
+`resume=<run directory>`:
+
+```
+Rscript inst/examples/train_cube3_q_online.R steps=20000 ckpt=1000
+Rscript inst/examples/train_cube3_q_online.R resume=/mnt/Data2/DS_projects/333/<run>
+```
+
+The schedule, data and architecture all come from the run's `meta.rds`; only
+`backend`, `report` and `ckpt` may be given again. The learning rate picks up
+the same curve at the next step, and the training batches are the ones the
+uninterrupted run would have drawn. Adam's moments are not saved, so the first
+steps after a resume are Adam's first: the result is close to an uninterrupted
+run, not identical to it.
+
 ## Examples
 
 Scripts in `inst/examples/`, runnable with `Rscript inst/examples/<name>.R`.
@@ -685,8 +805,7 @@ run out of it.
 
 ## Dependencies
 
-- **Rcpp** — C++ implementations of core operations (required). The cube side
-  (`cube3_*`) is pure R and needs none of it.
+- **Rcpp** — C++ implementations of core operations (required)
 - **data.table** (optional) — faster `rbindlist` when available
 - **ggmlR** (optional) — GPU acceleration via Vulkan
 

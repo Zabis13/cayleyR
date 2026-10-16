@@ -96,6 +96,9 @@ using namespace Rcpp;
 //' @param pivot Report a point partway along each walk instead of its end
 //'   (default \code{FALSE}). See Details.
 //' @param k_min Shallowest cut to draw when \code{pivot = TRUE} (default 2)
+//' @param no_cancel Refuse a move that cancels against the tail of the walk
+//'   through moves it commutes with (default \code{FALSE}). See Details of
+//'   \code{\link{generate_walk}}.
 //' @return List with \code{states} (n x state_len integer matrix, one walk
 //'   endpoint per row), \code{depth} (integer vector, the length of each walk)
 //'   and \code{moves} (n x n_moves integer matrix of 1-based move indices, the
@@ -108,7 +111,8 @@ using namespace Rcpp;
 // [[Rcpp::export]]
 List generate_walk_cpp(SEXP group, int n, int n_moves,
                        bool exact = true, bool no_undo = true,
-                       bool pivot = false, int k_min = 2) {
+                       bool pivot = false, int k_min = 2,
+                       bool no_cancel = false) {
   XPtr<PermGroup> g(group);
   if (n <= 0) stop("n must be positive");
   if (n_moves <= 0) stop("n_moves must be positive");
@@ -139,6 +143,36 @@ List generate_walk_cpp(SEXP group, int n, int n_moves,
   IntegerVector next_move(pivot ? n : 0);
 
   std::vector<int> cur, at_pivot;
+
+  // no_cancel reads two facts off the permutations themselves, so it needs no
+  // knowledge of faces or axes: which pairs of moves commute, and the order of
+  // each move. On the cube U, D and E commute, so U D U' walks three moves and
+  // travels one; and U has order 4, so U U U is U'. no_undo sees neither.
+  std::vector<std::vector<char> > commute;
+  std::vector<int> order;
+  if (no_cancel) {
+    commute.assign(n_alpha, std::vector<char>(n_alpha, 0));
+    for (int a = 0; a < n_alpha; ++a) {
+      for (int b = a; b < n_alpha; ++b) {
+        std::vector<int> ab = g->identity(), ba = g->identity();
+        g->apply(ab, a); g->apply(ab, b);
+        g->apply(ba, b); g->apply(ba, a);
+        commute[a][b] = commute[b][a] = (ab == ba);
+      }
+    }
+    // 0 where the order is not found within the cap; the count rule is then
+    // skipped for that move and only the inverse rule applies.
+    order.assign(n_alpha, 0);
+    for (int a = 0; a < n_alpha; ++a) {
+      std::vector<int> s = g->identity();
+      for (int k = 1; k <= 1000; ++k) {
+        g->apply(s, a);
+        if (g->is_identity(s)) { order[a] = k; break; }
+      }
+    }
+  }
+  std::vector<int> allowed;
+  allowed.reserve(n_alpha);
 
   for (int i = 0; i < n; ++i) {
     cur = g->identity();
@@ -184,12 +218,37 @@ List generate_walk_cpp(SEXP group, int n, int n_moves,
       // nothing to refuse, and the loop must not spin looking for it. Nor may
       // it refuse the only move there is: a one-move group would never satisfy
       // the condition and the draw would not terminate.
-      const int banned = (no_undo && last >= 0 && n_alpha > 1)
-                         ? g->inverse_move(last) : -1;
-      do {
-        a = (int)(unif_rand() * n_alpha);
-        if (a >= n_alpha) a = n_alpha - 1;
-      } while (banned >= 0 && a == banned);
+      if (no_cancel) {
+        // Walk back over the tail while it commutes with `a`. Meeting the
+        // inverse of `a` there means `a` would cancel it; meeting `a` itself
+        // often enough means one more would be shorter the other way round.
+        allowed.clear();
+        for (int c = 0; c < n_alpha; ++c) {
+          const int inv_c = g->inverse_move(c);
+          int  cnt = 0;
+          bool ban = false;
+          for (int j = step - 1; j >= 0; --j) {
+            const int b = words(i, j) - 1;
+            if (b == inv_c) { ban = true; break; }
+            if (!commute[c][b]) break;
+            if (b == c) ++cnt;
+          }
+          if (!ban && order[c] > 0 && 2 * (cnt + 1) > order[c]) ban = true;
+          if (!ban) allowed.push_back(c);
+        }
+        if (allowed.empty())
+          stop("no_cancel left no move to take at step %d", step + 1);
+        int k = (int)(unif_rand() * allowed.size());
+        if (k >= (int)allowed.size()) k = (int)allowed.size() - 1;
+        a = allowed[k];
+      } else {
+        const int banned = (no_undo && last >= 0 && n_alpha > 1)
+                           ? g->inverse_move(last) : -1;
+        do {
+          a = (int)(unif_rand() * n_alpha);
+          if (a >= n_alpha) a = n_alpha - 1;
+        } while (banned >= 0 && a == banned);
+      }
 
       // The cut is taken BEFORE the move is applied, so `cur` is the pivot
       // point, the move about to be made leads away from the goal, and the

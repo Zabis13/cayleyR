@@ -380,6 +380,9 @@ cycle_shortcut_cpp <- function(start_state, path, group, points, moves, combo_le
 #' @param pivot Report a point partway along each walk instead of its end
 #'   (default \code{FALSE}). See Details.
 #' @param k_min Shallowest cut to draw when \code{pivot = TRUE} (default 2)
+#' @param no_cancel Refuse a move that cancels against the tail of the walk
+#'   through moves it commutes with (default \code{FALSE}). See Details of
+#'   \code{\link{generate_walk}}.
 #' @return List with \code{states} (n x state_len integer matrix, one walk
 #'   endpoint per row), \code{depth} (integer vector, the length of each walk)
 #'   and \code{moves} (n x n_moves integer matrix of 1-based move indices, the
@@ -389,8 +392,8 @@ cycle_shortcut_cpp <- function(start_state, path, group, points, moves, combo_le
 #'   pivot point rather than the endpoint, with \code{depth} its distance
 #'   label.
 #' @keywords internal
-generate_walk_cpp <- function(group, n, n_moves, exact = TRUE, no_undo = TRUE, pivot = FALSE, k_min = 2L) {
-    .Call(`_cayleyR_generate_walk_cpp`, group, n, n_moves, exact, no_undo, pivot, k_min)
+generate_walk_cpp <- function(group, n, n_moves, exact = TRUE, no_undo = TRUE, pivot = FALSE, k_min = 2L, no_cancel = FALSE) {
+    .Call(`_cayleyR_generate_walk_cpp`, group, n, n_moves, exact, no_undo, pivot, k_min, no_cancel)
 }
 
 cayley_bfs_full_cpp <- function(start_state, group, moves) {

@@ -1,0 +1,133 @@
+---
+title: "Permutation Groups"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Permutation Groups}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(cayleyR)
+```
+
+The package started with TopSpin, but nothing in its search code needs to
+know which puzzle it is solving. All it needs is the **group**: how long
+a state is, which moves there are, and what each move does. A
+`perm_group` object holds exactly that. You pass it to a function through
+`group =`, so the same code works on TopSpin, on a Rubik's cube, or on a
+puzzle you describe yourself.
+
+## Two built-in puzzles
+
+```{r}
+tg <- topspin_group(8, k = 4, moves = c("L", "R", "X"))
+tg
+
+cg <- cube_group(3)
+cg
+```
+
+A TopSpin ring of 8 tiles has three moves. `X` reverses the first `k = 4`
+tiles, and the group fixes `k` when you build it. A 3x3x3 cube has 54
+stickers and 18 quarter turns, slices included.
+
+TopSpin's moves are named `"1"`, `"2"`, `"3"` by default. Pass
+`moves = c("L", "R", "X")` if you want to write words with letters, as
+in this vignette.
+
+## Applying moves
+
+A state is an integer vector, and the solved state is `1:n`. A word can
+be a vector of move names or one string with spaces:
+
+```{r}
+group_apply(tg, group_identity(tg), "L L X")
+
+s <- group_apply(cg, group_identity(cg), "R U R' U'")
+sum(s != group_identity(cg))   # stickers out of place
+```
+
+`group_inverse_seq()` writes the word that undoes a given one. You never
+have to declare inverses: the group works them out from the
+permutations.
+
+```{r}
+undo <- group_inverse_seq(cg, "R U R' U'")
+undo
+identical(group_apply(cg, s, undo), group_identity(cg))
+```
+
+## Order of a word
+
+How many times must a word be repeated to return to the start? The
+answer does not depend on the starting state, and `group_order()`
+computes it:
+
+```{r}
+group_order(cg, "R")            # a quarter turn: 4
+group_order(cg, "R U R' U'")    # the "sexy move": 6
+group_order(cg, "R U")          # 105
+
+group_order(tg, "L")            # going once round the ring
+```
+
+Cycles like these drive the iterative solver: one word repeated many
+times sweeps through a long cycle of states.
+
+## A puzzle of your own
+
+`perm_group()` builds a group from a named list of permutations. Each
+permutation is read as `new[i] <- state[perm[i]]`, i.e. position `i`
+takes its value from position `perm[i]`. No C++ is needed.
+
+Here is a toy puzzle on five points. It has a rotation `a`, its inverse
+`a'`, and a swap of the first two points `b`:
+
+```{r}
+toy <- perm_group(list(
+  a    = c(2L, 3L, 4L, 5L, 1L),
+  "a'" = c(5L, 1L, 2L, 3L, 4L),
+  b    = c(2L, 1L, 3L, 4L, 5L)
+), name = "toy")
+toy
+
+group_apply(toy, 1:5, "a a b")
+group_inverse_seq(toy, "a a b")
+group_order(toy, "a b")
+```
+
+Everything above works on this group straight away, and so does every
+function in the package that takes `group =`.
+
+## Random states
+
+`generate_state()` takes a group too. Given one, it only returns states
+the puzzle can actually reach, rather than an arbitrary permutation of
+54 numbers:
+
+```{r}
+scrambled <- generate_state(group = cg, n_moves = 20)
+length(scrambled)
+```
+
+## Subgroups
+
+You can build a cube group that uses only some of the moves. Here the
+middle slice turns alone:
+
+```{r}
+m_only <- cube_group(3, moves = c("M", "M'"))
+m_only
+generate_state(group = m_only, n_moves = 5)
+```
+
+## Old calls still work
+
+Without a group, `n`, `k` and `moves` still describe TopSpin, exactly as
+before, so existing code does not need to change:
+
+```{r}
+generate_state(10, k = 4, n_moves = 100)
+```

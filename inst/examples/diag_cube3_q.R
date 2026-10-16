@@ -45,6 +45,14 @@
 #                                    them; given the folder, the newest wins
 #   beam=32      width of the beam search; 1 makes it greedy
 #   budget=0     move cap for both searches; 0 means 3x the depth
+#   no_cancel=1  walks refuse U D U', U U U and the like; 0: no_undo only
+#   prec=default  matmul precision of the predictions: default (f16 tiles on an
+#                 fp16 Vulkan device, ~1e-3 relative noise) or f32 (matches CPU)
+#   tie=0.001     a state whose best and second-best move differ by less than
+#                 this many moves counts as a near tie
+#   cmp=0         1: score every frontier at the other precision too, and count
+#                 how often the best move changes and the largest |dq| -- what
+#                 the noise actually does to the search
 #   backend=auto
 # ---------------------------------------------------------------------------
 
@@ -63,7 +71,8 @@ SEED   <- if (length(pos) >= 2) as.integer(pos[2]) else 1L
 TRIALS <- if (length(pos) >= 3) as.integer(pos[3]) else 1L
 
 defaults <- list(net = "/mnt/Data2/DS_projects/333", backend = "auto",
-                 beam = 32L, budget = 0L)
+                 beam = 32L, budget = 0L, no_cancel = 1L,
+                 prec = "default", tie = 0.001, cmp = 0L)
 opt <- defaults
 for (a in kvs) {
   kv  <- strsplit(a, "=", fixed = TRUE)[[1L]]
@@ -72,12 +81,14 @@ for (a in kvs) {
     stop("unknown parameter: ", key, "\navailable: ",
          paste(names(defaults), collapse = ", "))
   opt[[key]] <- if (is.character(defaults[[key]])) kv[[2L]]
-                else as.integer(kv[[2L]])
+                else if (is.integer(defaults[[key]])) as.integer(kv[[2L]])
+                else as.numeric(kv[[2L]])
   if (!is.character(opt[[key]]) && is.na(opt[[key]]))
     stop("not a number: ", a)
 }
 
 if (is.na(DEPTH) || DEPTH < 1L) stop("depth must be at least 1")
+if (!opt$prec %in% c("default", "f32")) stop("prec must be default or f32")
 BUDGET  <- if (opt$budget > 0L) opt$budget else 3L * DEPTH
 VERBOSE <- TRIALS == 1L
 
@@ -126,9 +137,31 @@ BATCH <- 32L
 # adi_encode is simply the encoder the model was trained through
 # (train_cube3_q_online.R builds its batches with the same call); the name is
 # where it first appeared, not a method being mixed in here.
+score_x <- function(x, prec)
+  cayleyR:::adi_predict_padded(model, x, BATCH, n_a, matmul_precision = prec) *
+    meta$y_sd + meta$y_mu
+
+# Near ties, and with cmp=1 what the other precision would have said, counted
+# per scramble depth. A search can only be steered differently by the noise
+# where two moves are closer than the noise itself.
+OTHER <- if (opt$prec == "f32") "default" else "f32"
+ties  <- new.env()
+ties$depth <- 1L
+for (k in c("rows", "near", "flips", "dq")) ties[[k]] <- numeric(DEPTH)
+
 score <- function(states) {
   x <- cayleyR:::adi_encode(states, "transformer", lay)
-  cayleyR:::adi_predict_padded(model, x, BATCH, n_a) * meta$y_sd + meta$y_mu
+  q <- score_x(x, opt$prec)
+  k <- ties$depth
+  s <- t(apply(q, 1L, sort, partial = 1:2))[, 1:2, drop = FALSE]
+  ties$rows[k] <- ties$rows[k] + nrow(q)
+  ties$near[k] <- ties$near[k] + sum(s[, 2L] - s[, 1L] < opt$tie)
+  if (opt$cmp == 1L) {
+    q2 <- score_x(x, OTHER)
+    ties$flips[k] <- ties$flips[k] + sum(max.col(-q, "first") != max.col(-q2, "first"))
+    ties$dq[k]    <- max(ties$dq[k], abs(q - q2))
+  }
+  q
 }
 
 if (opt$beam > BATCH) {
@@ -225,18 +258,13 @@ beam_search <- function(state, width) {
 # One walk, solved at every prefix
 # ---------------------------------------------------------------------------
 
-# no_undo, the same rule the training walks used: a move never immediately
-# undoes the one before it, so the walk does not sit still.
+# The same generator the training walks come from. no_cancel = 1 also refuses
+# U D U', U U U and the like, which no_undo alone lets through and which make
+# the depth an overstatement; no_cancel = 0 gives the old no_undo walks.
 make_walk <- function(seed) {
   set.seed(seed)
-  scramble <- character(DEPTH)
-  last <- 0L
-  for (k in seq_len(DEPTH)) {
-    pick <- if (last == 0L) seq_len(n_a) else setdiff(seq_len(n_a), inv[last])
-    last <- sample(pick, 1L)
-    scramble[k] <- mv[last]
-  }
-  scramble
+  generate_walk(g, n = 1L, n_moves = DEPTH, no_undo = TRUE,
+                no_cancel = opt$no_cancel == 1L)$moves[[1L]]
 }
 
 invert <- function(w) rev(mv[inv[match(w, mv)]])
@@ -250,23 +278,28 @@ verify <- function(state, path)
   identical(as.integer(cube_apply_word(state, paste(path, collapse = " "))),
             solved_state)
 
-run_walk <- function(seed) {
+run_walk <- function(seed, label = NULL) {
   scramble <- make_walk(seed)
   st   <- solved_state
   rows <- vector("list", DEPTH)
   for (k in seq_len(DEPTH)) {
     st <- as.integer(cube_apply_word(st, scramble[k]))
-    t0 <- proc.time()[["elapsed"]]
-    gr <- greedy(st)
+    ties$depth <- k
     t1 <- proc.time()[["elapsed"]]
     bm <- beam_search(st, opt$beam)
     t2 <- proc.time()[["elapsed"]]
     rows[[k]] <- list(depth = k, scramble = scramble[seq_len(k)],
                       back = invert(scramble[seq_len(k)]), state = st,
-                      greedy = gr, g_ok = gr$ok && verify(st, gr$path),
-                      g_secs = t1 - t0,
                       beam = bm, b_ok = bm$ok && verify(st, bm$path),
                       b_secs = t2 - t1)
+    if (!is.null(label)) {
+      r <- rows[[k]]
+      cat(sprintf("%s  depth %2d   %-7s %3s moves   %6.2f s\n", label, k,
+                  if (r$b_ok) "SOLVED" else "gave up",
+                  if (r$b_ok) as.character(length(bm$path)) else "-",
+                  r$b_secs))
+      flush(stdout())
+    }
   }
   list(scramble = scramble, rows = rows)
 }
@@ -283,8 +316,12 @@ cat(sprintf("       trained to depth %d, %s states, pair %.1f%%, top1 %.1f%%\n",
             meta$depth,
             format(meta$states_seen, big.mark = ",", scientific = FALSE),
             100 * meta$pair_accuracy, 100 * meta$top1_accuracy))
-cat(sprintf("search: greedy and beam %d, both capped at %d moves\n",
+cat(sprintf("search: beam %d, capped at %d moves\n",
             opt$beam, BUDGET))
+cat(sprintf("walks : no_cancel = %s\n",
+            if (opt$no_cancel == 1L) "TRUE" else "FALSE (no_undo only)"))
+cat(sprintf("q     : matmul %s, near tie below %g moves%s\n", opt$prec, opt$tie,
+            if (opt$cmp == 1L) sprintf(", compared with %s", OTHER) else ""))
 if (DEPTH > meta$depth)
   cat(sprintf("NOTE: asking past the training depth of %d\n", meta$depth))
 cat("\n")
@@ -306,26 +343,12 @@ if (VERBOSE) {
     cat(sprintf("  undone by    : %s   (%d moves)\n",
                 paste(row$back, collapse = " "), length(row$back)))
 
-    gr <- row$greedy
-    cat(sprintf("  greedy       : %s   (%d moves, %.2f s)\n",
-                if (row$g_ok) "SOLVED" else "gave up",
-                length(gr$path), row$g_secs))
-    if (row$g_ok && length(gr$path) <= 24L)
-      cat(sprintf("    path       : %s\n", paste(gr$path, collapse = " ")))
-    cat(sprintf("    q along    : %s\n",
-                paste(sprintf("%.1f", head(gr$q, 12L)), collapse = " ")))
-
     bm <- row$beam
     cat(sprintf("  beam %-4d    : %s   (%d moves, %.2f s)\n",
                 opt$beam, if (row$b_ok) "SOLVED" else "gave up",
                 length(bm$path), row$b_secs))
     if (row$b_ok && length(bm$path) <= 24L)
       cat(sprintf("    path       : %s\n", paste(bm$path, collapse = " ")))
-
-    if (row$b_ok && !row$g_ok) {
-      cat("    the search found what the descent could not:\n")
-      cat("    the right move was ranked, but not first\n")
-    }
 
     # against the cube one move harder, which was printed just above
     if (!is.null(prev) && row$b_ok && prev$ok) {
@@ -353,43 +376,56 @@ if (VERBOSE) {
   }
 
   # Where it stopped working, which is what the blocks above are for.
-  g_ok <- vapply(w$rows, `[[`, logical(1), "g_ok")
   b_ok <- vapply(w$rows, `[[`, logical(1), "b_ok")
-  cat(sprintf("greedy solved %d of %d", sum(g_ok), DEPTH))
-  if (any(!g_ok)) cat(sprintf(", first failure at depth %d", which(!g_ok)[[1L]]))
-  cat("\n")
-  cat(sprintf("beam   solved %d of %d", sum(b_ok), DEPTH))
+  cat(sprintf("beam solved %d of %d", sum(b_ok), DEPTH))
   if (any(!b_ok)) cat(sprintf(", first failure at depth %d", which(!b_ok)[[1L]]))
+  cat("\n")
+  cat(sprintf("near ties (< %g moves): %.2f%% of %d frontier states", opt$tie,
+              100 * sum(ties$near) / max(1, sum(ties$rows)), as.integer(sum(ties$rows))))
+  if (opt$cmp == 1L)
+    cat(sprintf("; best move flips at %s: %.2f%%, max |dq| %.2g", OTHER,
+                100 * sum(ties$flips) / max(1, sum(ties$rows)), max(ties$dq)))
   cat("\n")
 
 } else {
   cat(sprintf("%d walks, one line per depth\n\n", TRIALS))
-  cat(sprintf("%6s %8s %10s %10s %10s %10s\n",
-              "depth", "walk", "greedy", "g_moves", "beam", "b_moves"))
-
-  n_g <- integer(DEPTH); n_b <- integer(DEPTH)
-  l_g <- numeric(DEPTH); l_b <- numeric(DEPTH)
+  n_b <- integer(DEPTH)
+  l_b <- numeric(DEPTH)
+  s_b <- numeric(DEPTH)
 
   for (t in seq_len(TRIALS)) {
-    w <- run_walk(SEED + t - 1L)
+    w <- run_walk(SEED + t - 1L,
+                  label = sprintf("walk %2d/%d", t, TRIALS))
     for (row in w$rows) {
       k <- row$depth
-      if (row$g_ok) { n_g[k] <- n_g[k] + 1L; l_g[k] <- l_g[k] + length(row$greedy$path) }
+      s_b[k] <- s_b[k] + row$b_secs
       if (row$b_ok) { n_b[k] <- n_b[k] + 1L; l_b[k] <- l_b[k] + length(row$beam$path) }
     }
+    cat("\n")
     flush(stdout())
   }
 
+  cat(sprintf("%6s %8s %10s %10s %8s %8s%s\n", "depth", "walk", "beam", "b_moves",
+              "secs", "near%",
+              if (opt$cmp == 1L) sprintf(" %8s %9s", "flip%", "max|dq|") else ""))
   for (k in seq_len(DEPTH))
-    cat(sprintf("%6d %8d %9.0f%% %10s %9.0f%% %10s\n", k, k,
-                100 * n_g[k] / TRIALS,
-                if (n_g[k]) sprintf("%.1f", l_g[k] / n_g[k]) else "-",
+    cat(sprintf("%6d %8d %9.0f%% %10s %8.2f %7.2f%%%s\n", k, k,
                 100 * n_b[k] / TRIALS,
-                if (n_b[k]) sprintf("%.1f", l_b[k] / n_b[k]) else "-"))
+                if (n_b[k]) sprintf("%.1f", l_b[k] / n_b[k]) else "-",
+                s_b[k] / TRIALS,
+                100 * ties$near[k] / max(1, ties$rows[k]),
+                if (opt$cmp == 1L)
+                  sprintf(" %7.2f%% %9.2g", 100 * ties$flips[k] / max(1, ties$rows[k]),
+                          ties$dq[k]) else ""))
 
   cat("\n  walk     the moves it took to scramble, and so to undo\n")
-  cat("  greedy   how often argmin q alone got back, and in how many moves\n")
-  cat(sprintf("  beam     the same with a beam of %d\n", opt$beam))
-  cat("\n  Where beam solves and greedy does not, the net has the right move\n")
-  cat("  ranked but not first. Where neither solves, the ordering is gone.\n")
+  cat(sprintf("  beam     how often a beam of %d got back, and in how many moves\n",
+              opt$beam))
+  cat("  secs     mean time of one solve at that depth\n")
+  cat(sprintf("  near%%    frontier states whose best two moves differ by < %g moves\n",
+              opt$tie))
+  if (opt$cmp == 1L) {
+    cat(sprintf("  flip%%    frontier states whose best move changes at %s precision\n", OTHER))
+    cat("  max|dq|  largest change of any q between the two precisions, in moves\n")
+  }
 }

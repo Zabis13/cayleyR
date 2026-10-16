@@ -1,0 +1,161 @@
+---
+title: "The Rubik's Cube"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The Rubik's Cube}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+library(cayleyR)
+```
+
+The package handles a Rubik's cube the same way it handles TopSpin. A
+state is an integer vector, a move permutes it, and the cube is a
+`perm_group` (see `vignette("permutation-groups")`). This vignette covers
+how the cube is written down and the five 3x3x3 solvers.
+
+## Stickers and moves
+
+A cube of side `n` has `6n^2` stickers, so a 3x3x3 has 54. They are
+numbered face by face in the order U R F D L B. Within a face the order
+is left to right, top to bottom, as seen from outside. The solved cube
+is `1:54`.
+
+```{r}
+cg <- cube_group(3)
+cg
+```
+
+There are 18 moves: the six faces and the three middle slices `M`, `E`,
+`S`, each in two directions. Half turns are not separate moves: `U2` is
+written `"U U"`. So every move count in the package is in quarter turns.
+
+```{r}
+s <- group_apply(cg, cube_identity(3), "R U U F'")
+s[1:9]                 # the U face: which sticker sits in each place
+```
+
+## Colours
+
+A sticker's colour is the face it started on. `cube_colours()` turns a
+state into colours 0–5, and that is how a cube looks from outside:
+
+```{r}
+face_U <- function(state) matrix(cube_colours(state)[1:9], 3, byrow = TRUE)
+face_U(cube_identity(3))
+face_U(group_apply(cg, cube_identity(3), "R"))
+```
+
+With slices among the moves, the centres move too. Turning all three
+layers of one axis turns the whole cube in space. It still looks solved,
+but its stickers are no longer `1:54`. `cube_is_colour_solved()` checks
+the colours, not the positions:
+
+```{r}
+s <- group_apply(cg, cube_identity(3), "R M' L'")
+cube_is_colour_solved(s)
+identical(s, cube_identity(3))
+```
+
+## A scramble
+
+`generate_state()` with a cube group gives a state a real cube can
+reach:
+
+```{r}
+set.seed(42)
+scramble <- generate_state(group = cg, n_moves = 25)
+face_U(scramble)
+```
+
+## Five solvers
+
+All five take a 54-sticker state and return a list with the same
+shape: `path` is the moves, `found` says whether the cube ended up
+solved.
+
+| Function                    | Method                                   |
+|-----------------------------|------------------------------------------|
+| `cube_solve_lbl()`          | layer by layer, the beginner's method    |
+| `cube_solve_cfop()`         | CFOP: cross, F2L, OLL, PLL               |
+| `cube_solve_old_pochmann()` | blindfolded, one piece at a time         |
+| `cube_solve_m2()`           | blindfolded, M2 for the edges            |
+| `cube_kociemba()`           | two-phase search after Kociemba          |
+
+The first four are human methods: they place pieces by rule or from a
+table, as a person would. Kociemba's method searches instead, and finds
+much shorter solutions.
+
+```{r}
+solvers <- list(
+  lbl           = cube_solve_lbl,
+  cfop          = cube_solve_cfop,
+  old_pochmann  = cube_solve_old_pochmann,
+  m2            = cube_solve_m2,
+  kociemba      = cube_kociemba
+)
+
+res <- lapply(solvers, function(f) f(scramble))
+
+data.frame(
+  found  = sapply(res, `[[`, "found"),
+  moves  = sapply(res, function(r) length(r$path))
+)
+```
+
+Every path can be checked by applying it to the scramble:
+
+```{r}
+sapply(res, function(r) cube_is_colour_solved(group_apply(cg, scramble, r$path)))
+```
+
+We check colours rather than positions because M2 can leave the centres
+turned among themselves. The cube is still solved by any reasonable
+reading.
+
+### Stages
+
+The human methods also report the stages they went through, with the
+number of moves spent on each:
+
+```{r}
+res$cfop$stages
+```
+
+The CFOP solution is long even though each stage is solved optimally.
+A stage that is shortest on its own usually leaves the next stage
+worse off.
+
+### Kociemba
+
+Kociemba's method works in two phases. Phase 1 brings the cube into the
+subgroup `<U, D, L2, R2, F2, B2>`, which has about 20 million states.
+Phase 2 solves it inside that subgroup. The solver takes the first
+phase-1 solution it finds, so the result is short but not the shortest
+possible.
+
+The prune tables grow on demand. `cube_kociemba_init()` builds them
+in advance, so the cost is not paid during the first solve.
+`cube_kociemba_report()` shows what each phase did. When `found` is
+`FALSE`, the report tells you whether there was no solution or the node
+budget ran out:
+
+```{r}
+cube_kociemba_report()
+```
+
+## Other sizes
+
+`cube_group(n)` works for any `n >= 2`, with the same rules: `6n` moves,
+`6n^2` stickers. A 4x4x4 has two inner layers per axis. They have no
+standard letters, so they are written as axis and index:
+
+```{r}
+cube_move_names(2)
+cube_move_names(4)
+```
+
+The 4x4x4 solvers are covered in their own vignette.

@@ -11,7 +11,8 @@ generate_walk(
   exact = TRUE,
   no_undo = TRUE,
   pivot = FALSE,
-  k_min = 2L
+  k_min = 2L,
+  no_cancel = FALSE
 )
 }
 \arguments{
@@ -34,6 +35,9 @@ length uniformly from 1 to \code{n_moves}}
 \item{k_min}{Shallowest cut to draw when \code{pivot = TRUE} (default 2).
 A cut of 1 puts the pivot one move from solved, where every method is
 right and the row says nothing.}
+
+\item{no_cancel}{Refuse a move that cancels against the tail of the walk
+through moves it commutes with (default \code{FALSE})}
 }
 \value{
 A list with
@@ -91,6 +95,13 @@ that point, \code{depth} its distance label, and \code{prev_move} /
 walk went on to make. Those two are the only moves whose value is known
 at that state --- \code{depth - 1} and \code{depth + 1} --- which is what
 a Q-model is trained on. Default \code{FALSE}.}
+\item{\code{no_cancel}}{\code{TRUE} refuses a move that cancels against
+the tail of the walk through moves it commutes with. On the cube U, D
+and E commute, so \code{U D U\'} walks three moves and travels one, and
+U has order 4, so \code{U U U} is \code{U\'}; \code{no_undo} lets both
+through. Commutation and order are read off the permutations, so this
+works for any group. It includes what \code{no_undo} refuses. The length
+is still an upper bound, only a tighter one. Default \code{FALSE}.}
 }
 
 Even with \code{no_undo} the length stays an upper bound on the true distance

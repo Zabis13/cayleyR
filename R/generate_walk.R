@@ -36,6 +36,13 @@
 #'     walk went on to make. Those two are the only moves whose value is known
 #'     at that state --- \code{depth - 1} and \code{depth + 1} --- which is what
 #'     a Q-model is trained on. Default \code{FALSE}.}
+#'   \item{\code{no_cancel}}{\code{TRUE} refuses a move that cancels against
+#'     the tail of the walk through moves it commutes with. On the cube U, D
+#'     and E commute, so \code{U D U\'} walks three moves and travels one, and
+#'     U has order 4, so \code{U U U} is \code{U\'}; \code{no_undo} lets both
+#'     through. Commutation and order are read off the permutations, so this
+#'     works for any group. It includes what \code{no_undo} refuses. The length
+#'     is still an upper bound, only a tighter one. Default \code{FALSE}.}
 #' }
 #'
 #' Even with \code{no_undo} the length stays an upper bound on the true distance
@@ -56,6 +63,8 @@
 #' @param k_min Shallowest cut to draw when \code{pivot = TRUE} (default 2).
 #'   A cut of 1 puts the pivot one move from solved, where every method is
 #'   right and the row says nothing.
+#' @param no_cancel Refuse a move that cancels against the tail of the walk
+#'   through moves it commutes with (default \code{FALSE})
 #' @return A list with
 #'   \describe{
 #'     \item{\code{states}}{integer matrix, \code{n} rows, one walk endpoint
@@ -94,7 +103,7 @@
 #' data.frame(depth = p$depth, back = p$prev_move, away = p$next_move)
 generate_walk <- function(group, n = 1L, n_moves = 10L,
                           exact = TRUE, no_undo = TRUE, pivot = FALSE,
-                          k_min = 2L) {
+                          k_min = 2L, no_cancel = FALSE) {
   if (!is_perm_group(group)) stop("generate_walk: group must be a perm_group")
 
   n       <- as.integer(n)
@@ -106,7 +115,7 @@ generate_walk <- function(group, n = 1L, n_moves = 10L,
   pivot <- isTRUE(pivot)
   w <- generate_walk_cpp(group$ptr, n, n_moves,
                          isTRUE(exact), isTRUE(no_undo), pivot,
-                         as.integer(k_min))
+                         as.integer(k_min), isTRUE(no_cancel))
 
   # C++ returns the words as one padded matrix of move indices, which is the
   # cheap shape to hand across. R wants them as names, and ragged when the
