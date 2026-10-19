@@ -3,6 +3,9 @@
 \name{cube_slice_cells_cpp}
 \alias{cube_slice_cells_cpp}
 \title{The Layer Beside a Face, as the 4x4x4 Solver Sees It}
+\usage{
+cube_slice_cells_cpp(face)
+}
 \arguments{
 \item{face}{Face index, 0 to 5, in the order U R F D L B.}
 }

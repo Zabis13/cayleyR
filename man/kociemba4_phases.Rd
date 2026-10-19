@@ -11,6 +11,26 @@
 \alias{cube_kociemba4_tables_cpp}
 \alias{cube_kociemba4_fill_phase3_cpp}
 \title{The 4x4x4 reduction phases, one call at a time}
+\usage{
+cube_kociemba4_phase12_cpp(state, upto_phase = 2L, max_depth1 = 10L,
+  max_depth2 = 12L, node_budget = 5e7)
+
+cube_kociemba4_phase3_cpp(state, max_depth3 = 14L, node_budget = 5e7,
+  prune_depth_bonus = 0L, use_exact_centres = FALSE, progress_every = 0)
+
+cube_at_phase_goal_cpp(state, phase)
+
+cube_phase3_coord_cpp(state)
+
+cube_to_pieces4_cpp(state)
+
+cube_wing_geometry_cpp()
+
+cube_kociemba4_tables_cpp()
+
+cube_kociemba4_fill_phase3_cpp(depth, table_size = 0, breadth_first = TRUE,
+  max_frontier = 4e+07)
+}
 \arguments{
 \item{state}{Integer vector of 96 stickers.}
 
@@ -34,6 +54,21 @@ so it cannot return the false zeroes the hash table returns when another
 state claims the slot.}
 
 \item{phase}{Which phase's goal to test, 1, 2 or 3.}
+
+\item{progress_every}{Print a line every this many nodes, naming the depth
+being searched and the nodes so far; 0 for silence.}
+
+\item{depth}{Depth to fill phase 3's prune table to.}
+
+\item{table_size}{Slots to grow the prune table to before filling; 0 keeps
+its current size.}
+
+\item{breadth_first}{Fill breadth-first (\code{TRUE}), visiting each state
+once, or depth-first (\code{FALSE}), which walks move words and revisits
+states -- measured roughly a hundred times slower at depth 6.}
+
+\item{max_frontier}{Cap on the frontier the breadth-first fill holds in
+memory.}
 }
 \value{
 \code{cube_kociemba4_phase12_cpp} returns the moves as a character vector.

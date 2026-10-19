@@ -3,8 +3,14 @@
 \name{cube_reduce_cpp}
 \alias{cube_reduce_cpp}
 \title{Reduce a 4x4x4 by the human method}
+\usage{
+cube_reduce_cpp(state, target_face = 4L)
+}
 \arguments{
 \item{state}{Integer vector of 96 stickers.}
+
+\item{target_face}{Face, 0 to 5 in the order U R F D L B, on which the
+first centre and the layer beside it are built. Defaults to L.}
 }
 \value{
 A list with \code{found}, \code{path}, \code{stages},

@@ -37,6 +37,16 @@
 #'   so it cannot return the false zeroes the hash table returns when another
 #'   state claims the slot.
 #' @param phase Which phase's goal to test, 1, 2 or 3.
+#' @param progress_every Print a line every this many nodes, naming the depth
+#'   being searched and the nodes so far; 0 for silence.
+#' @param depth Depth to fill phase 3's prune table to.
+#' @param table_size Slots to grow the prune table to before filling; 0 keeps
+#'   its current size.
+#' @param breadth_first Fill breadth-first (\code{TRUE}), visiting each state
+#'   once, or depth-first (\code{FALSE}), which walks move words and revisits
+#'   states -- measured roughly a hundred times slower at depth 6.
+#' @param max_frontier Cap on the frontier the breadth-first fill holds in
+#'   memory.
 #'
 #' @return
 #' \code{cube_kociemba4_phase12_cpp} returns the moves as a character vector.
@@ -74,41 +84,52 @@
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_kociemba4_phase12_cpp(state, upto_phase = 2L, max_depth1 = 10L,
+#'   max_depth2 = 12L, node_budget = 5e7)
 #' @name cube_kociemba4_phase12_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_kociemba4_phase3_cpp(state, max_depth3 = 14L, node_budget = 5e7,
+#'   prune_depth_bonus = 0L, use_exact_centres = FALSE, progress_every = 0)
 #' @name cube_kociemba4_phase3_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_at_phase_goal_cpp(state, phase)
 #' @name cube_at_phase_goal_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_phase3_coord_cpp(state)
 #' @name cube_phase3_coord_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_to_pieces4_cpp(state)
 #' @name cube_to_pieces4_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_wing_geometry_cpp()
 #' @name cube_wing_geometry_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_kociemba4_tables_cpp()
 #' @name cube_kociemba4_tables_cpp
 #' @export
 NULL
 
 #' @rdname kociemba4_phases
+#' @usage cube_kociemba4_fill_phase3_cpp(depth, table_size = 0, breadth_first = TRUE,
+#'   max_frontier = 4e+07)
 #' @name cube_kociemba4_fill_phase3_cpp
 #' @export
 NULL
@@ -132,6 +153,9 @@ NULL
 #'   it stopped, empty when it did not.
 #' @seealso \code{\link{cube_solve4}}, which runs this and then finishes the
 #'   3x3x3 it leaves behind.
+#' @param target_face Face, 0 to 5 in the order U R F D L B, on which the
+#'   first centre and the layer beside it are built. Defaults to L.
+#' @usage cube_reduce_cpp(state, target_face = 4L)
 #' @name cube_reduce_cpp
 #' @export
 NULL

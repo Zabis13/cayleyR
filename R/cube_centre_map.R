@@ -565,6 +565,7 @@ cube_slice_map <- function(n, move, structure = NULL) {
 #'
 #' # every face has one, and each is twelve cells
 #' vapply(0:5, function(f) nrow(cube_slice_cells_cpp(f)), integer(1))
+#' @usage cube_slice_cells_cpp(face)
 #' @name cube_slice_cells_cpp
 #' @export
 NULL

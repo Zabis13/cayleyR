@@ -1,8 +1,12 @@
 ## R CMD check results
 
-0 errors | 0 warnings | 0 notes
+0 errors | 0 warnings | 1 note
 
 * This is a new release.
+
+* Possibly misspelled words in DESCRIPTION: "Kociemba". This is a surname
+  (Herbert Kociemba, author of the two-phase algorithm for Rubik's cube),
+  not a misspelling.
 
 ## Test environments
 
